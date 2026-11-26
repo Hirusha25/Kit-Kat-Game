@@ -1,6 +1,6 @@
 // Service worker: makes the kiosk installable from Chrome's "Install app" / "Add to Home screen"
 // and keeps it running offline. Pages are network-first (so updates land), assets are cache-first.
-const VERSION = 'kk-v1';
+const VERSION = 'kk-v2';
 const CORE = ['./', './index.html', './register.html', './game.html', './manifest.json',
   './css/style.css', './js/stage.js', './js/ambient.js', './js/keyboard.js', './js/audio.js',
   './js/tracker.js', './js/tracker-worker.js', './js/sprites.js', './js/game.js', './js/flow.js',

@@ -42,8 +42,8 @@
     whiteSpread: 70,    // max(R,G,B) - min(R,G,B) must be below this
     // component size, as a fraction of frame pixels
     minAreaFrac: 0.0004,   // ~6 px at 160x90, ~23 px at 320x180
-    maxAreaFrac: 0.03,     // ~430 px at 160x90: a logo 30x14 px, i.e. the player at arm's length
-    maxBoxFrac: 0.25,      // bounding box width/height limit, as a fraction of frame WIDTH
+    maxAreaFrac: 0.06,     // ~430 px at 160x90: a logo 30x14 px, i.e. the player at arm's length
+    maxBoxFrac: 0.4,      // bounding box width/height limit, as a fraction of frame WIDTH
     mergeGapFrac: 0.02,    // merge red components whose boxes are closer than this (x frame width)
     // white ring around the box: box grown by ringExpand (60% = 30% each side), at least ringMin px
     ringExpand: 0.6,

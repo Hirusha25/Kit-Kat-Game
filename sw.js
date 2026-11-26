@@ -1,19 +1,56 @@
 // Service worker: makes the kiosk installable from Chrome's "Install app" / "Add to Home screen"
-// and keeps it running offline. Pages are network-first (so updates land), assets are cache-first.
-const VERSION = 'kk-v2';
+// and keeps it running offline.
+//
+// Caching rules (no version bump is needed when files change):
+//  - Pages and code (.html, .js, .css, .json): network-first. Online, the kiosk always gets the newest
+//    push; the cached copy is used only when the network fails or takes longer than NET_TIMEOUT_MS.
+//  - Media (images, video, fonts): served from cache at once and refreshed in the background, so a
+//    replaced image shows on the next load without slowing this one.
+// VERSION only needs to change if this file's caching rules change and old entries must be dropped.
+const VERSION = 'kk-v3';
+const NET_TIMEOUT_MS = 4000;
 const CORE = ['./', './index.html', './register.html', './game.html', './manifest.json',
   './css/style.css', './js/stage.js', './js/ambient.js', './js/keyboard.js', './js/audio.js',
   './js/tracker.js', './js/tracker-worker.js', './js/sprites.js', './js/game.js', './js/flow.js',
   './assets/img/game/manifest.json'];
+
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE).catch(() => {})).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+
+// Stores a full (200) response under the URL without its ?v= query, so each file has exactly one entry
+// and a new version replaces the old one. Partial (206, video ranges) and error responses are never stored.
+function store(req, res) {
+  if (!res || res.status !== 200 || res.type === 'opaque') return;
+  const url = new URL(req.url); url.search = '';
+  const copy = res.clone();
+  caches.open(VERSION).then(c => c.put(url.href, copy)).catch(() => {});
+}
+function cached(req) { return caches.match(req, { ignoreSearch: true }); }
+
+function networkFirst(req, isPage) {
+  // Code is revalidated with the server on every load ('no-cache' = conditional request, cheap 304s).
+  const net = (isPage ? fetch(req) : fetch(req, { cache: 'no-cache' })).then(res => { store(req, res); return res; });
+  const timeout = new Promise(resolve => setTimeout(resolve, NET_TIMEOUT_MS, null));
+  return Promise.race([net.catch(() => null), timeout])
+    .then(res => res || cached(req).then(hit => hit || net)) // slow or offline: cached copy, else keep waiting
+    .catch(() => isPage ? caches.match('./index.html') : Response.error())
+    .then(res => res || Response.error());
+}
+
+function staleWhileRevalidate(e, req) {
+  return cached(req).then(hit => {
+    const refresh = fetch(req).then(res => { store(req, res); return res; });
+    if (hit) { e.waitUntil(refresh.catch(() => {})); return hit; }
+    return refresh;
+  });
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request; if (req.method !== 'GET') return;
   const url = new URL(req.url); if (url.origin !== location.origin) return; // fonts etc. go straight to the network
+  if (req.headers.has('range')) return; // video seeking: let the browser talk to the network directly
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
-  if (isPage) {
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return r; }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'))));
-  } else {
-    e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req).then(r => { if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put(req, copy)); } return r; })));
-  }
+  const isCode = /\.(js|css|json)$/.test(url.pathname);
+  if (isPage || isCode) e.respondWith(networkFirst(req, isPage));
+  else e.respondWith(staleWhileRevalidate(e, req));
 });

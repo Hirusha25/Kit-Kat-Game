@@ -155,7 +155,7 @@
       <div class="field f-mobile fade-in" style="animation-delay:.15s">
         <label for="mobile">WhatsApp Number</label>
         <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="07X XXX XXXX" data-kbd maxlength="10" autocomplete="off">
-        <p class="hint"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Keep your phone with you. We'll send a 6-digit code to this number.</p>
+        <p class="hint"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Keep your phone with you. We'll send a 6-digit code to this number on WhatsApp.</p>
       </div>
 
       <div class="field f-email fade-in" style="animation-delay:.2s">
@@ -175,7 +175,7 @@
 
     <section class="pane" id="verify" style="display:none">
       <h1 class="heading">Verify Your Number</h1>
-      <p class="v-sub">Check your phone. Enter the 6-digit code we sent to <b id="v-phone">07X XXX XXXX</b></p>
+      <p class="v-sub">Check your phone. Enter the 6-digit code we sent <span id="v-via"></span>to <b id="v-phone">07X XXX XXXX</b></p>
       <div class="otp" id="otp"><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <input id="otp-in" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-kbd="numeric" aria-label="Verification code" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">
       <p class="err notice v-err" id="v-err" role="alert"></p>

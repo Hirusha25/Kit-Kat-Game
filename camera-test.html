@@ -102,6 +102,7 @@
     var err = first && first.error;
     if (stream) verdict('ok', 'Camera works in this browser.', 'You should see the picture below. If the game still fails, open the staff setup panel in the game and re-select the camera.');
     else if (err === 'NotAllowedError' || err === 'SecurityError' || perm === 'denied') verdict('bad', 'Camera is blocked by a permission.', 'Check: Chrome site permission for this address, Android Settings > Apps > Chrome > Permissions > Camera, and Android Settings > Privacy > Camera access.');
+    else if (err === 'Timeout' && perm !== 'granted') verdict('', 'Waiting for permission.', 'Chrome is asking to use the camera. Tap Allow on the prompt, then tap Run test again.');
     else if (!after.length || err === 'NotFoundError') verdict('bad', 'Android is not giving Chrome any camera.', 'The webcam has power but the kiosk does not expose it to apps. Try another USB port, reboot with it plugged in, then check with the kiosk vendor that the firmware supports USB (UVC) cameras.');
     else if (err === 'NotReadableError' || err === 'AbortError' || err === 'Timeout') verdict('bad', 'A camera is listed but cannot be opened.', 'Another app may be using it, or the USB port cannot supply enough power or data. Close other camera apps, try another port or a powered hub, then reboot.');
     else verdict('bad', 'Camera could not be opened (' + (err || 'unknown') + ').', 'Send the report below to the developer.');

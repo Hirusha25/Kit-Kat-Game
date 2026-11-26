@@ -26,25 +26,29 @@ Shared style line (already inside every prompt): photoreal 3D product render, so
 
 > A small broken chunk of the attached KitKat finger, about one third of a finger, showing the wafer layers at the break, tumbling at an angle. Same chocolate colour and lighting. Transparent background, no ground shadow.
 
-## 6. Alarm clock (hazard) — `alarm.png`, 300 x 300 px
+## 6. Alarm clock (hazard, everyone) — `alarm.png`, 300 x 300 px
 
 > Photoreal 3D render of a classic twin-bell alarm clock in glossy KitKat red with a white face, black hands, and silver bells, ringing: the hammer is a motion blur between the bells and three short curved vibration lines on each side. Seen straight on, slightly from above. Soft studio lighting from the top-left, transparent background, no ground shadow, no text on the face.
 
-## 7. Deadline calendar (hazard) — `deadline.png`, 300 x 300 px
+## 7. Exam paper (hazard, students) — `exam.png`, 300 x 300 px
 
-> Photoreal 3D render of a desk tear-off calendar block, seen straight on, slightly from above. Red header band with the word DEADLINE in bold white capitals, a white page below with a big red circle around a date, and a red marker pen leaning against it. Thick stack of pages. Soft studio lighting from the top-left, transparent background, no ground shadow.
+> Photoreal 3D render of a stack of white exam answer sheets with a red pencil on top and a big red "F" grade circled on the first page, seen from slightly above and tilted 15 degrees. Clean toy-like 3D style. Soft studio lighting from the top-left, transparent background, no ground shadow, no other readable text.
 
-## 8. Ringing phone (hazard) — `phone.png`, 300 x 300 px
+## 8. Order ticket rail (hazard, kitchen and culinary crowd) — `orders.png`, 300 x 300 px
 
-> Photoreal 3D render of a black smartphone, tilted 20 degrees, screen lit with a red incoming-call screen (no readable text, just a white phone icon and two round buttons), with short vibration lines on both sides and three small red notification bubbles popping out of the top. Soft studio lighting from the top-left, transparent background, no ground shadow.
+> Photoreal 3D render of a stainless-steel kitchen order-ticket rail crammed with white paper tickets, one ticket flying off, with a small red flame on the end of the rail. Seen straight on, slightly from above. Clean toy-like 3D style. Soft studio lighting from the top-left, transparent background, no ground shadow, no readable text.
 
-## 9. Email overload (hazard) — `inbox.png`, 300 x 300 px
+## 9. Traffic jam (hazard, commuters) — `traffic.png`, 300 x 300 px
 
-> Photoreal 3D render of a stack of white envelopes bursting out of a red "@" symbol, a few envelopes flying outward, one with a small red exclamation badge. Clean, glossy, toy-like proportions. Soft studio lighting from the top-left, transparent background, no ground shadow, no readable text.
+> Photoreal 3D render of a glossy red traffic cone with a small grey toy car stuck behind it and a red hourglass floating above, tilted 15 degrees. Clean toy-like 3D style. Soft studio lighting from the top-left, transparent background, no ground shadow, no text.
 
-## 10. Meeting invite (hazard) — `meeting.png`, 300 x 300 px
+## 10. Laundry pile (hazard, home) — `laundry.png`, 300 x 300 px
 
-> Photoreal 3D render of a glossy red speech bubble containing a white video-camera icon, with a small white clock badge on its corner, tilted 15 degrees. Clean toy-like 3D icon style. Soft studio lighting from the top-left, transparent background, no ground shadow, no text.
+> Photoreal 3D render of a white laundry basket overflowing with folded and tumbling clothes in red, white and grey, with a sock falling out, seen from slightly above. Clean toy-like 3D style. Soft studio lighting from the top-left, transparent background, no ground shadow, no text.
+
+## 10b. Deadline calendar (hazard, office, optional) — `deadline.png`, 300 x 300 px
+
+> Photoreal 3D render of a desk tear-off calendar block, seen straight on, slightly from above. Red header band with the word DEADLINE in bold white capitals, a white page below with a big red circle around a date, and a red marker pen leaning against it. Soft studio lighting from the top-left, transparent background, no ground shadow.
 
 ## 11. Chocolate splash drop — `splash-drop.png`, 60 x 80 px
 
@@ -67,5 +71,5 @@ Shared style line (already inside every prompt): photoreal 3D product render, so
 ## How the game uses them
 
 - **Mug and splash.** The mug follows the player's left–right movement. On a catch the engine swaps to `mug-splash.png` for 0.35 s, spawns `splash-drop.png` particles from the rim and shows the +1. If you only generate `mug.png`, the engine keeps drawing its own splash.
-- **Falling items.** Wafers are +1. Golden wafer is +3. Every third wafer in a row is a streak bonus. Alarm, deadline, phone, inbox and meeting are hazards: –1, streak reset and a 1.2 s stun. The game ramps over the 40 seconds: fall speed 420 → 820 px/s, spawn gap 1.0 → 0.5 s, hazard share 0% in the first 8 s then 35%, so the second half demands real left–right movement to thread between hazards.
+- **Falling items.** Wafers are +1. Golden wafer is +3. Every third wafer in a row is a streak bonus. The hazards are the things that get in the way of a break for every kind of player: alarm clock (everyone), exam paper (students), order-ticket rail (kitchen and culinary crowd), traffic jam (commuters), laundry pile (home), and optionally the deadline calendar (office). Each is –1, streak reset and a 1.2 s stun. The engine rotates through whichever hazard files exist, so you can ship any subset. The game ramps over the 40 seconds: fall speed 420 → 820 px/s, spawn gap 1.0 → 0.5 s, hazard share 0% in the first 8 s then 35%, so the second half demands real left–right movement to thread between hazards.
 - **Drop-in.** Put the files into `assets/img/game/` with the names above. The engine already looks for them; the new hazards and the golden wafer need one line each in the manifest, which I will add when they arrive.

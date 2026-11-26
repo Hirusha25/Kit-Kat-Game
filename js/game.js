@@ -171,8 +171,8 @@
     // --- Ambience
     TRAIL_GHOSTS: 3,        // motion-trail copies behind each falling item (reduced: 1)
     STREAK_MIN_SPEED: 350,  // light streak fades in from this fall speed
-    STREAK_LENGTH: 1.0,     // streak length multiplier (1 = texture height)
-    STREAK_ALPHA: 0.9,
+    STREAK_LENGTH: 1.45,    // streak length multiplier (1 = texture height)
+    STREAK_ALPHA: 1.0,
     TRAIL_SPACING: 0.03,    // s of travel between ghosts
     TRAIL_ALPHA: 0.34,      // first ghost alpha at full speed
     TRAIL_MIN_SPEED: 300,   // trails fade in from this fall speed to SPEED_END
@@ -186,7 +186,8 @@
     RAYS_RADIUS: 600,
     SPEEDLINES_SPEED: 1100, // px/s scroll in the final seconds
     SPEEDLINES_ALPHA: 0.55,
-    SPEEDLINE_COUNT: 34,    // streak blits per frame in the final seconds
+    SPEEDLINES_IDLE: 0.75,  // share of SPEEDLINES_ALPHA shown through the whole round (reference look); grows with fall speed
+    SPEEDLINE_COUNT: 46,    // streak blits per frame
     MOTES: 7,               // ambient sparkle motes (0 in reducedEffects)
     MOTE_ALPHA: 0.5,
     MOTE_SPEED: [22, 48],   // px/s upwards
@@ -409,7 +410,7 @@
   }
 
   /** Warm light streak drawn behind a falling item (bright at the item, fading up its path). */
-  function buildStreak(w, h, rgb, scale) {
+  function buildItemStreak(w, h, rgb, scale) {
     var res = 0.5 * scale;
     var c = makeCanvas(w * res, h * res), ctx = c.getContext('2d');
     ctx.scale(res, res);
@@ -424,9 +425,9 @@
   }
   function buildStreaks(scale) {
     return {
-      wafer: buildStreak(70, 420, '255,205,120', scale),
-      gold: buildStreak(90, 520, '255,235,150', scale),
-      hazard: buildStreak(70, 360, '255,120,70', scale)
+      wafer: buildItemStreak(70, 420, '255,205,120', scale),
+      gold: buildItemStreak(90, 520, '255,235,150', scale),
+      hazard: buildItemStreak(70, 360, '255,120,70', scale)
     };
   }
 
@@ -466,7 +467,7 @@
     var w = 12, h = 512, res = 0.5 * scale;
     var c = makeCanvas(w * res, h * res), ctx = c.getContext('2d');
     ctx.scale(res, res);
-    var col = gold ? '255,228,160' : '255,255,255';
+    var col = gold ? '255,214,130' : '255,236,205'; // warm gold / warm cream (reference light streaks)
     var g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, 'rgba(' + col + ',0)'); g.addColorStop(0.5, 'rgba(' + col + ',1)'); g.addColorStop(1, 'rgba(' + col + ',0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -479,7 +480,7 @@
   function buildSpeedLines(scale) {
     var rng = createRng(777), lines = [];
     for (var i = 0; i < TUNING.SPEEDLINE_COUNT; i++) {
-      lines.push({ x: rng.range(10, TUNING.STAGE_W - 10), ph: rng(), len: rng.range(160, 560), w: rng.range(3, 8), a: rng.range(0.3, 0.85), gold: rng() < 0.5 });
+      lines.push({ x: rng.range(10, TUNING.STAGE_W - 10), ph: rng(), len: rng.range(320, 980), w: rng.range(6, 26), a: rng.range(0.25, 0.8), gold: rng() < 0.65 });
     }
     return { white: buildStreak(scale, false), gold: buildStreak(scale, true), lines: lines };
   }
@@ -1118,6 +1119,7 @@
       var rimY = T.MUG_RIM_Y;
       var playing = state.phase === 'playing' || state.phase === 'paused';
       var finalK = playing ? clamp((T.FINAL_FX_SECONDS - state.timeLeft) / 1.0, 0, 1) : 0;
+      var speedK = duration > 0 ? clamp(1 - state.timeLeft / duration, 0, 1) : 1; // 0 at the start of the round, 1 at the end
       var i, it, k;
 
       // 1. background layers, clipped to the play area (never over the slider)
@@ -1137,13 +1139,14 @@
           drawCalls++;
           ctx.restore();
         }
-        if (linesTex && finalK > 0 && state.phase !== 'ended') {
-          var L = T.KILL_Y + 600, scroll = clock * T.SPEEDLINES_SPEED;
+        var lineK = playing ? Math.max(finalK, T.SPEEDLINES_IDLE * (0.6 + 0.4 * speedK)) : 0;
+        if (linesTex && lineK > 0 && state.phase !== 'ended') {
+          var L = T.KILL_Y + 600, scroll = clock * T.SPEEDLINES_SPEED * (0.55 + 0.45 * Math.max(speedK, finalK));
           for (i = 0; i < linesTex.lines.length; i++) {
             var ln = linesTex.lines[i];
             var ly = (ln.ph * L + scroll) % L - 600;
             if (ly + ln.len < 0) continue;
-            ctx.globalAlpha = ln.a * T.SPEEDLINES_ALPHA * finalK;
+            ctx.globalAlpha = ln.a * T.SPEEDLINES_ALPHA * lineK;
             ctx.drawImage((ln.gold ? linesTex.gold : linesTex.white).canvas, ln.x - ln.w / 2, ly, ln.w, ln.len);
             drawCalls++;
           }

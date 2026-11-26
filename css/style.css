@@ -17,12 +17,19 @@
   --script: "Great Vibes", "Brush Script MT", cursive;
   --body: "Jost", "Helvetica Neue", Arial, sans-serif;
   --gold-grad: linear-gradient(180deg, #f5e3b0 0%, #d9b96e 38%, #b8923f 62%, #e6cd8c 100%);
+  /* Typography system. Pairing A (default): Plus Jakarta Sans for display, DM Sans for text and keys. */
+  --font-display: "Plus Jakarta Sans", "Figtree", "Segoe UI", Arial, sans-serif;
+  --font-body: "DM Sans", "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
+  --font-button: "Poppins", var(--font-display); /* matches the lettering baked into the START artwork */
+  --display-weight: 800;
 }
+html[data-font="b"] { --font-display: "Figtree", Arial, sans-serif; --font-body: "Figtree", Arial, sans-serif; --display-weight: 900; }
+html[data-font="c"] { --font-display: "Urbanist", Arial, sans-serif; --font-body: "Urbanist", Arial, sans-serif; --display-weight: 900; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #3a0609; overflow: hidden; }
 html.is-phone, html.is-phone body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; background: #8a0610; -webkit-overflow-scrolling: touch; }
-body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body { font-family: var(--font-body); color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
 /* Viewport that centres the 1080x1920 stage and scales it */
 .viewport { position: fixed; inset: 0; display: grid; place-items: center; background: #3a0609; }
@@ -146,13 +153,13 @@ html.is-kiosk img { image-rendering: auto; }
 .kbd .row { display: flex; justify-content: center; gap: 14px; margin-bottom: 14px; }
 .kbd .key {
   flex: 0 0 88px; height: 100px; border-radius: 18px; border: 2px solid rgba(210,176,106,.5);
-  background: rgba(255,255,255,.08); color: #fff; font-family: var(--body); font-size: 38px; font-weight: 500;
+  background: rgba(255,255,255,.08); color: #fff; font-family: var(--font-body); font-size: 38px; font-weight: 500; letter-spacing: .01em;
   display: grid; place-items: center; cursor: pointer; transition: background .08s, transform .08s;
 }
 .kbd .key:active, .kbd .key.pressed { background: rgba(239,217,160,.35); transform: scale(.95); }
 .kbd .key.wide { flex-basis: 140px; font-size: 28px; letter-spacing: .06em; }
 .kbd .key.space { flex-basis: 400px; }
-.kbd .key.done { flex-basis: 220px; background: var(--gold-grad); color: var(--gold-ink); border-color: transparent; font-family: var(--display); font-weight: 700; letter-spacing: .2em; text-indent: .2em; }
+.kbd .key.done { flex-basis: 220px; background: var(--gold-grad); color: var(--gold-ink); border-color: transparent; font-family: var(--font-display); font-weight: 800; letter-spacing: .14em; text-indent: .14em; }
 .kbd .key.shift.on { background: rgba(239,217,160,.5); color: var(--gold-ink); }
 .kbd .key svg { width: 40px; height: 40px; stroke: currentColor; fill: none; stroke-width: 2.2; }
 .kbd.numeric .key { flex-basis: 200px; height: 112px; font-size: 44px; }

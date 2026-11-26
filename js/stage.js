@@ -12,6 +12,8 @@
   const html = document.documentElement;
   const params = new URLSearchParams(location.search);
   const forced = params.get('mode'); // 'fit' | 'scroll' for testing
+  // Font pairing switch for design review: ?font=a|b|c (remembered)
+  try { const f = params.get('font'); if (f) localStorage.setItem('kk_font', f); const cur = localStorage.getItem('kk_font'); if (cur && cur !== 'a') html.setAttribute('data-font', cur); } catch (_) {}
 
   function vw() { return (window.visualViewport && window.visualViewport.width) || window.innerWidth; }
   function vh() { return window.innerHeight; } // innerHeight ignores the on-screen keyboard; visualViewport shrinks with it

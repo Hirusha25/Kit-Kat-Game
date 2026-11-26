@@ -160,30 +160,30 @@
   .btn-art { position: relative; width: 760px; height: 261px; border: 0; padding: 0 0 8px; background: transparent; cursor: pointer; font-family: var(--font-button); font-weight: 800; font-size: 86px; color: #c8102e; text-transform: uppercase; line-height: 1; animation: float 3.4s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
   .btn-art::after { content: ""; position: absolute; inset: 0; z-index: -1; background: url(assets/img/register/button-blank.webp) center / 100% 100% no-repeat; }
   .btn-art:active { transform: scale(.98); animation-play-state: paused; }
-  /* results, positions from the reference scaled to 1080x1920 */
+  /* results, sizes and positions measured from the reference (941x1672) and scaled x1.1477 to 1080x1920 */
   .res .pre-logo { width: 250px; top: 10px; }
   .res .pre-title { width: 272px; top: 164px; }
-  .res .res-h { position: absolute; left: 0; right: 0; top: 326px; margin: 0; text-align: center; font-weight: 900; font-style: italic; font-size: 96px; line-height: 1; text-transform: uppercase; letter-spacing: .01em;
-    background: linear-gradient(180deg, #fff6dc 0%, #fbe5a8 45%, #f3cf7a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 0 #b8862a) drop-shadow(0 10px 18px rgba(60,0,0,.45)); }
-  .res .res-sub { position: absolute; left: 0; right: 0; top: 436px; margin: 0; text-align: center; font: 800 italic 44px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
-  .res .res-score { position: absolute; left: 0; right: 0; top: 498px; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: italic; font-size: 270px; line-height: 1; letter-spacing: -.01em; filter: drop-shadow(0 22px 34px rgba(60,0,0,.5)); }
-  .res .res-score .face { position: relative; z-index: 2; background: linear-gradient(180deg, #fff8e6 0%, #ffe9a8 40%, #f6c738 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-  .res .res-score .bev { position: absolute; left: 0; right: 0; top: 0; z-index: 1; color: #d9a12a; text-shadow: 1px 1px 0 #d9a12a, 2px 2px 0 #d39a24, 3px 3px 0 #cc931f, 4px 4px 0 #c58c1a, 5px 5px 0 #be8516, 6px 6px 0 #b77e12, 7px 7px 0 #b0770e, 8px 8px 0 #a9700a, 9px 9px 0 #a26906; }
-  .res .res-final { position: absolute; left: 0; right: 0; top: 800px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 22px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: #f3cf7a; }
-  .res .res-final i { width: 90px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
-  .res .res-stats { position: absolute; left: 115px; top: 856px; display: flex; gap: 17px; }
-  .res .res-stats div { width: 276px; height: 144px; border-radius: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 3px solid transparent; background: linear-gradient(180deg, #fff8e8, #fbe7b0) padding-box, var(--gold-line) border-box; box-shadow: var(--gold-glow), 0 12px 30px rgba(0,0,0,.35); animation: fadeIn .5s ease both; }
+  .res .res-h { position: absolute; left: 0; right: 0; top: 306px; margin: 0; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; text-transform: uppercase; letter-spacing: 0;
+    background: linear-gradient(180deg, #fff8e4 0%, #fbe5a8 50%, #f1c866 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 5px 0 #b8862a) drop-shadow(0 12px 20px rgba(60,0,0,.45)); }
+  .res .res-sub { position: absolute; left: 0; right: 0; top: 430px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
+  .res .res-score { position: absolute; left: 0; right: 0; top: 452px; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: italic; font-size: 345px; line-height: 1; letter-spacing: -.02em; filter: drop-shadow(0 24px 36px rgba(60,0,0,.5)); }
+  .res .res-score .face { position: relative; z-index: 2; background: linear-gradient(180deg, #fffaf0 0%, #ffeab0 42%, #f6c738 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+  .res .res-score .bev { position: absolute; left: 0; right: 0; top: 0; z-index: 1; color: #dba52c; text-shadow: 1px 1px 0 #dba52c, 2px 2px 0 #d59e26, 3px 3px 0 #cf9720, 4px 4px 0 #c9901b, 5px 5px 0 #c38916, 6px 6px 0 #bd8212, 7px 7px 0 #b77b0e, 8px 8px 0 #b1740a, 9px 9px 0 #ab6d07, 10px 10px 0 #a56604, 11px 11px 0 #9f6002; }
+  .res .res-final { position: absolute; left: 0; right: 0; top: 797px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
+  .res .res-final i { width: 96px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
+  .res .res-stats { position: absolute; left: 112px; top: 854px; display: flex; gap: 13px; }
+  .res .res-stats div { width: 284px; height: 149px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: url(assets/img/game/res-stat-card.png) center / 100% 100% no-repeat; animation: fadeIn .5s ease both; }
   .res .res-stats div:nth-child(2) { animation-delay: .1s; } .res .res-stats div:nth-child(3) { animation-delay: .2s; }
-  .res .res-stats b { font: 900 italic 52px/1 var(--font-display); color: #bd0c18; } .res .res-stats span { font: 800 26px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: #3a1a06; }
-  .res .res-prize { position: absolute; left: 63px; top: 1028px; width: 954px; height: 424px; border-radius: 36px; display: flex; align-items: center; gap: 20px; padding: 36px 40px 36px 56px; box-sizing: border-box; border: 4px solid transparent; background: linear-gradient(180deg, #fef6e1, #fbe7b0) padding-box, var(--gold-line) border-box; box-shadow: var(--gold-glow), 0 18px 44px rgba(0,0,0,.4); animation: fadeIn .6s .35s ease both; }
+  .res .res-stats b { font: 900 italic 54px/1 var(--font-display); color: #bd0c18; } .res .res-stats span { font: 800 26px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: #3a1a06; }
+  .res .res-prize { position: absolute; left: 60px; top: 1030px; width: 959px; height: 425px; display: flex; align-items: center; padding: 0 30px 0 66px; box-sizing: border-box; background: url(assets/img/game/res-prize-card.png) center / 100% 100% no-repeat; animation: fadeIn .6s .35s ease both; }
   .res .res-prize .t { flex: 1 1 auto; text-align: left; min-width: 0; }
-  .res .res-prize .t b { display: block; font: 900 italic 50px/1.02 var(--font-display); text-transform: uppercase; color: #c8102e; }
-  .res .res-prize .t span { display: block; margin-top: 18px; font: 600 28px/1.25 var(--font-body); color: #3a1a06; max-width: 420px; }
-  .res .res-prize .t code { display: inline-block; margin-top: 22px; padding: 16px 34px; border-radius: 999px; background: #8a0610; color: #fef9e2; font: 900 42px/1 var(--font-display); letter-spacing: .06em; }
-  .res .res-prize .pic { flex: 0 0 auto; width: 330px; max-height: 350px; object-fit: contain; filter: drop-shadow(0 14px 22px rgba(60,0,0,.3)); }
-  .res .res-prize.none .pic { display: none; } .res .res-prize.none .t span { max-width: none; }
-  .res .res-btn { position: absolute; left: 110px; top: 1452px; width: 860px; height: 280px; margin: 0; font-size: 92px; z-index: 2; }
-  .res .res-back { position: absolute; left: 0; right: 0; top: 1716px; margin: 0; text-align: center; font: 700 34px/1 var(--font-body); color: #fff; text-decoration: underline; text-underline-offset: 8px; text-decoration-thickness: 2px; z-index: 2; }
+  .res .res-prize .t b { display: block; font: 900 italic 57px/1.02 var(--font-display); text-transform: uppercase; color: #c8102e; max-width: 500px; }
+  .res .res-prize .t span { display: block; margin-top: 20px; font: 600 31px/1.25 var(--font-body); color: #3a1a06; max-width: 470px; }
+  .res .res-prize .t code { display: inline-flex; align-items: center; justify-content: center; margin-top: 22px; width: 404px; height: 84px; box-sizing: border-box; padding: 0 0 3px; background: url(assets/img/game/res-code-pill.png) center / 100% 100% no-repeat; color: #fef9e2; font: 900 44px/1 var(--font-display); letter-spacing: .06em; }
+  .res .res-prize .pic { flex: 0 0 auto; width: 340px; max-height: 390px; object-fit: contain; margin-right: 6px; filter: drop-shadow(0 14px 22px rgba(60,0,0,.3)); }
+  .res .res-prize.none .pic { display: none; } .res .res-prize.none .t span, .res .res-prize.none .t b { max-width: none; }
+  .res .res-btn { position: absolute; left: 124px; top: 1436px; width: 831px; height: 285px; margin: 0; font-size: 90px; z-index: 2; }
+  .res .res-back { position: absolute; left: 0; right: 0; top: 1697px; margin: 0; text-align: center; font: 700 38px/1 var(--font-body); color: #fff; text-decoration: underline; text-underline-offset: 8px; text-decoration-thickness: 2px; z-index: 2; }
   .res .res-legal { position: absolute; left: 0; right: 0; bottom: 14px; margin: 0; text-align: center; font: 500 20px/1 var(--font-body); color: rgba(255,255,255,.85); z-index: 2; }
   .res .pre-wave { z-index: 1; }
 

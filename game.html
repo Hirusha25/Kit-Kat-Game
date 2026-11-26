@@ -47,7 +47,9 @@
   .hud .val { font-weight: 800; font-style: italic; font-size: 92px; line-height: 1; margin-top: 2px; color: #fff;
     background: linear-gradient(180deg, #ffffff 0%, #fff4d6 50%, #f0cf8a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 3px 0 #a0742a) drop-shadow(0 8px 12px rgba(0,0,0,.45)); font-variant-numeric: tabular-nums; }
-  .hud .cell.rank { margin: 12px 0 12px 22px; border-radius: 999px; background: linear-gradient(180deg, #fff6dc 0%, #f6dfa6 55%, #e9c56e 100%); box-shadow: inset 0 2px 0 #fff, inset 0 -6px 12px rgba(190,140,60,.35), 0 6px 18px rgba(0,0,0,.35); }
+  .hud .cell.rank { margin: 12px 0 12px 30px; }
+  .hud .cell.rank::before { left: -17px; }
+  .hud .cell.rank {  border-radius: 999px; background: linear-gradient(180deg, #fff6dc 0%, #f6dfa6 55%, #e9c56e 100%); box-shadow: inset 0 2px 0 #fff, inset 0 -6px 12px rgba(190,140,60,.35), 0 6px 18px rgba(0,0,0,.35); }
   .hud .cell.rank .lbl { color: var(--ink); text-shadow: none; }
   .hud .cell.rank .lbl svg { stroke: var(--ink); }
   .hud .cell.rank .val { background: none; color: var(--ink); filter: drop-shadow(0 2px 0 rgba(255,255,255,.6)); }

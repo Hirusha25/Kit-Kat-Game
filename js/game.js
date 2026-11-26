@@ -114,9 +114,9 @@
     // --- Item motion
     SWAY_AMP: [8, 34],      // px, random per item
     SWAY_HZ: [0.45, 0.85],
-    ROT_AMP: [0.15, 0.55],  // rad, slow tumble around a random base angle
+    ROT_AMP: [0.08, 0.25],  // rad, slow sway around the base angle
     ROT_HZ: [0.2, 0.45],
-    ROT_BASE: [-0.5, 0.5],  // rad; wafers fall mostly upright like the reference
+    ROT_BASE: [0.45, 0.75], // rad (≈26–43°); sign is random per item — the diagonal tumble in the reference
     DUNK_SECONDS: 0.35,     // caught wafer sinks behind the mug
     POP_SECONDS: 0.12,      // hit hazard flashes out (its fragments carry on)
 
@@ -170,6 +170,9 @@
 
     // --- Ambience
     TRAIL_GHOSTS: 3,        // motion-trail copies behind each falling item (reduced: 1)
+    STREAK_MIN_SPEED: 350,  // light streak fades in from this fall speed
+    STREAK_LENGTH: 1.0,     // streak length multiplier (1 = texture height)
+    STREAK_ALPHA: 0.9,
     TRAIL_SPACING: 0.03,    // s of travel between ghosts
     TRAIL_ALPHA: 0.34,      // first ghost alpha at full speed
     TRAIL_MIN_SPEED: 300,   // trails fade in from this fall speed to SPEED_END
@@ -405,6 +408,28 @@
     };
   }
 
+  /** Warm light streak drawn behind a falling item (bright at the item, fading up its path). */
+  function buildStreak(w, h, rgb, scale) {
+    var res = 0.5 * scale;
+    var c = makeCanvas(w * res, h * res), ctx = c.getContext('2d');
+    ctx.scale(res, res);
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(' + rgb + ',0)'); g.addColorStop(0.55, 'rgba(' + rgb + ',0.22)'); g.addColorStop(0.85, 'rgba(' + rgb + ',0.75)'); g.addColorStop(1, 'rgba(' + rgb + ',0.95)');
+    ctx.fillStyle = g;
+    // soft sides: three overlapping lanes narrower toward the centre
+    ctx.globalAlpha = 0.35; ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 0.5; ctx.fillRect(w * 0.2, 0, w * 0.6, h);
+    ctx.globalAlpha = 1; ctx.fillRect(w * 0.38, 0, w * 0.24, h);
+    return { canvas: c, w: w, h: h, ox: w / 2, oy: h };
+  }
+  function buildStreaks(scale) {
+    return {
+      wafer: buildStreak(70, 420, '255,205,120', scale),
+      gold: buildStreak(90, 520, '255,235,150', scale),
+      hazard: buildStreak(70, 360, '255,120,70', scale)
+    };
+  }
+
   function buildFlash(scale) {
     return buildRadial(240, [[0, 'rgba(255,255,235,1)'], [0.25, 'rgba(255,235,170,0.8)'], [0.6, 'rgba(255,200,90,0.3)'], [1, 'rgba(255,190,80,0)']], scale);
   }
@@ -584,7 +609,7 @@
     }
 
     // ---- Render resources (browser only) --------------------------------------
-    var text = null, vignette = null, glowTex = null, raysTex = null, linesTex = null, flashTex = null, itemGlow = null, shadowTex = null;
+    var text = null, vignette = null, glowTex = null, raysTex = null, linesTex = null, flashTex = null, itemGlow = null, shadowTex = null, streakTex = null;
     var comboCache = {};
     var fragmentCache = {};
     if (ctx) {
@@ -592,6 +617,7 @@
       glowTex = buildGlow(scale);
       flashTex = buildFlash(scale);
       shadowTex = buildShadow(scale);
+      if (!reduced) streakTex = buildStreaks(scale);
       itemGlow = buildItemGlows(scale);
       if (!reduced) { raysTex = buildRays(scale); linesTex = buildSpeedLines(scale); }
       text = buildTextSprites(scale);
@@ -666,7 +692,7 @@
       it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
       it.baseX = spawnMinX + laneW * (lane + 0.5) + rng.range(-1, 1) * laneW * T.LANE_JITTER;
       it.swayAmp = rng.pick(T.SWAY_AMP); it.swayW = rng.pick(T.SWAY_HZ) * TWO_PI; it.swayPh = rng() * TWO_PI;
-      it.rotBase = rng.pick(T.ROT_BASE); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; it.rotPh = rng() * TWO_PI;
+      it.rotBase = rng.pick(T.ROT_BASE) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; it.rotPh = rng() * TWO_PI;
       it.vy = speed; it.t = 0; it.ft = 0; it.trailT = 0; it.alpha = 1; it.size = 1; it.resolved = false;
       it.x = it.px = it.baseX + Math.sin(it.swayPh) * it.swayAmp;
       it.y = it.py = T.SPAWN_Y;
@@ -1041,6 +1067,15 @@
       if (!sp) return;
       var x = lerp(it.px, it.x, a), y = lerp(it.py, it.y, a), rot = lerp(it.prot, it.rot, a);
       var falling = it.state === 'fall' || it.state === 'fade';
+      // light streak along the fall path (reference look): longer and brighter with speed
+      if (streakTex && falling && it.alpha > 0.05) {
+        var st = it.bad ? streakTex.hazard : (it.gold ? streakTex.gold : streakTex.wafer);
+        var sp2 = clamp((it.vy - T.STREAK_MIN_SPEED) / (T.SPEED_END - T.STREAK_MIN_SPEED), 0.2, 1);
+        var sl = (0.55 + 0.45 * sp2) * T.STREAK_LENGTH;
+        ctx.save(); ctx.globalAlpha = T.STREAK_ALPHA * sp2 * it.alpha; ctx.globalCompositeOperation = 'lighter';
+        ctx.translate(x, y + 10); ctx.rotate(rot * 0.35); ctx.scale(it.size, sl * it.size);
+        ctx.drawImage(st.canvas, -st.ox, -st.oy, st.w, st.h); ctx.restore(); drawCalls++;
+      }
       // glow under the item
       if (itemGlow && it.alpha > 0.05) {
         var gl = it.bad ? itemGlow.hazard : (it.gold ? itemGlow.gold : itemGlow.wafer);

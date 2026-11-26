@@ -57,6 +57,16 @@
     CATCH_HALF_FRAC: 0.60,  // catch window = MUG_HALF_WIDTH * this (168 px = the drink surface)
     CATCH_BAND: 44,         // item centre must be within rim y +/- this
     MUG_BOB_AMP: 4,         // idle bob (px) — cosmetic
+    DRINK_RX: 150,          // drink surface ellipse inside the mug sprite (logical px, centred on the rim anchor)
+    DRINK_RY: 42,
+    DRINK_ROW: 2,           // row height for the liquid displacement (px)
+    DRINK_SLOSH_PX: 16,     // max horizontal shear of the surface from a hard move
+    DRINK_SLOSH_K: 55,      // slosh spring stiffness / damping (liquid swings then settles)
+    DRINK_SLOSH_C: 6,
+    DRINK_SLOSH_GAIN: 0.004,// mug acceleration (px/s^2) -> slosh drive
+    DRINK_RIPPLE_PX: 2.2,   // always-on ripple so the drink never looks frozen
+    DRINK_RIPPLE_HZ: 0.9,
+    DRINK_TREMBLE_PX: 0.9,  // fine fast shimmer on top
     MUG_BOB_HZ: 0.8,
     MUG_TILT_MAX: 6,        // deg; lean into the direction of motion
     MUG_TILT_SPEED: 900,    // mug velocity (px/s) that gives the full tilt
@@ -184,9 +194,9 @@
     RAYS_ROT_SPEED: 0.12,   // rad/s
     RAYS_Y_OFFSET: 150,     // ray origin this far above the rim
     RAYS_RADIUS: 600,
-    SPEEDLINES_SPEED: 1100, // px/s scroll in the final seconds
+    SPEEDLINES_SPEED: 820,  // px/s scroll of the light beams (times 0.5..0.85 over the round)
     SPEEDLINES_ALPHA: 0.55,
-    SPEEDLINES_IDLE: 0.75,  // share of SPEEDLINES_ALPHA shown through the whole round (reference look); grows with fall speed
+    SPEEDLINES_IDLE: 0,     // background falling light lines are off (read as rain); items keep their own streaks
     SPEEDLINE_COUNT: 46,    // streak blits per frame
     MOTES: 7,               // ambient sparkle motes (0 in reducedEffects)
     MOTE_ALPHA: 0.5,
@@ -572,6 +582,7 @@
 
     // cosmetic timers (real time)
     var splashT = 0, shakeT = 0, recoilT = 0, recoilDir = 1, tilt = 0, comboPulse = 0, comboN = 0;
+    var sloshX = 0, sloshV = 0, prevMugV = 0; // drink surface slosh (damped oscillator driven by mug acceleration)
     var raysX = T.STAGE_W / 2; // rays are pinned to the stage centre and only rotate
 
     var lanes = [];
@@ -885,6 +896,9 @@
       springStep(mug, mug.target, T.SPRING_OMEGA, dt);
       if (mug.x < T.MUG_MIN_X) { mug.x = T.MUG_MIN_X; if (mug.v < 0) mug.v = 0; }
       if (mug.x > T.MUG_MAX_X) { mug.x = T.MUG_MAX_X; if (mug.v > 0) mug.v = 0; }
+      var mugAcc = (mug.v - prevMugV) / dt; prevMugV = mug.v;
+      sloshV += (-T.DRINK_SLOSH_K * sloshX - T.DRINK_SLOSH_C * sloshV - mugAcc * T.DRINK_SLOSH_GAIN) * dt;
+      sloshX = clamp(sloshX + sloshV * dt, -1.5, 1.5);
       if (stunT > 0) stunT -= dt;
 
       // Spawning: regular timer + pattern queue
@@ -1049,6 +1063,21 @@
     }
 
     /** Transformed blit (rotation / non-uniform scale) — used only for the mug and fragments. */
+    /** Live drink surface: the ellipse of liquid in the mug sprite is redrawn in thin rows with a horizontal
+     *  shear that swings with the mug's acceleration (slosh) plus a soft ripple, so it reads as liquid. */
+    function drawDrink(v, x, y, rot, sx, sy) {
+      var cs = v.canvas.width / v.w, rx = T.DRINK_RX, ry = T.DRINK_RY, st = T.DRINK_ROW;
+      var shear = sloshX * T.DRINK_SLOSH_PX, ph = clock * T.DRINK_RIPPLE_HZ * TWO_PI;
+      ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TWO_PI); ctx.clip();
+      var sxPx = (v.ox - rx) * cs, swPx = 2 * rx * cs, shPx = st * cs;
+      for (var j = -ry; j < ry; j += st) {
+        var f = j / ry;
+        var off = shear * f + T.DRINK_RIPPLE_PX * Math.sin(ph + j * 0.16) + T.DRINK_TREMBLE_PX * Math.sin(ph * 4.3 + j * 0.45);
+        ctx.drawImage(v.canvas, sxPx, (v.oy + j) * cs, swPx, shPx, -rx + off, j, 2 * rx, st);
+      }
+      ctx.restore(); drawCalls++;
+    }
     function blitT(v, x, y, rot, sx, sy, alpha) {
       if (alpha <= 0) return;
       ctx.save();
@@ -1139,9 +1168,9 @@
           drawCalls++;
           ctx.restore();
         }
-        var lineK = playing ? Math.max(finalK, T.SPEEDLINES_IDLE * (0.6 + 0.4 * speedK)) : 0;
+        var lineK = playing && T.SPEEDLINES_IDLE > 0 ? T.SPEEDLINES_IDLE * (0.6 + 0.4 * speedK) : 0; // 0 = off
         if (linesTex && lineK > 0 && state.phase !== 'ended') {
-          var L = T.KILL_Y + 600, scroll = clock * T.SPEEDLINES_SPEED * (0.55 + 0.45 * Math.max(speedK, finalK));
+          var L = T.KILL_Y + 600, scroll = clock * T.SPEEDLINES_SPEED * (0.5 + 0.35 * speedK);
           for (i = 0; i < linesTex.lines.length; i++) {
             var ln = linesTex.lines[i];
             var ly = (ln.ph * L + scroll) % L - 600;
@@ -1194,6 +1223,7 @@
         }
         if (stunT > 0) dx += Math.sin(clock * 90) * 6 * (stunT / T.STUN_SECONDS);
         blitT(mugSp.rotated(0), mugX + dx, rimY + bobY + dy, rot, sx, sy, 1);
+        if (splashT <= 0 && mugSp.fromImage && T.DRINK_RX > 0 && !reduced) drawDrink(mugSp.rotated(0), mugX + dx, rimY + bobY + dy, rot, sx, sy);
       }
 
       // 4. catch flash + glow ring on the rim

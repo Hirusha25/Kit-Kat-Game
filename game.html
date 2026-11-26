@@ -95,7 +95,8 @@
   .slider .arrow.l { left: 0; } .slider .arrow.r { right: 0; }
   .slider .knob { position: absolute; top: -5px; left: 50%; width: 36px; height: 36px; margin-left: -18px; border-radius: 50%; border: 5px solid #ffd978; background: #8a0610; box-shadow: 0 0 0 6px rgba(255,217,120,.25), 0 0 24px rgba(255,210,120,.9); will-change: transform; }
 
-  .caption { position: absolute; left: 0; right: 0; top: 1662px; text-align: center; font-weight: 700; font-style: italic; font-size: 42px; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 8px 18px rgba(0,0,0,.4); z-index: 2; pointer-events: none; }
+  /* Reference caption under the slider: bold italic white with a warm glow, no hard shadow */
+  .caption { position: absolute; left: 50%; top: 1648px; margin: 0; transform: translateX(-50%); width: max-content; text-align: center; font: italic 800 33px/1.2 var(--font-button); letter-spacing: .2px; color: #fff; text-shadow: 0 0 26px rgba(255,150,70,.95), 0 0 10px rgba(255,130,50,.8), 0 0 3px rgba(255,200,120,.9), 0 2px 3px rgba(110,0,0,.4); z-index: 2; pointer-events: none; white-space: nowrap; }
 
   /* camera PIP during play */
   .pip { position: absolute; right: 24px; top: 24px; width: 230px; height: 150px; z-index: 3; border-radius: 18px; overflow: hidden; border: 3px solid rgba(243,207,122,.9); box-shadow: 0 10px 24px rgba(0,0,0,.45); background: #2a0206; display: none; }
@@ -284,6 +285,7 @@
     <canvas id="game" width="1080" height="1920"></canvas>
 
     <div class="slider" aria-hidden="true"><span class="arrow l">«</span><div class="ticks"></div><div class="line"></div><div class="knob" id="knob"></div><span class="arrow r">»</span></div>
+    <p class="caption" aria-hidden="true">Catch the wafers. Dodge the obstacles.</p>
 
     <div class="pip" id="pip"><canvas id="pip-cv" width="230" height="150"></canvas><div class="st"><i class="dot" id="pip-dot"></i><span id="pip-txt">Looking For Mug</span></div></div>
 

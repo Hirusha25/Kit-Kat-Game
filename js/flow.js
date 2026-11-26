@@ -236,8 +236,6 @@
     const g2 = ctx.createLinearGradient(0, top, 0, bot);
     g2.addColorStop(0, 'rgba(255,255,255,.18)'); g2.addColorStop(.2, 'rgba(255,255,255,0)'); g2.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g2; ctx.fillText(text, cx, baseY); ctx.restore();
-    // hairline light edge on the face
-    ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,248,220,.8)'; ctx.strokeText(text, cx, baseY); ctx.restore();
     // fine four-point sparkles
     ctx.save(); ctx.fillStyle = '#ffeec0'; ctx.shadowColor = 'rgba(255,225,150,.9)'; ctx.shadowBlur = 10;
     [[cx - m.width * .60, top + 28, 20, 1], [cx - m.width * .70, top + 150, 12, .9], [cx + m.width * .60, top + 54, 22, 1], [cx + m.width * .69, bot - 60, 14, .9], [cx - m.width * .64, bot - 34, 10, .8]].forEach(([sx, sy, r, a]) => {

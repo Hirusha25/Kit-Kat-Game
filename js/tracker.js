@@ -355,6 +355,19 @@
     if (extra) for (key in extra) if (Object.prototype.hasOwnProperty.call(defaultParams, key)) out[key] = numberOr(extra[key], out[key]);
     return out;
   }
+  // Lock-on ("acquire") parameters: the colour masks are opened up so the mug is found before anything
+  // is known about the venue's light. Measured on photos of the real mug (tests/tracker/real-mug): the
+  // cream body in cool or dim light sits just under the default whiteMin and scores zero, while with
+  // these values the logo is found down to a mug of about a tenth of the frame height. Used on the
+  // "show your mug" screen and as the starting point of calibrate(); calibration then narrows them.
+  function acquireParams(p) {
+    var a = mergeParams(defaultParams, p);
+    a.redMin = Math.min(a.redMin, 70); a.redDelta = Math.min(a.redDelta, 30); a.redRatio = Math.min(a.redRatio, 1.8);
+    a.whiteMin = Math.min(a.whiteMin, 110); a.whiteSpread = Math.max(a.whiteSpread, 90);
+    a.minAreaFrac = Math.min(a.minAreaFrac, 0.0003); a.maxAreaFrac = Math.max(a.maxAreaFrac, 0.08);
+    a.refAreaFrac = 0;
+    return a;
+  }
   function loadParams() {
     try {
       var raw = root.localStorage && root.localStorage.getItem(STORAGE_KEY);
@@ -422,6 +435,7 @@
                   confidence: 0, fps: 0, lastSeenMs: -Infinity, ts: 0, redArea: 0, whiteRatio: 0 };
     var haveSmoothed = false, lastFrameMs = 0, fpsEma = 0, frames = 0, skipped = 0;
     var calib = null;  // active calibration session
+    var acquiring = false, acq = null;  // lock-on mode: detect with acquireParams(params) instead of params
 
     function makeCanvas() {
       if (typeof OffscreenCanvas !== 'undefined') canvas = new OffscreenCanvas(o.width, o.height);
@@ -472,11 +486,13 @@
       var img = ctx.getImageData(0, 0, W, H);
       if (calib) calibSample(img);
       if (typeof tracker.onFrame === 'function') { try { tracker.onFrame(img, ts); } catch (e) { /* debug hook must never break tracking */ } }
+      var use = params;
+      if (acquiring && acq) { acq.threshold = params.threshold; acq.prevX = params.prevX; acq.prevY = params.prevY; use = acq; }
       if (usingWorker && worker) {
         busy = true;
-        worker.postMessage({ type: 'detect', buffer: img.data.buffer, width: W, height: H, params: params, ts: ts }, [img.data.buffer]);
+        worker.postMessage({ type: 'detect', buffer: img.data.buffer, width: W, height: H, params: use, ts: ts }, [img.data.buffer]);
       } else {
-        applyResult(detect(img, params), ts);
+        applyResult(detect(img, use), ts);
       }
     }
 
@@ -577,11 +593,8 @@
       return new Promise(function (resolve, reject) {
         if (!running) { reject({ code: 'not-started', message: 'Start the tracker before calibrating.' }); return; }
         if (calib) { reject({ code: 'busy', message: 'A calibration is already running.' }); return; }
-        var loose = mergeParams(defaultParams, params);
-        loose.redMin = Math.min(params.redMin, 70); loose.redDelta = Math.min(params.redDelta, 30); loose.redRatio = Math.min(params.redRatio, 1.8);
-        loose.whiteMin = Math.min(params.whiteMin, 110); loose.whiteSpread = Math.max(params.whiteSpread, 90);
-        loose.minAreaFrac = Math.min(params.minAreaFrac, 0.0003); loose.maxAreaFrac = Math.max(params.maxAreaFrac, 0.08);
-        loose.threshold = 0.35; loose.refAreaFrac = 0;
+        var loose = acquireParams(params);
+        loose.threshold = 0.35;
         loose.prevX = rx + rw / 2; loose.prevY = ry + rh / 2;
         calib = { roi: { x: rx, y: ry, w: rw, h: rh }, loose: loose, want: 15, maxFrames: 90, timeoutMs: 5000, started: now(),
                   frames: 0, samples: 0, nRed: 0, nWhite: 0, areas: [],
@@ -654,12 +667,14 @@
     };
     tracker.getOptions = function () {
       return { width: o.width, height: o.height, mirror: o.mirror, useWorker: o.useWorker, usingWorker: usingWorker,
-               smoothing: o.smoothing, lostAfterMs: o.lostAfterMs, sensitivity: o.sensitivity, running: running,
+               smoothing: o.smoothing, lostAfterMs: o.lostAfterMs, sensitivity: o.sensitivity, running: running, acquiring: acquiring,
                frames: frames, skipped: skipped };
     };
     tracker.getParams = function () { return mergeParams(defaultParams, params); };
     tracker.setParams = function (extra) { params = mergeParams(params, extra); params.threshold = thresholdFor(o.sensitivity); saveParams(params); return tracker.getParams(); };
     tracker.resetParams = function () { params = mergeParams(defaultParams, null); params.threshold = thresholdFor(o.sensitivity); try { root.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ } return tracker.getParams(); };
+    /** Lock-on mode for the "show your mug" screen: on = find the mug with the opened-up colour masks. */
+    tracker.setAcquire = function (on) { acquiring = !!on; acq = acquiring ? acquireParams(params) : null; return acquiring; };
     tracker.getState = function () { return state; };
     tracker.getStream = function () { return stream; };
 
@@ -694,7 +709,7 @@
     return tracker;
   }
 
-  var MugTracker = { detect: detect, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
+  var MugTracker = { detect: detect, acquireParams: acquireParams, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
   root.MugTracker = MugTracker;
   if (typeof module !== 'undefined' && module.exports) module.exports = MugTracker;
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this));

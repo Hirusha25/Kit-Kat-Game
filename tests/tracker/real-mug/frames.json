@@ -1,0 +1,402 @@
+{
+ "blank-side_35_160.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.35,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "blank-side_35_320.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.35,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "blank-side_25_160.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.25,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "blank-side_25_320.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.25,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "blank-side_18_160.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.18,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "blank-side_18_320.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.18,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "blank-side_13_160.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.13,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "blank-side_13_320.png": {
+  "photo": "blank-side.jpg",
+  "share": 0.13,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "logo-at-edge_35_160.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.35,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5583,
+   0.4225,
+   0.6196,
+   0.5671
+  ]
+ },
+ "logo-at-edge_35_320.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.35,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5583,
+   0.4225,
+   0.6196,
+   0.5671
+  ]
+ },
+ "logo-at-edge_25_160.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.25,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5416,
+   0.4451,
+   0.5854,
+   0.5483
+  ]
+ },
+ "logo-at-edge_25_320.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.25,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5416,
+   0.4451,
+   0.5854,
+   0.5483
+  ]
+ },
+ "logo-at-edge_18_160.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.18,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5293,
+   0.4606,
+   0.5609,
+   0.5349
+  ]
+ },
+ "logo-at-edge_18_320.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.18,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5293,
+   0.4606,
+   0.5609,
+   0.5349
+  ]
+ },
+ "logo-at-edge_13_160.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.13,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.521,
+   0.4732,
+   0.5438,
+   0.5269
+  ]
+ },
+ "logo-at-edge_13_320.png": {
+  "photo": "logo-at-edge.jpg",
+  "share": 0.13,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.521,
+   0.4732,
+   0.5438,
+   0.5269
+  ]
+ },
+ "logo-front-cool-light_35_160.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.35,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5169,
+   0.4297,
+   0.6077,
+   0.5911
+  ]
+ },
+ "logo-front-cool-light_35_320.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.35,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5169,
+   0.4297,
+   0.6077,
+   0.5911
+  ]
+ },
+ "logo-front-cool-light_25_160.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.25,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5121,
+   0.4502,
+   0.5769,
+   0.5655
+  ]
+ },
+ "logo-front-cool-light_25_320.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.25,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5121,
+   0.4502,
+   0.5769,
+   0.5655
+  ]
+ },
+ "logo-front-cool-light_18_160.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.18,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5081,
+   0.4642,
+   0.5548,
+   0.5473
+  ]
+ },
+ "logo-front-cool-light_18_320.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.18,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5081,
+   0.4642,
+   0.5548,
+   0.5473
+  ]
+ },
+ "logo-front-cool-light_13_160.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.13,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.5057,
+   0.4759,
+   0.5394,
+   0.5358
+  ]
+ },
+ "logo-front-cool-light_13_320.png": {
+  "photo": "logo-front-cool-light.jpg",
+  "share": 0.13,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.5057,
+   0.4759,
+   0.5394,
+   0.5358
+  ]
+ },
+ "logo-left_35_160.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.35,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.4158,
+   0.4414,
+   0.5,
+   0.5957
+  ]
+ },
+ "logo-left_35_320.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.35,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.4158,
+   0.4414,
+   0.5,
+   0.5957
+  ]
+ },
+ "logo-left_25_160.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.25,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.4399,
+   0.4585,
+   0.5,
+   0.5688
+  ]
+ },
+ "logo-left_25_320.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.25,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.4399,
+   0.4585,
+   0.5,
+   0.5688
+  ]
+ },
+ "logo-left_18_160.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.18,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.4561,
+   0.4703,
+   0.4994,
+   0.5496
+  ]
+ },
+ "logo-left_18_320.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.18,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.4561,
+   0.4703,
+   0.4994,
+   0.5496
+  ]
+ },
+ "logo-left_13_160.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.13,
+  "width": 160,
+  "height": 90,
+  "logo": [
+   0.4681,
+   0.4802,
+   0.4994,
+   0.5375
+  ]
+ },
+ "logo-left_13_320.png": {
+  "photo": "logo-left.jpg",
+  "share": 0.13,
+  "width": 320,
+  "height": 180,
+  "logo": [
+   0.4681,
+   0.4802,
+   0.4994,
+   0.5375
+  ]
+ },
+ "top-view_35_160.png": {
+  "photo": "top-view.jpg",
+  "share": 0.35,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "top-view_35_320.png": {
+  "photo": "top-view.jpg",
+  "share": 0.35,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "top-view_25_160.png": {
+  "photo": "top-view.jpg",
+  "share": 0.25,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "top-view_25_320.png": {
+  "photo": "top-view.jpg",
+  "share": 0.25,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "top-view_18_160.png": {
+  "photo": "top-view.jpg",
+  "share": 0.18,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "top-view_18_320.png": {
+  "photo": "top-view.jpg",
+  "share": 0.18,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ },
+ "top-view_13_160.png": {
+  "photo": "top-view.jpg",
+  "share": 0.13,
+  "width": 160,
+  "height": 90,
+  "logo": null
+ },
+ "top-view_13_320.png": {
+  "photo": "top-view.jpg",
+  "share": 0.13,
+  "width": 320,
+  "height": 180,
+  "logo": null
+ }
+}

@@ -256,6 +256,7 @@
     try {
       tracker = t; t.onFrame = onFrame; t.onDetect = onDetect;
       if (replayId) t.replayUrl = API + '?a=file&id=' + replayId + '&name=camera.webm';
+      var sa = t.setAcquire; if (sa) t.setAcquire = function (on) { event('acquire', { on: !!on }); return sa.apply(t, arguments); };
       var cal = t.calibrate;
       t.calibrate = function () { return cal.apply(t, arguments).then(function (r) { event('calibrate', { ok: !!(r && r.ok), samples: r && r.samples, reason: r && r.reason, params: r && r.params }); return r; }); };
     } catch (e) { /* ignore */ }

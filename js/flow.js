@@ -83,10 +83,11 @@
   let tracker = null, trackState = { found: false, x: 0.5 };
   let lastFoundAt = 0;
   async function startTracker() {
-    tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261126e' });
+    tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127f' });
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
+    if (tracker.setAcquire) tracker.setAcquire(phase === 'calibrating');   // show-your-mug screen: opened-up colour masks, see tracker.js acquireParams
   }
   function onTrack(s) {
     trackState = s;
@@ -184,6 +185,7 @@
   function beginCalibration() {
     KKAudio.music('register');
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
+    if (tracker && tracker.setAcquire) tracker.setAcquire(true);
     clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 3 feet from the screen and hold the mug up, logo facing the camera.';
   }
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
@@ -191,6 +193,7 @@
   // ---------- countdown ----------
   function startCountdown() {
     phase = 'countdown'; show('count');
+    if (tracker && tracker.setAcquire) tracker.setAcquire(false);   // from here on: the parameters calibration settled on
     const el = $('count-num'), cd = el.parentElement, ticks = $('cd-ticks');
     if (!ticks.childElementCount) {
       let t = '';

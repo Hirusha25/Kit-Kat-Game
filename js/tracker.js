@@ -111,7 +111,8 @@
   }
 
   // The result object is reused between calls (copy it if you keep it).
-  var result = { found: false, x: 0, y: 0, w: 0, h: 0, score: 0, redArea: 0, whiteRatio: 0, candidates: 0 };
+  // sub = the winning candidate's part scores [white ring, aspect, area, fill, inner white, temporal] (for the debug recorder).
+  var result = { found: false, x: 0, y: 0, w: 0, h: 0, score: 0, redArea: 0, whiteRatio: 0, candidates: 0, sub: [0, 0, 0, 0, 0, 0] };
 
   /**
    * Pure detector. img = {data: Uint8ClampedArray RGBA, width, height}; params as defaultParams.
@@ -238,7 +239,8 @@
     var whiteLo = p.whiteLo, whiteHi = p.whiteHi, aMin = p.aspectMin, aMax = p.aspectMax, redPen = p.redRingPenalty;
     var refArea = p.refAreaFrac > 0 ? p.refAreaFrac * n : 0;
     var prevX = p.prevX, prevY = p.prevY, tRange = p.temporalRange;
-    var best = -1, bestScore = 0, bestWR = 0, evaluated = 0;
+    var best = -1, bestScore = 0, bestWR = 0, evaluated = 0, sub = result.sub;
+    sub[0] = sub[1] = sub[2] = sub[3] = sub[4] = sub[5] = 0;
     var w, h, ex, ey, x0, y0, x1, y1, bx0, by0, bx1, by1, rL, rR, rT, rB, redRing, wr, sWhite, aspect, sAspect, fill, sFill, inner, sInner, sArea, sTemp, cx, cy, dist, score;
     for (k = 0; k < cTotal; k++) {
       if (cAlive[k] !== 1) continue;
@@ -317,7 +319,7 @@
       else sTemp = 0.5;
 
       score = 0.55 * sWhite + 0.12 * sAspect + 0.08 * sArea + 0.08 * sFill + 0.08 * sInner + 0.09 * sTemp;
-      if (score > bestScore) { bestScore = score; best = k; bestWR = wr; }
+      if (score > bestScore) { bestScore = score; best = k; bestWR = wr; sub[0] = sWhite; sub[1] = sAspect; sub[2] = sArea; sub[3] = sFill; sub[4] = sInner; sub[5] = sTemp; }
     }
 
     result.candidates = evaluated;
@@ -469,6 +471,7 @@
       ctx.drawImage(video, 0, 0, W, H);
       var img = ctx.getImageData(0, 0, W, H);
       if (calib) calibSample(img);
+      if (typeof tracker.onFrame === 'function') { try { tracker.onFrame(img, ts); } catch (e) { /* debug hook must never break tracking */ } }
       if (usingWorker && worker) {
         busy = true;
         worker.postMessage({ type: 'detect', buffer: img.data.buffer, width: W, height: H, params: params, ts: ts }, [img.data.buffer]);
@@ -499,6 +502,7 @@
         state.confidence = clamp01(res.score);   // coasting on the last position
       }
       state.fps = fpsEma; state.ts = ts;
+      if (typeof tracker.onDetect === 'function') { try { tracker.onDetect(res, ts, state); } catch (e) { /* debug hook must never break tracking */ } }
       if (typeof tracker.onUpdate === 'function') {
         tracker.onUpdate({ found: state.found, x: state.x, y: state.y, rawX: state.rawX, rawY: state.rawY,
           frameX: state.frameX, frameY: state.frameY, w: state.w, h: state.h, confidence: state.confidence,
@@ -598,16 +602,19 @@
       if (startOpts.deviceId) vc.deviceId = { exact: startOpts.deviceId };
       else vc.facingMode = { ideal: startOpts.facingMode || 'user' };
       var fallback = { video: startOpts.deviceId ? { deviceId: { exact: startOpts.deviceId } } : true, audio: false };
-      return navigator.mediaDevices.getUserMedia({ video: vc, audio: false })
+      // Debug replay: a recorded round is played as the camera (set by js/recorder.js from ?replay=<session>).
+      var replayUrl = startOpts.replayUrl || tracker.replayUrl || '';
+      var source = replayUrl ? Promise.resolve(null) : navigator.mediaDevices.getUserMedia({ video: vc, audio: false })
         .catch(function (err) {
           if (err && /NotAllowed|PermissionDenied|Security/.test(err.name)) throw err;
           return navigator.mediaDevices.getUserMedia(fallback);
         })
-        .catch(function (err) { throw cameraError(err); })
+        .catch(function (err) { throw cameraError(err); });
+      return source
         .then(function (s) {
           stream = s;
           video.muted = true; video.playsInline = true; video.setAttribute('playsinline', ''); video.autoplay = true;
-          video.srcObject = s;
+          if (replayUrl) { video.loop = true; video.src = replayUrl; } else video.srcObject = s;
           return video.play().catch(function () { /* autoplay nag: frames still arrive once playing */ });
         })
         .then(function () {
@@ -615,7 +622,7 @@
           usingWorker = startWorker();
           running = true; busy = false; haveSmoothed = false; lastFrameMs = 0; fpsEma = 0;
           state.found = false; state.lastSeenMs = -Infinity; params.prevX = -1; params.prevY = -1;
-          var track = stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+          var track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
           var st = track && track.getSettings ? track.getSettings() : {};
           console.log('MugTracker ready ' + (st.width || '?') + 'x' + (st.height || '?') + '@' + (st.frameRate ? Math.round(st.frameRate) : '?') +
                       ' -> ' + o.width + 'x' + o.height + (usingWorker ? ' (worker)' : ' (inline)'));
@@ -631,7 +638,7 @@
       dropWorker();
       if (calib) finishCalib();
       if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
-      try { video.srcObject = null; } catch (e) { /* ignore */ }
+      try { video.srcObject = null; if (video.getAttribute('src')) { video.removeAttribute('src'); video.load(); } } catch (e) { /* ignore */ }
       state.found = false;
     };
 
@@ -654,6 +661,7 @@
     tracker.setParams = function (extra) { params = mergeParams(params, extra); params.threshold = thresholdFor(o.sensitivity); saveParams(params); return tracker.getParams(); };
     tracker.resetParams = function () { params = mergeParams(defaultParams, null); params.threshold = thresholdFor(o.sensitivity); try { root.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ } return tracker.getParams(); };
     tracker.getState = function () { return state; };
+    tracker.getStream = function () { return stream; };
 
     /** Draws the (mirrored) camera frame, the detection box and the score into a 2D context. */
     tracker.debugDraw = function (c2d, w, h) {

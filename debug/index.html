@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mug tracking review · KitKat kiosk</title>
+<style>
+  /* Review tool for recorded rounds (see js/recorder.js and api/debug/index.php). Staff only, behind a login. */
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: #14171c; color: #e8eaee; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 18px; background: #1d2129; border-bottom: 1px solid #2c323d; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; }
+  a { color: #7db7ff; } button, select, input, textarea { font: inherit; }
+  button { background: #2f6fed; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; } button.ghost { background: #2c323d; }
+  main { padding: 16px 18px; }
+  .card { background: #1d2129; border: 1px solid #2c323d; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; } th, td { padding: 6px 8px; border-bottom: 1px solid #2c323d; text-align: left; white-space: nowrap; }
+  th { color: #9aa3b2; font-weight: 600; cursor: pointer; user-select: none; } tbody tr:hover { background: #242a34; cursor: pointer; }
+  .bad { color: #ff7b7b; font-weight: 700; } .mid { color: #ffd166; font-weight: 700; } .good { color: #6fdc8c; font-weight: 700; } .dim { color: #9aa3b2; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 14px; } @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .wrap { position: relative; background: #000; border-radius: 8px; overflow: hidden; } .wrap video, .wrap canvas { display: block; width: 100%; } .wrap canvas.over { position: absolute; inset: 0; height: 100%; pointer-events: none; }
+  #timeline, #scores { width: 100%; display: block; border-radius: 6px; background: #0e1014; margin-top: 8px; cursor: crosshair; }
+  #exact { width: 100%; image-rendering: pixelated; background: #000; border-radius: 8px; cursor: crosshair; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; } .kv span:nth-child(odd) { color: #9aa3b2; }
+  .params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; } .params label { display: flex; flex-direction: column; font-size: 12px; color: #9aa3b2; } .params input { background: #0e1014; color: #fff; border: 1px solid #2c323d; border-radius: 6px; padding: 4px 6px; }
+  textarea { width: 100%; min-height: 54px; background: #0e1014; color: #fff; border: 1px solid #2c323d; border-radius: 6px; padding: 6px; }
+  .legend span { display: inline-block; margin-right: 12px; } .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+  #login { max-width: 340px; margin: 12vh auto; } #login input { width: 100%; margin: 6px 0 10px; padding: 8px; background: #0e1014; color: #fff; border: 1px solid #2c323d; border-radius: 6px; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<header><h1>Mug tracking review</h1><span class="dim" id="who"></span><button class="ghost hide" id="back">All rounds</button><button class="ghost hide" id="logout">Sign out</button></header>
+
+<main>
+  <div class="card hide" id="login">
+    <b>Sign in</b>
+    <input id="l-email" type="email" placeholder="Email" autocomplete="username">
+    <input id="l-pass" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="l-go">Sign in</button> <span class="bad" id="l-err"></span>
+  </div>
+
+  <div class="hide" id="list">
+    <div class="card"><span id="summary" class="dim"></span></div>
+    <div class="card" style="overflow:auto"><table><thead><tr id="heads"></tr></thead><tbody id="rows"></tbody></table></div>
+  </div>
+
+  <div class="hide" id="view">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="wrap" id="vwrap"><video id="vid" controls playsinline muted></video><canvas class="over" id="over"></canvas></div>
+          <div class="dim hide" id="novid">No video for this round (recorded without video). Use the exact frames on the right.</div>
+          <canvas id="timeline" height="44"></canvas>
+          <div class="legend dim" style="margin-top:6px"><span><i class="sw" style="background:#2ecc71"></i>tracked</span><span><i class="sw" style="background:#f1c40f"></i>coasting</span><span><i class="sw" style="background:#e74c3c"></i>lost</span><span><i class="sw" style="background:#555"></i>before / after the round</span><span>white marks = exact frames, blue line = now</span></div>
+          <canvas id="scores" height="150"></canvas>
+          <div class="legend dim" style="margin-top:6px" id="score-legend"></div>
+        </div>
+        <div class="card"><div class="kv" id="facts"></div></div>
+      </div>
+      <div>
+        <div class="card">
+          <b>Exact detector frame</b> <span class="dim" id="exact-info"></span>
+          <canvas id="exact" width="640" height="360"></canvas>
+          <div class="legend dim" style="margin:6px 0"><span><i class="sw" style="background:#2ecc71"></i>kiosk's box</span><span><i class="sw" style="background:#4aa3ff"></i>re-run box</span><span><i class="sw" style="background:#ff4dd2"></i>your label (click the mug's logo; shift-click = no mug in view)</span></div>
+          <button class="ghost" id="f-prev">Previous frame</button> <button class="ghost" id="f-next">Next frame</button> <button class="ghost" id="f-lost">Next lost event</button>
+        </div>
+        <div class="card">
+          <b>Re-run the detector on the exact frames</b>
+          <div class="params" id="params" style="margin:8px 0"></div>
+          <button id="rerun">Re-run all frames</button> <button class="ghost" id="reset">Kiosk's settings</button>
+          <div id="rerun-out" style="margin-top:8px"></div>
+        </div>
+        <div class="card">
+          <label><input type="checkbox" id="keep"> Keep this round (exempt from deletion, use as a test)</label>
+          <textarea id="notes" placeholder="Notes: what went wrong in this round"></textarea>
+          <button id="save">Save notes and labels</button> <span class="dim" id="saved"></span>
+          <div style="margin-top:10px" id="links"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="../js/tracker.js"></script>
+<script>
+(function () {
+  var API = '../api/debug/', $ = function (id) { return document.getElementById(id); };
+  function api(q, body) {
+    return fetch(API + '?' + q, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!j.ok) { var e = new Error(j.error); e.status = r.status; throw e; } return j; }); });
+  }
+  function show(id) { ['login', 'list', 'view'].forEach(function (k) { $(k).classList.toggle('hide', k !== id); }); $('back').classList.toggle('hide', id !== 'view'); $('logout').classList.toggle('hide', id === 'login'); }
+  function pct(v) { return v == null ? '–' : (v * 100).toFixed(1) + '%'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // ---------- sign in ----------
+  $('l-go').addEventListener('click', function () {
+    $('l-err').textContent = '';
+    api('a=login', { email: $('l-email').value, password: $('l-pass').value }).then(loadList, function () { $('l-err').textContent = 'Wrong email or password.'; });
+  });
+  $('l-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('l-go').click(); });
+  $('logout').addEventListener('click', function () { fetch(API + '?a=logout').then(function () { show('login'); }); });
+  $('back').addEventListener('click', function () { history.pushState(null, '', location.pathname); stopView(); loadList(); });
+  window.addEventListener('popstate', route);
+
+  // ---------- list ----------
+  var sessions = [], sortKey = 'created_at', sortDir = -1;
+  var HEADS = [['created_at', 'Recorded'], ['kiosk', 'Kiosk'], ['ended_reason', 'Ended'], ['found_share', 'Mug tracked'], ['lost_events', 'Lost events'], ['longest_lost_ms', 'Longest loss'], ['avg_fps', 'Frame rate'], ['score', 'Score'], ['duration_ms', 'Length'], ['camera', 'Camera'], ['has_video', 'Video'], ['bytes', 'Size'], ['build_rev', 'Build'], ['keep', 'Keep'], ['notes', 'Notes']];
+  function loadList() {
+    return api('a=list').then(function (j) {
+      sessions = j.sessions; show('list');
+      var done = sessions.filter(function (s) { return s.found_share != null; });
+      var avg = done.length ? done.reduce(function (n, s) { return n + +s.found_share; }, 0) / done.length : null;
+      $('summary').innerHTML = sessions.length + ' round(s) on the server · recording mode <b>' + esc(j.mode) + '</b> · average mug tracked ' + pct(avg) + ' · rounds are deleted after ' + j.retention_days + ' days unless kept. Click a column to sort; click a round to open it.';
+      paintList();
+    }, function (e) { if (e.status === 401) show('login'); else alert('Could not load: ' + e.message); });
+  }
+  function paintList() {
+    $('heads').innerHTML = HEADS.map(function (h) { return '<th data-k="' + h[0] + '">' + h[1] + (h[0] === sortKey ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>'; }).join('');
+    var num = { found_share: 1, lost_events: 1, longest_lost_ms: 1, avg_fps: 1, score: 1, duration_ms: 1, bytes: 1, has_video: 1, keep: 1 };
+    var rows = sessions.slice().sort(function (a, b) {
+      var x = a[sortKey], y = b[sortKey]; if (num[sortKey]) { x = x == null ? Infinity : +x; y = y == null ? Infinity : +y; }
+      return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+    });
+    $('rows').innerHTML = rows.map(function (s) {
+      var fs = s.found_share == null ? '' : (+s.found_share >= 0.97 ? 'good' : +s.found_share >= 0.85 ? 'mid' : 'bad');
+      var fp = s.avg_fps == null ? '' : (+s.avg_fps >= 25 ? 'good' : +s.avg_fps >= 18 ? 'mid' : 'bad');
+      return '<tr data-id="' + s.id + '"><td>' + esc(s.created_at) + '</td><td>' + esc(s.kiosk) + '</td><td>' + esc(s.status === 'complete' ? s.ended_reason : s.status) + '</td><td class="' + fs + '">' + pct(s.found_share) + '</td><td class="' + (+s.lost_events > 1 ? 'bad' : '') + '">' + (s.lost_events == null ? '–' : s.lost_events) + '</td><td>' + (s.longest_lost_ms ? (s.longest_lost_ms / 1000).toFixed(1) + ' s' : '–') + '</td><td class="' + fp + '">' + (s.avg_fps == null ? '–' : s.avg_fps) + '</td><td>' + (s.score == null ? '–' : s.score) + '</td><td>' + (s.duration_ms ? Math.round(s.duration_ms / 1000) + ' s' : '–') + '</td><td>' + esc(s.camera) + '</td><td>' + (+s.has_video ? 'yes' : 'no') + '</td><td>' + (s.bytes / 1048576).toFixed(1) + ' MB</td><td class="dim">' + esc(s.build_rev) + '</td><td>' + (+s.keep ? '★' : '') + '</td><td class="dim">' + esc((s.notes || '').slice(0, 50)) + '</td></tr>';
+    }).join('') || '<tr><td colspan="15" class="dim">No rounds recorded yet.</td></tr>';
+  }
+  $('heads').addEventListener('click', function (e) { var k = e.target.dataset.k; if (!k) return; if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = k === 'found_share' || k === 'avg_fps' ? 1 : -1; } paintList(); });
+  $('rows').addEventListener('click', function (e) { var tr = e.target.closest('tr'); if (tr && tr.dataset.id) { history.pushState(null, '', '?id=' + tr.dataset.id); openSession(tr.dataset.id); } });
+
+  // ---------- one round ----------
+  var V = null, raf = 0;
+  function stopView() { cancelAnimationFrame(raf); $('vid').pause(); $('vid').removeAttribute('src'); $('vid').load(); V = null; }
+  function gunzip(buf) { return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(); }
+  function file(id, name) { return fetch(API + '?a=file&id=' + id + '&name=' + name).then(function (r) { if (!r.ok) throw new Error(name); return r.arrayBuffer(); }); }
+
+  async function openSession(id) {
+    stopView(); show('view');
+    var j; try { j = await api('a=session&id=' + id); } catch (e) { if (e.status === 401) return show('login'); alert('Could not open: ' + e.message); return; }
+    var meta = j.meta || {}, row = j.row;
+    var tel = JSON.parse(new TextDecoder().decode(await gunzip(await file(id, 'telemetry.json.gz'))));
+    var c = {}; tel.cols.forEach(function (n, i) { c[n] = i; });
+    var frames = null;
+    if (+row.has_frames && meta.frames) { try { frames = new Uint8Array(await gunzip(await file(id, 'frames.bin.gz'))); } catch (e) { frames = null; } }
+    V = { id: id, meta: meta, row: row, rows: tel.rows, events: tel.events || [], c: c, frames: frames, fi: 0, labels: j.labels || {}, rerun: {}, t: 0,
+          t0: tel.rows.length ? tel.rows[0][0] : 0, t1: tel.rows.length ? tel.rows[tel.rows.length - 1][0] : 1, vstart: meta.videoStartMs };
+    V.play0 = null; V.play1 = null; V.events.forEach(function (e) { if (e.type === 'play') V.play0 = e.t; if (e.type === 'end') V.play1 = e.t; });
+    V.ft = (meta.frames && meta.frames.t) || []; V.fw = meta.frames ? meta.frames.w : 160; V.fh = meta.frames ? meta.frames.h : 90;
+    V.rowAt = {}; V.rows.forEach(function (r, i) { V.rowAt[r[0]] = i; });
+
+    var hasVid = +row.has_video === 1;
+    $('vwrap').classList.toggle('hide', !hasVid); $('novid').classList.toggle('hide', hasVid);
+    if (hasVid) $('vid').src = API + '?a=file&id=' + id + '&name=camera.webm';
+    var cam = (meta.camera || {}), st = cam.settings || {}, caps = cam.capabilities || {};
+    var facts = [['Round', id], ['Recorded', row.created_at + ' (server time), kiosk ' + row.kiosk], ['Ended', row.ended_reason + (meta.flags && meta.flags.length ? ' · flags: ' + meta.flags.join(', ') : '')],
+      ['Mug tracked', pct(row.found_share) + ' of play frames · ' + (row.lost_events || 0) + ' lost event(s) · longest ' + ((row.longest_lost_ms || 0) / 1000).toFixed(1) + ' s'],
+      ['Frame rate', (row.avg_fps || '–') + ' fps average during play'], ['Score', row.score == null ? '–' : row.score],
+      ['Camera', (cam.label || '?') + ' · stream ' + (st.width || '?') + 'x' + (st.height || '?') + ' @' + (st.frameRate ? Math.round(st.frameRate) : '?') + ' · detector ' + V.fw + 'x' + V.fh],
+      ['Camera shape', st.width && st.height ? (Math.abs(st.width / st.height - V.fw / V.fh) > 0.05 ? 'MISMATCH: camera is ' + (st.width / st.height).toFixed(2) + ':1 but the detector frame is ' + (V.fw / V.fh).toFixed(2) + ':1, so the picture is squashed' : 'matches the detector frame') : 'unknown'],
+      ['Exposure / white balance', 'exposure ' + (st.exposureMode || 'n/a') + (caps.exposureMode ? ' (can: ' + caps.exposureMode.join(', ') + ')' : ' (no control offered)') + ' · white balance ' + (st.whiteBalanceMode || 'n/a') + (caps.whiteBalanceMode ? ' (can: ' + caps.whiteBalanceMode.join(', ') + ')' : ' (no control offered)')],
+      ['Game settings', JSON.stringify(meta.settings || {})], ['Calibration', V.events.filter(function (e) { return e.type === 'calibrate'; }).map(function (e) { return (e.data.ok ? 'ok' : 'failed: ' + e.data.reason) + ' at ' + (e.t / 1000).toFixed(1) + ' s'; }).join('; ') || 'none in this recording'],
+      ['Browser', meta.ua || ''], ['Build', row.build_rev]];
+    $('facts').innerHTML = facts.map(function (f) { return '<span>' + esc(f[0]) + '</span><span>' + esc(f[1]) + '</span>'; }).join('');
+    $('keep').checked = +row.keep === 1; $('notes').value = row.notes || ''; $('saved').textContent = '';
+    $('links').innerHTML = ['telemetry.json.gz', 'frames.bin.gz', 'camera.webm', 'meta.json'].filter(function (n) { return n !== 'camera.webm' || hasVid; }).map(function (n) { return '<a href="' + API + '?a=file&id=' + id + '&name=' + n + '&download=1">' + n + '</a>'; }).join(' · ') +
+      (hasVid ? ' · <a target="_blank" href="../game.html?replay=' + id + '&debug=1">Replay through the game</a>' : '');
+    buildParams(meta.paramsEnd || meta.paramsStart || MugTracker.defaultParams);
+    $('rerun-out').textContent = '';
+    paintTimeline(); paintScores(); setFrame(0); loop();
+  }
+
+  function rowAtTime(t) { var r = V.rows, lo = 0, hi = r.length - 1; while (lo < hi) { var m = (lo + hi + 1) >> 1; if (r[m][0] <= t) lo = m; else hi = m - 1; } return r[lo]; }
+  function loop() {
+    if (!V) return;
+    var vid = $('vid');
+    if (+V.row.has_video && vid.readyState >= 1 && V.vstart != null && !vid.paused) { V.t = V.vstart + vid.currentTime * 1000; paintTimeline(); }
+    paintOverlay(); raf = requestAnimationFrame(loop);
+  }
+  function seek(t) { V.t = t; var vid = $('vid'); if (+V.row.has_video && V.vstart != null) vid.currentTime = Math.max(0, (t - V.vstart) / 1000); paintTimeline(); nearestFrame(t); }
+  function paintOverlay() {
+    var cv = $('over'), vid = $('vid'); if (!+V.row.has_video || !vid.videoWidth) return;
+    if (cv.width !== vid.clientWidth || cv.height !== vid.clientHeight) { cv.width = vid.clientWidth; cv.height = vid.clientHeight; }
+    var x = cv.getContext('2d'), c = V.c, r = rowAtTime(V.t); x.clearRect(0, 0, cv.width, cv.height); if (!r) return;
+    if (r[c.found]) { x.lineWidth = 3; x.strokeStyle = '#2ecc71'; x.strokeRect((r[c.x] - r[c.w] / 2) * cv.width, (r[c.y] - r[c.h] / 2) * cv.height, r[c.w] * cv.width, r[c.h] * cv.height); }
+    x.font = 'bold 14px sans-serif'; x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, 0, 330, 24);
+    x.fillStyle = r[c.tracking] ? '#2ecc71' : '#ff7b7b'; x.fillText((r[c.tracking] ? (r[c.found] ? 'TRACKED' : 'coasting') : 'LOST') + '  score ' + r[c.score].toFixed(2) + '  candidates ' + r[c.cand] + '  ' + r[c.fps] + ' fps', 8, 17);
+  }
+  function tx(cv, t) { return (t - V.t0) / Math.max(1, V.t1 - V.t0) * cv.width; }
+  function paintTimeline() {
+    var cv = $('timeline'); cv.width = cv.clientWidth; var x = cv.getContext('2d'), c = V.c, W = cv.width, H = cv.height;
+    x.clearRect(0, 0, W, H);
+    V.rows.forEach(function (r, i) {
+      var a = tx(cv, r[0]), b = i + 1 < V.rows.length ? tx(cv, V.rows[i + 1][0]) : W;
+      var inPlay = V.play0 == null || (r[0] >= V.play0 && (V.play1 == null || r[0] <= V.play1));
+      x.fillStyle = !inPlay ? (r[c.found] ? '#3d6b4c' : '#555') : r[c.found] ? '#2ecc71' : r[c.tracking] ? '#f1c40f' : '#e74c3c';
+      x.fillRect(a, 8, Math.max(1, b - a + 0.5), H - 16);
+    });
+    x.fillStyle = '#fff'; V.ft.forEach(function (t) { x.fillRect(tx(cv, t), H - 7, 1, 7); });
+    x.fillStyle = '#ff4dd2'; Object.keys(V.labels).forEach(function (t) { x.fillRect(tx(cv, +t) - 1, 0, 3, 7); });
+    x.fillStyle = '#4aa3ff'; x.fillRect(tx(cv, V.t) - 1, 0, 2, H);
+  }
+  var SUBS = [['score', '#ffffff'], ['sWhite', '#4aa3ff'], ['sAspect', '#f1c40f'], ['sArea', '#e67e22'], ['sFill', '#9b59b6'], ['sInner', '#1abc9c'], ['sTemp', '#7f8c8d']];
+  function paintScores() {
+    var cv = $('scores'); cv.width = cv.clientWidth; var x = cv.getContext('2d'), c = V.c, H = cv.height;
+    x.clearRect(0, 0, cv.width, H);
+    var thr = (V.meta.paramsEnd || V.meta.paramsStart || {}).threshold; if (thr) { x.strokeStyle = '#e74c3c'; x.setLineDash([4, 4]); x.beginPath(); x.moveTo(0, H - thr * H); x.lineTo(cv.width, H - thr * H); x.stroke(); x.setLineDash([]); }
+    SUBS.forEach(function (s) { x.strokeStyle = s[1]; x.lineWidth = s[0] === 'score' ? 2 : 1; x.beginPath(); V.rows.forEach(function (r, i) { var px = tx(cv, r[0]), py = H - r[c[s[0]]] * (H - 4) - 2; i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); });
+    $('score-legend').innerHTML = SUBS.map(function (s) { return '<span><i class="sw" style="background:' + s[1] + '"></i>' + ({ score: 'total score', sWhite: 'white around logo (55%)', sAspect: 'shape (12%)', sArea: 'size (8%)', sFill: 'fill (8%)', sInner: 'white inside (8%)', sTemp: 'near last position (9%)' })[s[0]] + '</span>'; }).join('') + '<span>dashed red = pass mark</span>';
+  }
+  ['timeline', 'scores'].forEach(function (id) { $(id).addEventListener('click', function (e) { var r = e.target.getBoundingClientRect(); seek(V.t0 + (e.clientX - r.left) / r.width * (V.t1 - V.t0)); }); });
+  $('vid').addEventListener('seeked', function () { if (V && V.vstart != null) { V.t = V.vstart + $('vid').currentTime * 1000; paintTimeline(); nearestFrame(V.t); } });
+  $('vid').addEventListener('pause', function () { if (V) nearestFrame(V.t); });
+  // Browser-recorded WebM has no length in its header, so seeking fails until the player has scanned to the end once.
+  $('vid').addEventListener('loadedmetadata', function () { var v = $('vid'); if (v.duration === Infinity) { var back = function () { if (v.duration !== Infinity) { v.removeEventListener('durationchange', back); v.currentTime = 0; } }; v.addEventListener('durationchange', back); v.currentTime = 1e7; } });
+
+  // ---------- exact frames ----------
+  function frameImage(i) { var n = V.fw * V.fh, src = V.frames.subarray(i * n * 3, (i + 1) * n * 3), img = new ImageData(V.fw, V.fh), d = img.data; for (var p = 0, q = 0; p < n; p++, q += 4) { d[q] = src[p * 3]; d[q + 1] = src[p * 3 + 1]; d[q + 2] = src[p * 3 + 2]; d[q + 3] = 255; } return img; }
+  function nearestFrame(t) { if (!V.frames || !V.ft.length) return; var best = 0; V.ft.forEach(function (ft, i) { if (Math.abs(ft - t) < Math.abs(V.ft[best] - t)) best = i; }); setFrame(best, true); }
+  var tmp = document.createElement('canvas');
+  function currentParams() { var p = Object.assign({}, MugTracker.defaultParams, V.meta.paramsEnd || V.meta.paramsStart || {}); document.querySelectorAll('#params input').forEach(function (i) { if (i.value !== '') p[i.dataset.k] = +i.value; }); p.prevX = -1; p.prevY = -1; return p; }
+  function setFrame(i, quiet) {
+    var cv = $('exact'), x = cv.getContext('2d');
+    if (!V.frames || !V.ft.length) { x.fillStyle = '#000'; x.fillRect(0, 0, cv.width, cv.height); $('exact-info').textContent = 'none stored for this round'; return; }
+    V.fi = Math.max(0, Math.min(V.ft.length - 1, i)); var t = V.ft[V.fi], img = frameImage(V.fi);
+    tmp.width = V.fw; tmp.height = V.fh; tmp.getContext('2d').putImageData(img, 0, 0);
+    x.imageSmoothingEnabled = false; x.drawImage(tmp, 0, 0, cv.width, cv.height);
+    var c = V.c, r = V.rows[V.rowAt[t]] || rowAtTime(t), W = cv.width, H = cv.height;
+    if (r && r[c.found]) { x.lineWidth = 2; x.strokeStyle = '#2ecc71'; x.strokeRect((r[c.x] - r[c.w] / 2) * W, (r[c.y] - r[c.h] / 2) * H, r[c.w] * W, r[c.h] * H); }
+    var rr = MugTracker.detect(img, currentParams());
+    if (rr.found) { x.lineWidth = 2; x.strokeStyle = '#4aa3ff'; x.setLineDash([6, 4]); x.strokeRect((rr.x - rr.w / 2) * W - 3, (rr.y - rr.h / 2) * H - 3, rr.w * W + 6, rr.h * H + 6); x.setLineDash([]); }
+    var lab = V.labels[t]; if (lab) { x.strokeStyle = '#ff4dd2'; x.lineWidth = 2; if (lab.none) { x.strokeRect(4, 4, W - 8, H - 8); } else { x.beginPath(); x.arc(lab.x * W, lab.y * H, 9, 0, 6.3); x.moveTo(lab.x * W - 14, lab.y * H); x.lineTo(lab.x * W + 14, lab.y * H); x.moveTo(lab.x * W, lab.y * H - 14); x.lineTo(lab.x * W, lab.y * H + 14); x.stroke(); } }
+    $('exact-info').textContent = 'frame ' + (V.fi + 1) + ' of ' + V.ft.length + ' at ' + (t / 1000).toFixed(2) + ' s · kiosk: ' + (r && r[c.found] ? 'found, score ' + r[c.score].toFixed(2) : 'not found, best ' + (r ? r[c.score].toFixed(2) : '?')) + ' · re-run: ' + (rr.found ? 'found, score ' + rr.score.toFixed(2) : 'not found, best ' + rr.score.toFixed(2));
+    if (!quiet) { V.t = t; var vid = $('vid'); if (+V.row.has_video && V.vstart != null) vid.currentTime = Math.max(0, (t - V.vstart) / 1000); paintTimeline(); }
+  }
+  $('f-prev').addEventListener('click', function () { setFrame(V.fi - 1); }); $('f-next').addEventListener('click', function () { setFrame(V.fi + 1); });
+  $('f-lost').addEventListener('click', function () { var ev = V.events.filter(function (e) { return e.type === 'track-lost' && e.t > V.t + 50; })[0] || V.events.filter(function (e) { return e.type === 'track-lost'; })[0]; if (ev) seek(ev.t); });
+  $('exact').addEventListener('click', function (e) {
+    if (!V.frames || !V.ft.length) return; var r = e.target.getBoundingClientRect(), t = V.ft[V.fi];
+    if (e.altKey) delete V.labels[t]; else V.labels[t] = e.shiftKey ? { none: true } : { x: +((e.clientX - r.left) / r.width).toFixed(4), y: +((e.clientY - r.top) / r.height).toFixed(4) };
+    $('saved').textContent = 'unsaved labels'; setFrame(V.fi, true); paintTimeline();
+  });
+
+  // ---------- re-run with other settings ----------
+  var PKEYS = ['threshold', 'redMin', 'redDelta', 'redRatio', 'whiteMin', 'whiteSpread', 'whiteLo', 'whiteHi', 'aspectMin', 'aspectMax', 'minAreaFrac', 'maxAreaFrac', 'refAreaFrac', 'ringExpand', 'redRingPenalty'];
+  function buildParams(p) { $('params').innerHTML = PKEYS.map(function (k) { return '<label>' + k + '<input data-k="' + k + '" type="number" step="any" value="' + (p[k] != null ? +(+p[k]).toFixed(5) : '') + '"></label>'; }).join(''); }
+  $('params').addEventListener('input', function () { if (V) setFrame(V.fi, true); });
+  $('reset').addEventListener('click', function () { buildParams(V.meta.paramsEnd || V.meta.paramsStart || MugTracker.defaultParams); setFrame(V.fi, true); $('rerun-out').textContent = ''; });
+  $('rerun').addEventListener('click', function () {
+    if (!V.frames || !V.ft.length) { $('rerun-out').textContent = 'No exact frames stored for this round.'; return; }
+    var p = currentParams(), c = V.c, n = V.ft.length, kiosk = 0, mine = 0, agree = 0, lab = 0, kOk = 0, mOk = 0, kErr = 0, mErr = 0;
+    for (var i = 0; i < n; i++) {
+      var t = V.ft[i], r = V.rows[V.rowAt[t]] || rowAtTime(t), rr = MugTracker.detect(frameImage(i), p), kf = !!(r && r[c.found]);
+      // like the kiosk, each frame is judged with the previous frame's position as the hint
+      p.prevX = rr.found ? rr.x : -1; p.prevY = rr.found ? rr.y : -1;
+      kiosk += kf ? 1 : 0; mine += rr.found ? 1 : 0; agree += kf === rr.found ? 1 : 0;
+      var L = V.labels[t]; if (L) { lab++;
+        var kHit = L.none ? !kf : (kf && Math.abs(r[c.x] - L.x) < 0.06 && Math.abs(r[c.y] - L.y) < 0.1), mHit = L.none ? !rr.found : (rr.found && Math.abs(rr.x - L.x) < 0.06 && Math.abs(rr.y - L.y) < 0.1);
+        kOk += kHit ? 1 : 0; mOk += mHit ? 1 : 0; if (!L.none && kf) kErr += Math.abs(r[c.x] - L.x); if (!L.none && rr.found) mErr += Math.abs(rr.x - L.x); }
+    }
+    $('rerun-out').innerHTML = '<div class="kv"><span>Frames checked</span><span>' + n + '</span><span>Kiosk found the mug</span><span>' + kiosk + ' (' + pct(kiosk / n) + ')</span><span>Re-run found the mug</span><span>' + mine + ' (' + pct(mine / n) + ')</span><span>Same answer</span><span>' + pct(agree / n) + '</span>' +
+      (lab ? '<span>Against your ' + lab + ' label(s)</span><span>kiosk right ' + kOk + ', re-run right ' + mOk + '</span>' : '<span>Labels</span><span class="dim">none yet. "Found" is not the same as "right": label some frames to measure accuracy.</span>') + '</div>';
+    setFrame(V.fi, true);
+  });
+  $('save').addEventListener('click', function () {
+    Promise.all([api('a=note&id=' + V.id, { keep: $('keep').checked, notes: $('notes').value }), api('a=labels&id=' + V.id, { labels: V.labels })])
+      .then(function () { $('saved').textContent = 'saved ' + new Date().toLocaleTimeString(); }, function (e) { $('saved').textContent = 'not saved: ' + e.message; });
+  });
+  window.addEventListener('resize', function () { if (V) { paintTimeline(); paintScores(); } });
+
+  function route() { var id = new URLSearchParams(location.search).get('id'); if (id) openSession(id); else { stopView(); loadList(); } }
+  route();
+})();
+</script>
+</body>
+</html>

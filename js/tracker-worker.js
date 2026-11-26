@@ -22,7 +22,7 @@ self.onmessage = function (ev) {
     var r = detect(view, m.params || MugTracker.defaultParams);
     self.postMessage({
       type: 'result', ts: m.ts, width: m.width, height: m.height, buffer: m.buffer,
-      result: { found: r.found, x: r.x, y: r.y, w: r.w, h: r.h, score: r.score, redArea: r.redArea, whiteRatio: r.whiteRatio, candidates: r.candidates }
+      result: { found: r.found, x: r.x, y: r.y, w: r.w, h: r.h, score: r.score, redArea: r.redArea, whiteRatio: r.whiteRatio, candidates: r.candidates, sub: r.sub }
     }, [m.buffer]);
   } catch (e) {
     self.postMessage({ type: 'error', message: String(e && e.message || e) });

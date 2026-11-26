@@ -84,8 +84,6 @@
   .btn-cream:focus-visible { outline: 3px solid #fff; outline-offset: 6px; border-radius: 999px; }
 
   /* Code reveal */
-  #code-view { display: none; }
-  #code-view .heading { top: 520px; }
   .ok-name { position: absolute; left: 0; right: 0; top: 640px; text-align: center; color: #fff; font-weight: 700; font-size: 54px; margin: 0; }
   .ok-sub { position: absolute; left: 0; right: 0; top: 760px; text-align: center; color: #ffe1a8; font-weight: 700; font-size: 38px; margin: 0; text-transform: uppercase; letter-spacing: .12em; }
   .code-box { position: absolute; left: 0; right: 0; top: 830px; justify-content: center; margin: 0; }
@@ -149,15 +147,6 @@
       <button class="btn-cream fade-in" id="submit" type="submit" style="animation-delay:.3s">Register</button>
     </form>
 
-    <section class="pane" id="code-view">
-      <h1 class="heading">You're in</h1>
-      <p class="ok-name" id="ok-name">Thank you</p>
-      <p class="ok-sub">Your play code</p>
-      <div class="code-box" id="code"></div>
-      <p class="ok-note">Keep this code. Enter it on the kiosk to start your break. It stays valid for the next 30 minutes.</p>
-      <button class="btn-cream" id="play" type="button">Play now</button>
-      <p class="again" id="again">Register another player</p>
-    </section>
 
     <div class="kbd" id="kbd" aria-label="On-screen keyboard"></div>
   </main>
@@ -231,13 +220,8 @@
       sessionStorage.setItem('kk_current', JSON.stringify(player));
     } catch (_) {}
 
-    document.getElementById('ok-name').textContent = n.split(' ')[0] + ', you\'re ready!';
-    const box = document.getElementById('code'); box.innerHTML = '';
-    const add = (c, cls) => { const s = document.createElement('span'); if (cls) s.className = cls; s.textContent = c; box.appendChild(s); };
-    ['B', 'R', 'K'].forEach(c => add(c)); add('–', 'dash'); code.split('').forEach(c => add(c));
-
-    form.style.display = 'none';
-    document.getElementById('code-view').style.display = 'block';
+    document.body.style.transition = 'opacity .4s'; document.body.style.opacity = '0';
+    setTimeout(() => { location.href = 'game.html'; }, 380);
   });
 
   document.getElementById('home').addEventListener('click', () => { location.href = 'index.html'; });
@@ -245,8 +229,6 @@
   // Idle: return to the cover after 2 minutes without a touch.
   let idle; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { location.href = 'index.html'; }, 120000); };
   ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm();
-  document.getElementById('again').addEventListener('click', () => location.reload());
-  document.getElementById('play').addEventListener('click', () => { location.href = 'game.html'; });
 })();
 </script>
 </body>

@@ -25,20 +25,18 @@ function serve() { return new Promise(res => { const srv = http.createServer((re
   await page.click('#mobile'); await page.waitForTimeout(300); await shot(3, 'register-keyboard');
   for (const k of ['0', '7', '7', '1', '2', '3', '4', '5', '6', '7', 'done']) await page.click(`.key[data-k="${k}"]`);
   await page.click('#consent'); await page.waitForTimeout(300); await shot(4, 'register-filled');
-  await page.click('#submit', { force: true }); await page.waitForTimeout(900); await shot(5, 'play-code');
 
-  await page.goto(base + 'game.html?duration=6&camera=1', { waitUntil: 'networkidle' }); await page.waitForTimeout(1500); await shot(6, 'camera-check');
-  await page.click('#cam-ok', { force: true }); await page.waitForTimeout(1200); await shot(7, 'show-your-mug');
-  await page.waitForFunction(() => window.__kk.phase === 'countdown', null, { timeout: 20000 }); await page.waitForTimeout(300); await shot(8, 'countdown');
-  await page.waitForFunction(() => window.__kk.phase === 'playing', null, { timeout: 10000 }); await page.waitForTimeout(2500); await shot(9, 'gameplay');
-  await page.evaluate(() => window.__kk.show('lost')); await page.waitForTimeout(200); await shot(10, 'show-the-mug-paused'); await page.evaluate(() => window.__kk.show(null));
+  await page.goto(base + 'game.html?duration=6', { waitUntil: 'networkidle' }); await page.waitForTimeout(1500); await shot(5, 'show-your-mug');
+  await page.waitForFunction(() => window.__kk.phase === 'countdown', null, { timeout: 20000 }); await page.waitForTimeout(300); await shot(6, 'countdown');
+  await page.waitForFunction(() => window.__kk.phase === 'playing', null, { timeout: 10000 }); await page.waitForTimeout(2500); await shot(7, 'gameplay');
+  await page.evaluate(() => window.__kk.show('lost')); await page.waitForTimeout(200); await shot(8, 'show-the-mug-paused'); await page.evaluate(() => window.__kk.show(null));
   await page.waitForFunction(() => window.__kk.phase === 'ended', null, { timeout: 20000 }); await page.waitForTimeout(2800);
   await page.evaluate(() => { const pz = window.__kk.awardPrize({ score: 30 }); document.getElementById('end-score').textContent = '30'; document.getElementById('end-title').textContent = 'Legend!'; document.getElementById('prize').classList.remove('none'); document.getElementById('prize-name').textContent = 'You won a KitKat T-shirt!'; document.getElementById('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; document.getElementById('prize-code').style.display = ''; document.getElementById('prize-code').textContent = pz.code || 'TEE-7K2Q'; document.getElementById('prize-ic').innerHTML = document.getElementById('prize-ic').innerHTML; });
-  await shot(11, 'results-prize');
+  await shot(9, 'results-prize');
   // results with no prize: force a zero score view
   await page.evaluate(() => { document.getElementById('end-score').textContent = '4'; document.getElementById('prize').classList.add('none'); document.getElementById('prize-name').textContent = 'So Close!'; document.getElementById('prize-msg').textContent = 'Score 12 for a cap, 25 for a T-shirt.'; document.getElementById('prize-code').style.display = 'none'; document.getElementById('end-title').textContent = "Time's Up!"; });
-  await shot(12, 'results-no-prize');
-  await page.keyboard.press('c'); await page.waitForTimeout(800); await shot(13, 'staff-setup-panel');
+  await shot(10, 'results-no-prize');
+  await page.keyboard.press('c'); await page.waitForTimeout(800); await shot(11, 'staff-setup-panel');
 
   // contact sheet
   const cols = 5, cw = 432, ch = 768, pad = 40, label = 70;

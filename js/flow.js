@@ -50,8 +50,8 @@
   };
 
   // ---------- overlays & toast ----------
-  const ov = { cam: $('ov-cam'), cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
-  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cam' || name === 'cal'); }
+  const ov = { cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
+  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal'); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 
@@ -136,27 +136,15 @@
     $('pip-dot').classList.toggle('on', s.found); $('pip-txt').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
   }
 
-  // ---------- camera selection (first screen) ----------
-  const camCv = $('cam-cv'), camCtx = camCv.getContext('2d'); let camRaf = 0;
+  // ---------- camera picker (lives on the Show Your Mug screen) ----------
   async function fillCameraList(selectEl) {
     let cams = []; try { cams = await MugTracker.listCameras(); } catch (_) {}
     selectEl.innerHTML = cams.length ? cams.map((c, i) => `<option value="${c.deviceId}" ${c.deviceId === settings.deviceId ? 'selected' : ''}>${c.label || ('Camera ' + (i + 1))}</option>`).join('') : '<option value="">No camera found</option>';
     return cams;
   }
-  async function beginCameraSelect() {
-    phase = 'camera'; show('cam');
-    const loop = () => { if (phase !== 'camera') return; if (tracker) drawPrivacy(camCtx, camCv.width, camCv.height, trackState); camRaf = requestAnimationFrame(loop); };
-    loop();
-    await fillCameraList($('cam-sel'));
-  }
   $('cam-sel').addEventListener('change', async () => {
     settings.deviceId = $('cam-sel').value; save(LS.settings, settings); $('cam-err').textContent = '';
-    try { tracker.stop(); await tracker.start({ deviceId: settings.deviceId || undefined }); } catch (e) { $('cam-err').textContent = cameraError(e); }
-  });
-  $('cam-ok').addEventListener('click', () => {
-    if (!tracker || !tracker.getOptions().running) { $('cam-err').textContent = 'No camera is running. Choose another camera.'; return; }
-    settings.cameraConfirmed = true; settings.deviceId = $('cam-sel').value || settings.deviceId; save(LS.settings, settings);
-    cancelAnimationFrame(camRaf); beginCalibration();
+    try { tracker.stop(); await tracker.start({ deviceId: settings.deviceId || undefined }); calStable = 0; } catch (e) { $('cam-err').textContent = cameraError(e); }
   });
   function cameraError(e) { return e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'That camera is in use by another app.' : 'Could not start that camera.'; }
 
@@ -164,6 +152,7 @@
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
   let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 };
   function calTick(s) {
+    if (phase !== 'calibrating') return;
     drawPrivacy(calCtx, calCv.width, calCv.height, s);
     $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
@@ -321,13 +310,11 @@
     KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     await loadSprites();
-    const pickCamera = !settings.cameraConfirmed || qs.get('camera') === '1';
-    if (pickCamera) beginCameraSelect(); else beginCalibration();
-    try { await startTracker(); if (pickCamera) await fillCameraList($('cam-sel')); }
+    beginCalibration();
+    try { await startTracker(); await fillCameraList($('cam-sel')); }
     catch (e) {
       const msg = e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'The camera is in use by another app.' : 'No camera found. Connect the webcam and reload.';
-      if (pickCamera) { $('cam-err').textContent = msg; try { await fillCameraList($('cam-sel')); } catch (_) {} }
-      else { $('cal-msg').textContent = msg; $('cal-skip').style.display = 'block'; }
+      $('cam-err').textContent = msg; $('cal-skip').style.display = 'block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
   window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock };

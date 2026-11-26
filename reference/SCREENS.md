@@ -9,15 +9,13 @@ Numbers match `tests/e2e/screens/all-screens.png`. For each screen, the list say
 | 2 | Register (empty) | `register.html` | Background · decoration layer (wafer top right, cup bottom right, wave) · logo · "DUNK THE Break" title · REGISTER button artwork (blank pill, text drawn by code) | Labels, input boxes, consent text, validation messages |
 | 3 | Register with keyboard | `register.html` | Same as 2 | On-screen keyboard (styled in CSS, colours can be changed) |
 | 4 | Register (filled) | `register.html` | Same as 2 | Filled state: red text, warmer box, green tick on the label |
-| 5 | Play code | `register.html` | Same as 2 · PLAY NOW uses the blank pill | Player first name, code letters |
-| 6 | Camera check | `game.html` | Background · header logo + title · CONTINUE uses the blank pill | Live camera preview, camera dropdown |
-| 7 | Show your mug | `game.html` | Same background · guide box and ring are CSS | Live camera, MUG DETECTED pill, left–right position bar, progress ring |
-| 8 | Countdown | `game.html` | HUD pill (CSS, can become artwork) · wave strip | 3-2-1-GO numerals |
-| 9 | Gameplay | `game.html` | **Game sprites:** white mug · wafer finger · alarm clock · DEADLINE calendar · chocolate wave strip · single-line "DUNK THE Break" header with sparkle lines | Score, timer, live rank, falling items, splash, "+1 / 3 IN A ROW" popups, position slider |
-| 10 | Show the mug (paused) | `game.html` | Same as 9 | Appears when the mug leaves the camera for 2 s |
-| 11 | Results with prize | `game.html` | Prize icons (cap, T-shirt) · PLAY AGAIN uses the blank pill | Score count-up, rank today, wafers, best streak, prize name and claim code |
-| 12 | Results without prize | `game.html` | Same as 11 | "So Close!" message with the thresholds |
-| 13 | Staff setup panel | `game.html` | Not player-facing; no artwork needed | Camera, mirror, sensitivity, calibration, mug sample capture, rewards stock and thresholds, CSV export |
+| 5 | Show your mug | `game.html` | Background · wafer · header logo + title · chocolate wave | Privacy camera view with the mug shown sharp, MUG DETECTED pill, left–right position bar, progress ring, camera dropdown. Game starts automatically once the mug is held steady |
+| 6 | Countdown | `game.html` | HUD pill (CSS, can become artwork) · wave strip | 3-2-1-GO numerals |
+| 7 | Gameplay | `game.html` | **Game sprites:** white mug · wafer finger · alarm clock · DEADLINE calendar · chocolate wave strip · single-line "DUNK THE Break" header with sparkle lines | Score, timer, live rank, falling items, splash, "+1 / 3 IN A ROW" popups, position slider |
+| 8 | Show the mug (paused) | `game.html` | Same as 7 | Appears when the mug leaves the camera for 2 s |
+| 9 | Results with prize | `game.html` | Prize icons (cap, T-shirt) · PLAY AGAIN uses the blank pill | Score count-up, rank today, wafers, best streak, prize name and claim code |
+| 10 | Results without prize | `game.html` | Same as 9 | "So Close!" message with the thresholds |
+| 11 | Staff setup panel | `game.html` | Not player-facing; no artwork needed | Camera, mirror, sensitivity, calibration, mug sample capture, rewards stock and thresholds, CSV export |
 
 ## Rewards logic (adjustable in the setup panel)
 

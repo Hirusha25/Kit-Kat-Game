@@ -37,8 +37,9 @@
   }
 
   async function sync() {
+    var p = pending();   // always runs: it also copies today's prize codes into the log, online or not
     if (busy || !key() || !navigator.onLine) return;
-    var p = pending(); if (!p.players.length && !p.scores.length && !p.prizes.length) { state.waiting = 0; return; }
+    if (!p.players.length && !p.scores.length && !p.prizes.length) { state.waiting = 0; return; }
     busy = true;
     try {
       // small batches keep each request short on a weak venue connection

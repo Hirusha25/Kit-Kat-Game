@@ -220,21 +220,21 @@
     // ground shadow
     ctx.save(); ctx.shadowColor = 'rgba(60,0,0,.55)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 26; ctx.shadowOffsetX = -8; ctx.fillStyle = 'rgba(120,50,0,1)'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
     // bright lip along the far edge of the extrusion
-    for (let i = depth + 2; i > depth; i--) { ctx.fillStyle = i === depth + 2 ? '#b07a26' : '#f1cf7e'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
+    for (let i = depth + 2; i > depth; i--) { ctx.fillStyle = i === depth + 2 ? '#d57702' : '#ffeabb'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
     // extrusion side: amber, lighter near the face
     for (let i = depth; i >= 1; i--) {
       const t = i / depth;
-      const r = Math.round(0xd6 - (0xd6 - 0x7e) * t), g = Math.round(0x92 - (0x92 - 0x3a) * t), b = Math.round(0x1e - (0x1e - 0x00) * t);
+      const r = Math.round(0xe8 - (0xe8 - 0xb0) * t), g = Math.round(0x94 - (0x94 - 0x53) * t), b = Math.round(0x25 - (0x25 - 0x00) * t);
       ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillText(text, cx + dx * i, baseY + dy * i);
     }
     // face
     const g1 = ctx.createLinearGradient(0, top, 0, bot);
-    g1.addColorStop(0, '#fff3d2'); g1.addColorStop(.22, '#fbe1a4'); g1.addColorStop(.48, '#f3c866'); g1.addColorStop(.74, '#e8ad3a'); g1.addColorStop(1, '#d9951f');
+    g1.addColorStop(0, '#fff8f1'); g1.addColorStop(.1, '#fef4ce'); g1.addColorStop(.2, '#fdedb9'); g1.addColorStop(.3, '#fde7a5'); g1.addColorStop(.4, '#fddf91'); g1.addColorStop(.5, '#fdd87b'); g1.addColorStop(.6, '#fdd267'); g1.addColorStop(.72, '#fdca53'); g1.addColorStop(.86, '#fde567'); g1.addColorStop(1, '#ffe6b3');
     ctx.fillStyle = g1; ctx.fillText(text, cx, baseY);
     // soft highlight band on the upper third, darker warm band near the bottom of the face
     ctx.save(); ctx.globalCompositeOperation = 'source-atop';
     const g2 = ctx.createLinearGradient(0, top, 0, bot);
-    g2.addColorStop(0, 'rgba(255,255,255,.38)'); g2.addColorStop(.26, 'rgba(255,255,255,.08)'); g2.addColorStop(.34, 'rgba(255,255,255,0)'); g2.addColorStop(1, 'rgba(255,255,255,0)');
+    g2.addColorStop(0, 'rgba(255,255,255,.18)'); g2.addColorStop(.2, 'rgba(255,255,255,0)'); g2.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g2; ctx.fillText(text, cx, baseY); ctx.restore();
     // hairline light edge on the face
     ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,248,220,.8)'; ctx.strokeText(text, cx, baseY); ctx.restore();

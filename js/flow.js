@@ -64,13 +64,10 @@
   // ---------- HUD ----------
   const hud = { time: $('hud-time'), score: $('hud-score'), rank: $('hud-rank'), el: $('hud') };
   const last = { time: '', score: '', rank: '' };
-  const ring = document.getElementById('hud-ring'); const RING_C = 553;
-  function setRing(frac) { if (ring) ring.style.strokeDashoffset = String(RING_C * (1 - Math.max(0, Math.min(1, frac)))); }
   function setText(key, v) {
     if (last[key] === v) return;
     last[key] = v; hud[key].textContent = v;
     if (key !== 'time') { hud[key].classList.remove('bump'); void hud[key].offsetWidth; hud[key].classList.add('bump'); }
-    if (key === 'time' && v === fmtTime(DURATION)) setRing(1);
   }
   function countUp(el, to, ms) {
     const t0 = performance.now(); const from = 0;
@@ -252,19 +249,7 @@
     });
     ctx.restore();
   }
-  // Gold artwork digits (assets/img/game/digits/0-9.png); falls back to the canvas renderer if any fail to load.
-  const DIGITS = []; let digitsReady = false;
-  (function loadDigits() { let n = 0, ok = true; for (let i = 0; i < 10; i++) { const im = new Image(); im.onload = () => { if (++n === 10) digitsReady = ok; }; im.onerror = () => { ok = false; if (++n === 10) digitsReady = false; }; im.src = `assets/img/game/digits/${i}.png`; DIGITS[i] = im; } })();
-  function drawDigits(cv, text) {
-    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800;
-    ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 360);
-    const dh = 330, scale = dh / 400, dw = 300 * scale, overlap = 0.26; // digits are 300x400 with transparent side padding
-    const total = dw * (1 - overlap) * (text.length - 1) + dw; let x = (800 - total) / 2, y = (360 - dh) / 2 + 6;
-    ctx.save(); ctx.shadowColor = 'rgba(40,0,0,.45)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 22;
-    for (const ch of text) { const im = DIGITS[+ch]; if (im) ctx.drawImage(im, x, y, dw, dh); x += dw * (1 - overlap); }
-    ctx.restore();
-  }
-  function setScoreNumber(v) { const cv = $('end-score-cv'); const t = String(v); if (cv) { if (digitsReady && /^\d+$/.test(t)) drawDigits(cv, t); else drawGold3D(cv, t); } $('end-score').textContent = t; }
+  function setScoreNumber(v) { const cv = $('end-score-cv'); if (cv) drawGold3D(cv, String(v)); $('end-score').textContent = String(v); }
 
   // ---------- game ----------
   let game = null, sprites = null, phase = 'boot', endResult = null, endAmbient = null;
@@ -283,7 +268,7 @@
     game = DunkGame.create({
       canvas: gameCanvas, sprites, duration: DURATION,
       onTick: st => {
-        setText('time', fmtTime(st.timeLeft)); setRing(st.timeLeft / DURATION);
+        setText('time', fmtTime(st.timeLeft));
         setText('score', String(st.score).padStart(2, '0'));
         setText('rank', '#' + liveRank(st.score));
       },

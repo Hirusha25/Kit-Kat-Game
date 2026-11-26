@@ -77,7 +77,7 @@
   let tracker = null, trackState = { found: false, x: 0.5 };
   let lastFoundAt = 0;
   async function startTracker() {
-    tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true });
+    tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261126e' });
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
@@ -158,7 +158,7 @@
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
-    calStable = s.found ? Math.min(1, calStable + 1 / 40) : Math.max(0, calStable - 1 / 30);
+    calStable = s.found && (s.confidence || 1) >= 0.5 ? Math.min(1, calStable + 1 / 60) : Math.max(0, calStable - 1 / 20); // ~2 s of steady detection
     if (s.found) calSpot = { x: s.x, y: s.y };
     $('cal-ring').style.setProperty('--p', Math.round(calStable * 100) + '%');
     if (calStable >= 1 && !calDone) { calDone = true; finishCalibration(); }
@@ -166,9 +166,13 @@
   async function finishCalibration() {
     $('cal-msg').textContent = 'Hold still…';
     const roi = { x: Math.max(0, calSpot.x - 0.2), y: Math.max(0, calSpot.y - 0.3), w: 0.4, h: 0.6 };
-    try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) {}
+    try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) { calibrated = false; }
+    if (!calibrated || !trackState.found) {
+      // Not a real lock (a red-and-white object passed by, or the mug moved away): stay on this screen.
+      $('cal-msg').textContent = 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
+    }
     KKAudio.detected();
-    $('cal-msg').textContent = calibrated ? 'Locked on. Get ready!' : 'Ready!';
+    $('cal-msg').textContent = 'Locked on. Get ready!';
     setTimeout(startCountdown, 700);
   }
   function beginCalibration() {

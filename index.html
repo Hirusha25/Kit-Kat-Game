@@ -17,6 +17,9 @@
      so every full-frame layer is placed at 100% x 100% with no resampling beyond the 0.96 stage fit. */
   .layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .scene { animation: sway 6s ease-in-out infinite; transform-origin: 60% 80%; will-change: transform; }
+  .scene-video { object-fit: fill; opacity: 0; transition: opacity .8s ease; }
+  .scene-video.on { opacity: 1; }
+  #scene-still.off { opacity: 0; transition: opacity .8s ease; }
   .title { animation: breathe 5s ease-in-out infinite; transform-origin: 36% 30%; will-change: transform; }
   @keyframes breathe { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.025) rotate(-.6deg); } }
   #amb-back, #amb-front { position: absolute; inset: 0; }
@@ -56,7 +59,10 @@
     <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp" alt="KitKat Chocolate Drink">
     <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-tagline.webp" alt="Dunk the Break. Ready for a chocolate break?">
     <div id="amb-back" class="layer"></div>
-    <img class="layer scene enter" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp" alt="">
+    <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp" alt="">
+    <video class="layer scene-video" id="scene-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-mug-poster.webp">
+      <source src="assets/video/cover-mug-loop.webm" type="video/webm">
+    </video>
     <div id="amb-front" class="layer"></div>
     <button class="start enter" id="start" type="button" aria-label="Start" style="animation-delay:.4s"></button>
   </main>
@@ -68,7 +74,18 @@
   // .enter plays once, then the continuous float/sway take over.
   document.querySelectorAll('.enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }));
   // Ambient: slow wafers drifting behind the mug, steam from the cup, gold sparkles in front.
-  KKAmbient.create({ stage: document.getElementById('amb-front'), steam: { x: 700, y: 1010, w: 260, count: 10 }, sparkles: 9, sparkleArea: { x0: 60, x1: 1020, y0: 80, y1: 1150 } });
+  KKAmbient.create({ stage: document.getElementById('amb-front'), sparkles: 9, sparkleArea: { x0: 60, x1: 1020, y0: 80, y1: 1150 } });
+  // Animated mug: transparent WebM over the still artwork; the still stays as the fallback/poster.
+  (function () {
+    const v = document.getElementById('scene-video'), still = document.getElementById('scene-still');
+    if (!v || !v.canPlayType || !v.canPlayType('video/webm; codecs="vp9"')) { v && v.remove(); return; }
+    let shown = false;
+    const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); };
+    v.addEventListener('playing', show); v.addEventListener('timeupdate', () => { if (v.currentTime > 0.2) show(); });
+    v.addEventListener('error', () => { v.remove(); still.classList.remove('off'); });
+    const tryPlay = () => v.play().catch(() => {});
+    tryPlay(); document.addEventListener('pointerdown', tryPlay, { once: true }); document.addEventListener('visibilitychange', () => { if (!document.hidden) tryPlay(); });
+  })();
   document.getElementById('start').addEventListener('click', () => {
     document.body.style.transition = 'opacity .4s';
     document.body.style.opacity = '0';

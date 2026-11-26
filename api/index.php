@@ -87,7 +87,7 @@ case 'send':
         // Not sent: remove the row so the failed attempt does not count against the player's limits.
         $db->prepare('DELETE FROM otp_codes WHERE id = ?')->execute([$id]);
         error_log('otp send failed: http ' . $status . ' ' . json_encode($res['error'] ?? null));
-        fail(502, 'send_failed');
+        fail(500, 'send_failed'); // not 502: Cloudflare replaces a 502 body with its own error page
     }
     $db->prepare('UPDATE otp_codes SET wa_message_id = ? WHERE id = ?')->execute([substr($waId, 0, 128), $id]);
     out(200, ['ok' => true, 'expires' => $ttl]);

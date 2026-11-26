@@ -147,6 +147,27 @@
   .legal { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font: 400 17px/1 var(--font-body); color: rgba(255,255,255,.7); z-index: 2; }
   .toast { position: absolute; left: 50%; top: 520px; transform: translateX(-50%); z-index: 8; padding: 18px 36px; border-radius: 999px; background: rgba(255,250,235,.96); color: #3a1a06; font: 700 30px/1 var(--font-body); box-shadow: 0 12px 30px rgba(0,0,0,.4); display: none; }
   .toast.show { display: block; animation: fadeIn .3s ease both; }
+
+  /* gold borderlines */
+  .status-row, .cam-pick, .stats div, .prize, .toast { border: 3px solid transparent; box-shadow: var(--gold-glow), 0 12px 30px rgba(0,0,0,.4); }
+  .status-row { background: linear-gradient(rgba(255,250,235,.96), rgba(255,250,235,.96)) padding-box, var(--gold-line) border-box; }
+  .cam-pick { background: linear-gradient(rgba(255,250,235,.96), rgba(255,250,235,.96)) padding-box, var(--gold-line) border-box; }
+  .cam-pick select { border: 2px solid transparent; background: linear-gradient(#fff, #fff) padding-box, var(--gold-line) border-box; }
+  .stats div { background: linear-gradient(rgba(255,250,235,.95), rgba(255,250,235,.95)) padding-box, var(--gold-line) border-box; }
+  .prize { background: linear-gradient(180deg, #fff6dc, #f3d98f) padding-box, var(--gold-line) border-box; }
+  .prize.none { background: linear-gradient(rgba(255,250,235,.92), rgba(255,250,235,.92)) padding-box, var(--gold-line) border-box; }
+  .prize .ic { box-shadow: inset 0 0 0 2px rgba(255,236,190,.7); }
+  .toast { background: linear-gradient(rgba(255,250,235,.96), rgba(255,250,235,.96)) padding-box, var(--gold-line) border-box; }
+  .cam-card { border: 5px solid transparent; background: linear-gradient(#2a0206, #2a0206) padding-box, var(--gold-line) border-box; }
+  .pip { border: 3px solid transparent; background: linear-gradient(#2a0206, #2a0206) padding-box, var(--gold-line) border-box; }
+  .setup { border: 3px solid transparent; background: linear-gradient(rgba(20,0,2,.94), rgba(20,0,2,.94)) padding-box, var(--gold-line) border-box; }
+  .setup select, .setup input[type=range], .setup input[type=number] { border: 2px solid transparent; background: linear-gradient(#2a0206, #2a0206) padding-box, var(--gold-line) border-box; }
+  .setup button.ghost { border: 2px solid transparent; background: linear-gradient(transparent, transparent) padding-box, var(--gold-line) border-box; color: #ffe9a8; }
+  .setup canvas { border: 2px solid transparent; background: linear-gradient(#000, #000) padding-box, var(--gold-line) border-box; }
+  .small-link { color: #ffe9a8; text-decoration-color: #d8a640; }
+  .status-row .sep { background: linear-gradient(180deg, transparent, #d8a640, transparent); }
+  .status-row .bar { background: linear-gradient(90deg, #e7c175, #d8a640); }
+  .count, .score-big { -webkit-text-stroke: 1px rgba(216,166,64,.35); }
 </style>
 </head>
 <body class="no-sparks">

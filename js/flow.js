@@ -103,18 +103,27 @@
     ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.filter = 'blur(6px) saturate(.4) brightness(.55)';
     ctx.drawImage(tiny, -8, -8, w + 16, h + 16); ctx.restore();
     ctx.fillStyle = 'rgba(120,10,20,.45)'; ctx.fillRect(0, 0, w, h);
-    // 2) sharp crop of the mug only, in place, with a green frame
+    // 2) sharp crop of the mug (and the hand holding it), in place, with a green frame
+    if (!(s && s.found && s.w > 0)) {
+      // hint: dashed mug outline in the centre
+      ctx.save(); ctx.translate(w / 2, h / 2); ctx.strokeStyle = 'rgba(255,236,190,.85)'; ctx.lineWidth = 4; ctx.setLineDash([14, 12]);
+      roundRect(ctx, -70, -80, 140, 170, 16); ctx.stroke(); ctx.beginPath(); ctx.arc(95, 10, 40, -1.2, 1.2); ctx.stroke(); ctx.restore();
+    }
     if (s && s.found && s.w > 0) {
       let fx = s.frameX != null ? s.frameX : (settings.mirror ? 1 - s.rawX : s.rawX), fy = s.frameY != null ? s.frameY : s.rawY;
-      const ex = 1.6, ey = 2.4; // logo box -> whole mug
+      const ex = 3.4, ey = 3.6; // logo box -> whole mug plus the hand holding it
       let cw = Math.min(1, s.w * ex), chh = Math.min(1, s.h * ey);
-      let cx = Math.min(1 - cw, Math.max(0, fx - cw / 2)), cy = Math.min(1 - chh, Math.max(0, fy - chh * 0.42));
+      let cx = Math.min(1 - cw, Math.max(0, fx - cw / 2)), cy = Math.min(1 - chh, Math.max(0, fy - chh * 0.45));
       const sx = cx * vw, sy = cy * vh, sw = cw * vw, sh = chh * vh;
       let dx = (settings.mirror ? 1 - cx - cw : cx) * w, dy = cy * h, dw = cw * w, dh = chh * h;
       ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.clip();
       ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh); // not flipped: the logo should read the right way round
       ctx.restore();
-      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.lineWidth = 5; ctx.strokeStyle = '#27d35b'; ctx.shadowColor = 'rgba(39,211,91,.8)'; ctx.shadowBlur = 16; ctx.stroke(); ctx.restore();
+      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.lineWidth = 4; ctx.strokeStyle = '#27d35b'; ctx.shadowColor = 'rgba(39,211,91,.8)'; ctx.shadowBlur = 16; ctx.stroke();
+      // corner brackets
+      const L = Math.min(dw, dh) * 0.22; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.beginPath();
+      [[dx, dy, 1, 1], [dx + dw, dy, -1, 1], [dx, dy + dh, 1, -1], [dx + dw, dy + dh, -1, -1]].forEach(([x, y, sx2, sy2]) => { ctx.moveTo(x + sx2 * L, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy2 * L); });
+      ctx.stroke(); ctx.restore();
     }
   }
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }

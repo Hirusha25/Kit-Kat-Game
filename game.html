@@ -166,10 +166,8 @@
   .res .res-h { position: absolute; left: 0; right: 0; top: 306px; margin: 0; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; text-transform: uppercase; letter-spacing: 0;
     background: linear-gradient(180deg, #fff8e4 0%, #fbe5a8 50%, #f1c866 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 5px 0 #b8862a) drop-shadow(0 12px 20px rgba(60,0,0,.45)); }
   .res .res-sub { position: absolute; left: 0; right: 0; top: 430px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
-  .res .res-score { position: absolute; left: 0; right: 0; top: 452px; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: italic; font-size: 345px; line-height: 1; letter-spacing: -.02em; }
-  .res .res-score .face { position: relative; z-index: 3; background: linear-gradient(180deg, #fffef8 0%, #fff4cc 18%, #ffe494 42%, #f9cb48 66%, #ecb02e 88%, #dd9c1e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-  .res .res-score .bev { position: absolute; left: 0; right: 0; top: 0; z-index: 2; color: #e39a22; text-shadow: 0 1px 0 #df9720, 0 2px 0 #dc941f, 0 3px 0 #d8911e, 0 4px 0 #d58e1c, 0 5px 0 #d18b1b, 0 6px 0 #ce881a, 0 7px 0 #cb8519, 0 8px 0 #c78217, 0 9px 0 #c47f16, 0 10px 0 #c07c15, 0 11px 0 #bd7914, 0 12px 0 #b97612, 0 13px 0 #b67311, 0 14px 0 #b37010, 0 15px 0 #af6d0e, 0 16px 0 #ac6a0d, 0 17px 0 #a8670c, 0 18px 0 #a5640b, 0 19px 0 #a16109, 0 20px 0 #9e5e08, 0 21px 0 #9b5b07, 0 22px 0 #975806, 0 23px 0 #945504, 0 24px 0 #905203, 0 25px 0 #8d4f02, 0 26px 0 #8a4c01; }
-  .res .res-score .lip { position: absolute; left: 0; right: 0; top: 0; z-index: 1; color: #fff6cf; transform: translateY(29px); text-shadow: 0 1px 0 #fff6cf, 0 2px 0 #f7e2a6, 0 3px 0 #e9c46a, 0 22px 30px rgba(40,0,0,.6), 0 0 40px rgba(255,200,90,.35); }
+  .res .res-score { position: absolute; left: 0; right: 0; top: 440px; height: 350px; text-align: center; }
+  .res .res-score canvas { width: 800px; height: 350px; display: inline-block; }
   .res .res-final { position: absolute; left: 0; right: 0; top: 797px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
   .res .res-final i { width: 96px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
   .res .res-stats { position: absolute; left: 112px; top: 854px; display: flex; gap: 13px; }
@@ -292,7 +290,7 @@
       <img class="pre-title" src="assets/img/register/title-dunk.webp" alt="Dunk the Break">
       <h1 class="res-h" id="end-title">Legend!</h1>
       <p class="res-sub" id="end-name">What a break!</p>
-      <div class="res-score"><span class="bev" id="end-score-bev">0</span><span class="lip" id="end-score-lip">0</span><span class="face" id="end-score">0</span></div>
+      <div class="res-score"><canvas id="end-score-cv" width="1600" height="700"></canvas><span id="end-score" hidden>0</span></div>
       <p class="res-final"><i></i>Final Score<i></i></p>
       <div class="res-stats"><div><b id="end-rank">#1</b><span>Rank Today</span></div><div><b id="end-caught">0</b><span>Wafers</span></div><div><b id="end-streak">0</b><span>Best Streak</span></div></div>
       <div class="res-prize" id="prize">

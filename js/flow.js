@@ -65,7 +65,7 @@
   }
   function countUp(el, to, ms) {
     const t0 = performance.now(); const from = 0;
-    const bev = $('end-score-bev'), lip = $('end-score-lip'); const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); const v = String(Math.round(from + (to - from) * e)); el.textContent = v; if (bev) bev.textContent = v; if (lip) lip.textContent = v; if (k < 1) requestAnimationFrame(step); };
+    const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); setScoreNumber(Math.round(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
   function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return '00:' + String(s).padStart(2, '0'); }
@@ -208,6 +208,53 @@
     raf = requestAnimationFrame(frame);
   }
 
+  // ---------- gold 3D number for the results screen (canvas, extruded down-left like the reference) ----------
+  function drawGold3D(cv, text) {
+    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800; // 2x backing
+    ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 350);
+    const size = 300, cx = 400, baseY = 268; // stage px inside the 800x350 box
+    ctx.font = `italic 800 ${size}px Poppins, "Plus Jakarta Sans", Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const depth = 30, dx = -0.42, dy = 1.0;
+    // warm glow behind the whole number
+    ctx.save(); ctx.shadowColor = 'rgba(255,180,60,.5)'; ctx.shadowBlur = 90; ctx.fillStyle = 'rgba(255,190,80,.35)'; ctx.fillText(text, cx + dx * depth * .5, baseY + dy * depth * .5); ctx.restore();
+    // soft drop shadow
+    ctx.save(); ctx.shadowColor = 'rgba(40,0,0,.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 30; ctx.fillStyle = '#7a3a00'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
+    // far-edge glint (bright rim visible beyond the extrusion)
+    for (let i = depth + 3; i > depth; i--) { ctx.fillStyle = i === depth + 3 ? '#ffe9a6' : '#fff3c8'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
+    // extrusion: saturated amber, darker away from the face, warm highlight just behind the face
+    for (let i = depth; i >= 1; i--) {
+      const t = i / depth; // 1 = far
+      const r = Math.round(0xf0 - (0xf0 - 0xb8) * t), g = Math.round(0xa8 - (0xa8 - 0x6e) * t), b = Math.round(0x2a - (0x2a - 0x0c) * t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillText(text, cx + dx * i, baseY + dy * i);
+    }
+    // thin dark seam where the side meets the face
+    ctx.fillStyle = '#c47d12'; ctx.fillText(text, cx + dx * 1.5, baseY + dy * 1.5);
+    // face: vertical gold gradient
+    const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent;
+    const g1 = ctx.createLinearGradient(0, top, 0, bot);
+    g1.addColorStop(0, '#fffdf4'); g1.addColorStop(.18, '#fff4cf'); g1.addColorStop(.42, '#ffe28c'); g1.addColorStop(.68, '#f8c94a'); g1.addColorStop(.88, '#eeb033'); g1.addColorStop(1, '#e6a428');
+    ctx.fillStyle = g1; ctx.fillText(text, cx, baseY);
+    // sharp highlight band across the upper face
+    ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+    const g2 = ctx.createLinearGradient(0, top, 0, bot);
+    g2.addColorStop(0, 'rgba(255,255,255,.55)'); g2.addColorStop(.22, 'rgba(255,255,255,.35)'); g2.addColorStop(.3, 'rgba(255,255,255,0)'); g2.addColorStop(.62, 'rgba(255,255,255,0)'); g2.addColorStop(.72, 'rgba(255,230,150,.18)'); g2.addColorStop(1, 'rgba(255,200,80,0)');
+    ctx.fillStyle = g2; ctx.fillText(text, cx, baseY); ctx.restore();
+    // crisp light edge on the face outline
+    ctx.save(); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,250,225,.75)'; ctx.strokeText(text, cx, baseY); ctx.restore();
+    // specular glints along the far bottom edge, like light catching the rim
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const rimY = bot + depth * dy - 20; const glints = [[cx - m.width * 0.36 + dx * depth, rimY], [cx + m.width * 0.10 + dx * depth, rimY + 2], [cx + m.width * 0.40 + dx * depth, rimY - 4]];
+    glints.forEach(([gx, gy], i) => { const r = i === 1 ? 30 : 22; const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r); gg.addColorStop(0, 'rgba(255,255,240,.9)'); gg.addColorStop(.3, 'rgba(255,240,190,.5)'); gg.addColorStop(.65, 'rgba(255,200,90,.15)'); gg.addColorStop(1, 'rgba(255,180,60,0)'); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+    // sparkles around the number
+    ctx.save(); ctx.fillStyle = '#ffe9a8'; ctx.shadowColor = 'rgba(255,220,140,.9)'; ctx.shadowBlur = 12;
+    [[cx - m.width * .62, top + 40, 22], [cx - m.width * .72, top + 150, 14], [cx + m.width * .62, top + 60, 24], [cx + m.width * .70, bot - 40, 16], [cx - m.width * .66, bot - 20, 12]].forEach(([sx, sy, r]) => {
+      ctx.beginPath(); ctx.moveTo(sx, sy - r); ctx.quadraticCurveTo(sx, sy, sx + r, sy); ctx.quadraticCurveTo(sx, sy, sx, sy + r); ctx.quadraticCurveTo(sx, sy, sx - r, sy); ctx.quadraticCurveTo(sx, sy, sx, sy - r); ctx.fill();
+    });
+    ctx.restore();
+  }
+  function setScoreNumber(v) { const cv = $('end-score-cv'); if (cv) drawGold3D(cv, String(v)); $('end-score').textContent = String(v); }
+
   // ---------- game ----------
   let game = null, sprites = null, phase = 'boot', endResult = null, endAmbient = null;
   // Render scale: 1x for the 1080x1920 design, up to 2x on the 4K kiosk (2160x3840) so sprites stay crisp.
@@ -252,7 +299,7 @@
     phase = 'ended'; endResult = result; KKAudio.end();
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
-    $('end-score').textContent = '0'; $('end-score-bev').textContent = '0'; $('end-score-lip').textContent = '0';
+    setScoreNumber(0);
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
     $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
     const pz = awardPrize(result); const pEl = $('prize');
@@ -337,6 +384,6 @@
       $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
-  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock };
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber };
   boot();
 })();

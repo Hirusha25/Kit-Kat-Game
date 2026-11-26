@@ -381,6 +381,7 @@
   // ---------- boot ----------
   async function boot() {
     KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
+    if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     await loadSprites();
     beginCalibration();

@@ -64,6 +64,13 @@
     MUG_RECOIL_PX: 22,      // sideways jolt away from a hazard on hit
     MUG_RECOIL_TILT: 7,     // deg kick on hit
     MUG_RECOIL_SECONDS: 0.4,
+    MUG_SHADOW_DROP: 392,   // px below the rim where the shadow ellipse sits (just under the mug base)
+    MUG_SHADOW_W: 440,      // shadow ellipse size at rest (px)
+    MUG_SHADOW_H: 78,
+    MUG_SHADOW_ALPHA: 0.9,
+    ITEM_SHADOW_DX: 14,     // falling-item drop shadow offset (px, down-left)
+    ITEM_SHADOW_DY: 18,
+    ITEM_SHADOW_ALPHA: 0.28,
     SPLASH_FRAME_SECONDS: 0.4, // mug-splash sprite shown this long after a catch
     SPLASH_SQUASH: 0.06,    // 1.0 -> 1.06 -> 1.0 width squash at the start of the splash
 
@@ -357,6 +364,27 @@
     return { canvas: c, w: R * 2, h: R * 2, ox: R, oy: R };
   }
 
+  /** Soft elliptical ground shadow for the mug (drawn stretched/offset per frame). */
+  function buildShadow(scale) {
+    var W = 320, H = 90, res = 0.5 * scale;
+    var c = makeCanvas(W * res, H * res), ctx = c.getContext('2d');
+    ctx.scale(res, res);
+    var g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W / 2);
+    g.addColorStop(0, 'rgba(50,0,4,0.62)'); g.addColorStop(0.45, 'rgba(50,0,4,0.40)'); g.addColorStop(0.8, 'rgba(50,0,4,0.12)'); g.addColorStop(1, 'rgba(50,0,4,0)');
+    ctx.fillStyle = g; ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(1, H / W); ctx.beginPath(); ctx.arc(0, 0, W / 2, 0, TWO_PI); ctx.fill(); ctx.restore();
+    return { canvas: c, w: W, h: H, ox: W / 2, oy: H / 2 };
+  }
+
+  /** Dark silhouette of a sprite view, cached on the view, for a cheap drop shadow under falling items. */
+  function silhouette(v) {
+    if (v.shadow) return v.shadow;
+    var c = makeCanvas(v.canvas.width, v.canvas.height), ctx = c.getContext('2d');
+    ctx.drawImage(v.canvas, 0, 0);
+    ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = 'rgba(40,0,6,1)'; ctx.fillRect(0, 0, c.width, c.height);
+    v.shadow = { canvas: c, w: v.w, h: v.h, ox: v.ox, oy: v.oy };
+    return v.shadow;
+  }
+
   /** Soft radial disc (item glow / catch flash). Rendered at half resolution. */
   function buildRadial(R, stops, scale) {
     var res = 0.5 * scale;
@@ -518,7 +546,7 @@
 
     // cosmetic timers (real time)
     var splashT = 0, shakeT = 0, recoilT = 0, recoilDir = 1, tilt = 0, comboPulse = 0, comboN = 0;
-    var raysX = mug.x;
+    var raysX = T.STAGE_W / 2; // rays are pinned to the stage centre and only rotate
 
     var lanes = [];
     for (var li = 0; li < T.LANES; li++) lanes.push({ lastBadAt: -Infinity, lastAt: -Infinity, lastKind: null });
@@ -556,13 +584,14 @@
     }
 
     // ---- Render resources (browser only) --------------------------------------
-    var text = null, vignette = null, glowTex = null, raysTex = null, linesTex = null, flashTex = null, itemGlow = null;
+    var text = null, vignette = null, glowTex = null, raysTex = null, linesTex = null, flashTex = null, itemGlow = null, shadowTex = null;
     var comboCache = {};
     var fragmentCache = {};
     if (ctx) {
       vignette = buildVignette(scale);
       glowTex = buildGlow(scale);
       flashTex = buildFlash(scale);
+      shadowTex = buildShadow(scale);
       itemGlow = buildItemGlows(scale);
       if (!reduced) { raysTex = buildRays(scale); linesTex = buildSpeedLines(scale); }
       text = buildTextSprites(scale);
@@ -925,7 +954,6 @@
       if (comboPulse > 0) comboPulse = Math.max(0, comboPulse - dt * 4);
       var tiltTarget = state.phase === 'playing' ? clamp(mug.v / T.MUG_TILT_SPEED, -1, 1) * T.MUG_TILT_MAX : 0;
       tilt += (tiltTarget - tilt) * Math.min(1, T.MUG_TILT_SMOOTH * dt);
-      raysX += (mug.x - raysX) * Math.min(1, 3 * dt);
       for (var i = 0; i < motes.length; i++) {
         var m = motes[i];
         m.y -= m.vy * dt; m.rot += m.rotV * dt;
@@ -1021,6 +1049,8 @@
         blit(gl, x, y, ga, it.size);
       }
       var v = sp.rotated(rot);
+      // drop shadow: dark silhouette offset down-left, so items read as 3D objects over the backdrop
+      if (T.ITEM_SHADOW_ALPHA > 0 && it.alpha > 0.05) blit(silhouette(v), x - T.ITEM_SHADOW_DX, y + T.ITEM_SHADOW_DY, T.ITEM_SHADOW_ALPHA * it.alpha, it.size);
       // motion trail: ghost copies back along the fall direction
       if (falling && ghosts > 0) {
         var sf = clamp((it.vy - T.TRAIL_MIN_SPEED) / (T.SPEED_END - T.TRAIL_MIN_SPEED), 0.25, 1);
@@ -1063,7 +1093,7 @@
           var sk2 = state.streak >= T.RAYS_MIN_STREAK ? clamp((state.streak - T.RAYS_MIN_STREAK + 1) / (T.RAYS_FULL_STREAK - T.RAYS_MIN_STREAK + 1), 0, 1) : 0;
           var ra = T.RAYS_IDLE_ALPHA + (T.RAYS_MAX_ALPHA - T.RAYS_IDLE_ALPHA) * Math.max(sk2, finalK * 0.7);
           // one textured quad: slow rotation, a gentle breathing scale, brighter with the streak / final seconds
-          var rs = 1 + 0.04 * Math.sin(clock * 1.7) + 0.08 * Math.max(sk2, finalK);
+          var rs = 1 + 0.08 * Math.max(sk2, finalK); // no breathing: a steady wheel that only turns
           ctx.save();
           ctx.translate(raysX, rimY - T.RAYS_Y_OFFSET);
           ctx.globalAlpha = ra;
@@ -1098,6 +1128,17 @@
       for (i = 0; i < items.length; i++) {
         it = items[i];
         if (it.active && (it.y >= rimY || it.state === 'dunk')) drawItem(it, a);
+      }
+
+      // 3a. ground shadow under the mug: stretches with speed, slides against the lean, lifts with the bob
+      if (shadowTex && sprites && sprites.mug) {
+        var mugBottom = rimY + T.MUG_SHADOW_DROP;
+        var spd = clamp(Math.abs(mug.v) / T.MUG_TILT_SPEED, 0, 1);
+        var shW = (T.MUG_SHADOW_W * (1 + 0.35 * spd)) / shadowTex.w, shH = (T.MUG_SHADOW_H * (1 - 0.15 * spd)) / shadowTex.h;
+        var shX = mugX - tilt * 2.2, shY = mugBottom + bobY * 0.3;
+        var shA = T.MUG_SHADOW_ALPHA * (1 - 0.25 * (bobY < 0 ? -bobY / T.MUG_BOB_AMP : 0)) * (1 - 0.3 * spd);
+        ctx.save(); ctx.globalAlpha = shA; ctx.translate(shX, shY); ctx.scale(shW, shH);
+        ctx.drawImage(shadowTex.canvas, -shadowTex.ox, -shadowTex.oy, shadowTex.w, shadowTex.h); ctx.restore(); drawCalls++;
       }
 
       // 3. mug (tilt into motion, splash frame + squash, recoil on hit)
@@ -1252,7 +1293,7 @@
         x01 = clamp(x01, 0, 1);
         state.targetX01 = x01;
         mug.target = T.MUG_MIN_X + x01 * (T.MUG_MAX_X - T.MUG_MIN_X);
-        if (state.phase === 'idle' && T.SPRING_SNAP_IDLE) { mug.x = mug.px = mug.target; mug.v = 0; raysX = mug.x; updateDerived(); if (ctx && !rafId) render(1); }
+        if (state.phase === 'idle' && T.SPRING_SNAP_IDLE) { mug.x = mug.px = mug.target; mug.v = 0; updateDerived(); if (ctx && !rafId) render(1); }
       },
       /** Mug detection status from the tracker. */
       setTracking: function (found) {

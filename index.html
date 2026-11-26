@@ -25,6 +25,10 @@
   .bg-video { object-fit: cover; opacity: 0; transition: opacity .9s ease; }
   .bg-video.on { opacity: 1; }
   #scene-still.off { opacity: 0; transition: opacity .9s ease; }
+  /* The wave stays still: the original artwork covers the bottom of the clip, feathered in across the mug
+     so only the wafers, splash and steam above it animate. */
+  .wave-still { opacity: 0; transition: opacity .9s ease; -webkit-mask-image: linear-gradient(to bottom, transparent 68%, #000 74%); mask-image: linear-gradient(to bottom, transparent 68%, #000 74%); }
+  .wave-still.on { opacity: 1; }
   .ready { position: absolute; left: 80px; top: 786px; margin: 0; font: 700 38px/1.3 var(--font-body); color: #fff; text-shadow: 0 2px 6px rgba(60,0,0,.35); white-space: nowrap; z-index: 1; pointer-events: none; }
   .title { animation: breathe 5s ease-in-out infinite; transform-origin: 36% 30%; will-change: transform; }
   @keyframes breathe { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.025) rotate(-.6deg); } }
@@ -69,6 +73,7 @@
     <p class="ready enter" style="animation-delay:.25s">Ready for a chocolate</p>
     <div id="amb-back" class="layer"></div>
     <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp?v=3" alt="">
+    <img class="layer wave-still" id="wave-still" src="assets/img/cover/mug-wafers-wave.webp?v=3" alt="" aria-hidden="true">
     <div id="amb-front" class="layer"></div>
     <button class="start enter" id="start" type="button" aria-label="Start" style="animation-delay:.4s"></button>
   </main>
@@ -85,16 +90,16 @@
   // Animated cover: the clip carries its own red background, ribbon, mug and wave. Once it is really playing,
   // the still mug layer fades out; if the video cannot play, the still artwork stays.
   (function () {
-    const v = document.getElementById('bg-video'), still = document.getElementById('scene-still');
+    const v = document.getElementById('bg-video'), still = document.getElementById('scene-still'), wave = document.getElementById('wave-still');
     if (!v) return;
     // 4K kiosk (2160 px wide panel) gets the 2160x3840 file; everything else the 1080p pair
     const hi = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 2000 && !/iPhone|iPad|Android.*Mobile/.test(navigator.userAgent);
     if (hi) { v.src = 'assets/video/cover-bg-loop-4k.mp4'; }
     else { const w = document.createElement('source'); w.src = 'assets/video/cover-bg-loop.webm'; w.type = 'video/webm'; const m = document.createElement('source'); m.src = 'assets/video/cover-bg-loop.mp4'; m.type = 'video/mp4'; v.appendChild(w); v.appendChild(m); v.load(); }
     let shown = false;
-    const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); };
+    const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); wave.classList.add('on'); };
     v.addEventListener('timeupdate', () => { if (v.currentTime > 0.15) show(); });
-    v.addEventListener('error', () => { v.remove(); still.classList.remove('off'); });
+    v.addEventListener('error', () => { v.remove(); still.classList.remove('off'); wave.classList.remove('on'); });
     const tryPlay = () => v.play().catch(() => {});
     tryPlay(); document.addEventListener('pointerdown', tryPlay, { once: true }); document.addEventListener('visibilitychange', () => { if (!document.hidden) tryPlay(); });
   })();

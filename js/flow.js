@@ -102,35 +102,35 @@
   // ---------- privacy camera view: blurred silhouette + sharp mug crop only ----------
   const tiny = document.createElement('canvas'); tiny.width = 48; tiny.height = 27; const tctx = tiny.getContext('2d');
   function drawPrivacy(ctx, w, h, s) {
+    // Clear, mirrored camera feed with a spotlight on the mug once it is found.
     if (!video.videoWidth) { ctx.fillStyle = '#2a0206'; ctx.fillRect(0, 0, w, h); return; }
-    const vw = video.videoWidth, vh = video.videoHeight;
-    // 1) heavily softened feed: draw at 48x27 then scale up with smoothing; tint red and darken
-    tctx.save(); if (settings.mirror) { tctx.translate(tiny.width, 0); tctx.scale(-1, 1); } tctx.drawImage(video, 0, 0, tiny.width, tiny.height); tctx.restore();
-    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.filter = 'blur(6px) saturate(.4) brightness(.55)';
-    ctx.drawImage(tiny, -8, -8, w + 16, h + 16); ctx.restore();
-    ctx.fillStyle = 'rgba(120,10,20,.45)'; ctx.fillRect(0, 0, w, h);
-    // 2) sharp crop of the mug (and the hand holding it), in place, with a green frame
-    if (!(s && s.found && s.w > 0)) {
-      // hint: dashed mug outline in the centre
-      ctx.save(); ctx.translate(w / 2, h / 2); ctx.strokeStyle = 'rgba(255,236,190,.85)'; ctx.lineWidth = 4; ctx.setLineDash([14, 12]);
+    ctx.save(); if (settings.mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); } ctx.drawImage(video, 0, 0, w, h); ctx.restore();
+    const found = s && s.found && s.w > 0;
+    if (!found) {
+      // soft hint: dashed mug outline in the centre
+      ctx.save(); ctx.translate(w / 2, h / 2); ctx.strokeStyle = 'rgba(255,236,190,.9)'; ctx.lineWidth = 4; ctx.setLineDash([14, 12]);
       roundRect(ctx, -70, -80, 140, 170, 16); ctx.stroke(); ctx.beginPath(); ctx.arc(95, 10, 40, -1.2, 1.2); ctx.stroke(); ctx.restore();
+      return;
     }
-    if (s && s.found && s.w > 0) {
-      let fx = s.frameX != null ? s.frameX : (settings.mirror ? 1 - s.rawX : s.rawX), fy = s.frameY != null ? s.frameY : s.rawY;
-      const ex = 3.4, ey = 3.6; // logo box -> whole mug plus the hand holding it
-      let cw = Math.min(1, s.w * ex), chh = Math.min(1, s.h * ey);
-      let cx = Math.min(1 - cw, Math.max(0, fx - cw / 2)), cy = Math.min(1 - chh, Math.max(0, fy - chh * 0.45));
-      const sx = cx * vw, sy = cy * vh, sw = cw * vw, sh = chh * vh;
-      let dx = (settings.mirror ? 1 - cx - cw : cx) * w, dy = cy * h, dw = cw * w, dh = chh * h;
-      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.clip();
-      ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh); // not flipped: the logo should read the right way round
-      ctx.restore();
-      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.lineWidth = 4; ctx.strokeStyle = '#27d35b'; ctx.shadowColor = 'rgba(39,211,91,.8)'; ctx.shadowBlur = 16; ctx.stroke();
-      // corner brackets
-      const L = Math.min(dw, dh) * 0.22; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.beginPath();
-      [[dx, dy, 1, 1], [dx + dw, dy, -1, 1], [dx, dy + dh, 1, -1], [dx + dw, dy + dh, -1, -1]].forEach(([x, y, sx2, sy2]) => { ctx.moveTo(x + sx2 * L, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy2 * L); });
-      ctx.stroke(); ctx.restore();
-    }
+    // mug box in canvas space (mirrored to match the drawn feed)
+    const fx = s.frameX != null ? s.frameX : s.rawX, fy = s.frameY != null ? s.frameY : s.rawY;
+    const ex = 3.2, ey = 3.6; const bw = Math.min(w, s.w * ex * w), bh = Math.min(h, s.h * ey * h);
+    const cxm = settings.mirror ? (1 - fx) * w : fx * w, cym = fy * h;
+    const bx = Math.min(w - bw, Math.max(0, cxm - bw / 2)), by = Math.min(h - bh, Math.max(0, cym - bh * 0.45));
+    const t = performance.now() / 1000;
+    // spotlight: gentle dim outside a soft ellipse around the mug
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.ellipse(bx + bw / 2, by + bh / 2, bw * 0.72, bh * 0.72, 0, 0, Math.PI * 2, true); ctx.fillStyle = 'rgba(40,0,6,.38)'; ctx.fill('evenodd'); ctx.restore();
+    // warm glow ring that breathes
+    ctx.save(); const r = Math.max(bw, bh) * (0.56 + 0.02 * Math.sin(t * 3)); const g = ctx.createRadialGradient(bx + bw / 2, by + bh / 2, r * 0.82, bx + bw / 2, by + bh / 2, r);
+    g.addColorStop(0, 'rgba(255,200,90,0)'); g.addColorStop(.6, 'rgba(255,200,90,.35)'); g.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx + bw / 2, by + bh / 2, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    // frame + corner brackets
+    ctx.save(); roundRect(ctx, bx, by, bw, bh, 18); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(39,211,91,.9)'; ctx.shadowColor = 'rgba(39,211,91,.8)'; ctx.shadowBlur = 16; ctx.stroke();
+    const L = Math.min(bw, bh) * 0.22; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.beginPath();
+    [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]].forEach(([x, y, sx2, sy2]) => { ctx.moveTo(x + sx2 * L, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy2 * L); });
+    ctx.stroke(); ctx.restore();
+    // small tag above the box
+    ctx.save(); ctx.font = '800 italic 20px Figtree, Arial'; const label = 'MUG'; const tw = ctx.measureText(label).width + 28; const tx = bx + bw / 2 - tw / 2, ty = Math.max(6, by - 36);
+    roundRect(ctx, tx, ty, tw, 30, 15); ctx.fillStyle = '#27d35b'; ctx.fill(); ctx.fillStyle = '#062'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.fillText(label, tx + tw / 2, ty + 16); ctx.restore();
   }
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 

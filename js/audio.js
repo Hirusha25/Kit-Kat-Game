@@ -41,6 +41,9 @@
     tick() { tone({ freq: 1000, type: 'square', dur: 0.06, gain: 0.18 }); },
     go() { tone({ freq: 1200, type: 'square', dur: 0.25, gain: 0.3 }); tone({ freq: 1600, type: 'square', dur: 0.3, gain: 0.25, when: 0.1 }); },
     end() { [523, 659, 784, 1047].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.35, gain: 0.35, when: i * 0.12 })); },
+    gold() { [880, 1175, 1480, 1760].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.16, gain: 0.32, when: i * 0.06 })); noise({ dur: 0.1, gain: 0.08, lowpass: 2500 }); },
+    whoosh() { noise({ dur: 0.35, gain: 0.16, lowpass: 1800 }); tone({ freq: 420, type: 'sine', dur: 0.3, gain: 0.08, slide: 380 }); },
+    hurry() { [1000, 1000, 1250].forEach((f, i) => tone({ freq: f, type: 'square', dur: 0.08, gain: 0.16, when: i * 0.12 })); },
     detected() { tone({ freq: 740, type: 'sine', dur: 0.1, gain: 0.25 }); tone({ freq: 988, type: 'sine', dur: 0.14, gain: 0.25, when: 0.08 }); }
   };
 })();

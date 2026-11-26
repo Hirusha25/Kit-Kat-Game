@@ -282,7 +282,9 @@
   }
   function onGameEvent(e) {
     switch (e.type) {
-      case 'catch': KKAudio.catch(); break;
+      case 'catch': e.kind === 'gold' ? KKAudio.gold() : KKAudio.catch(); break;
+      case 'pattern': KKAudio.whoosh(); break;
+      case 'final10': KKAudio.hurry(); break;
       case 'streak': KKAudio.streak(); break;
       case 'hit': KKAudio.hit(); break;
       case 'miss': KKAudio.miss(); break;

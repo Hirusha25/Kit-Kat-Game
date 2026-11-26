@@ -151,6 +151,43 @@
       ctx.fillStyle = '#ba0018'; ctx.beginPath(); ctx.ellipse(ax, ay + h * 0.33, w * 0.18, h * 0.1, 0, 0, TWO_PI); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke();
     },
+    gold: function (ctx, w, h) {
+      // gold-foil wafer: same shape as the wafer fallback with gold tones
+      FALLBACKS.wafer(ctx, w, h);
+      ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+      var g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, 'rgba(255,230,140,.85)'); g.addColorStop(0.5, 'rgba(214,160,40,.85)'); g.addColorStop(1, 'rgba(255,240,170,.85)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+    },
+    'mug-splash': function (ctx, w, h, def) { FALLBACKS.mug(ctx, w, h, def); },
+    sparkle: function (ctx, w, h) {
+      var cx = w / 2, cy = h / 2, r = w * 0.48, k = r * 0.16;
+      ctx.fillStyle = '#ffe9a8';
+      ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.quadraticCurveTo(cx + k, cy - k, cx + r, cy); ctx.quadraticCurveTo(cx + k, cy + k, cx, cy + r);
+      ctx.quadraticCurveTo(cx - k, cy + k, cx - r, cy); ctx.quadraticCurveTo(cx - k, cy - k, cx, cy - r); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.14, 0, TWO_PI); ctx.fill();
+    },
+    phone: function (ctx, w, h) {
+      roundRect(ctx, w * 0.3, h * 0.08, w * 0.4, h * 0.84, w * 0.07); ctx.fillStyle = '#1a1a1a'; ctx.fill();
+      ctx.fillStyle = '#ba0018'; roundRect(ctx, w * 0.34, h * 0.15, w * 0.32, h * 0.66, w * 0.03); ctx.fill();
+      ctx.strokeStyle = '#ba0018'; ctx.lineWidth = w * 0.035; ctx.lineCap = 'round';
+      for (var i = 1; i <= 2; i++) {
+        ctx.beginPath(); ctx.arc(w * 0.3, h * 0.5, w * (0.08 + i * 0.07), Math.PI * 0.8, Math.PI * 1.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w * 0.7, h * 0.5, w * (0.08 + i * 0.07), -Math.PI * 0.2, Math.PI * 0.2); ctx.stroke();
+      }
+    },
+    orders: function (ctx, w, h) {
+      ctx.fillStyle = '#bdbdbd'; roundRect(ctx, w * 0.08, h * 0.38, w * 0.84, h * 0.07, 4); ctx.fill();
+      ctx.fillStyle = '#f7f3ea';
+      for (var i = 0; i < 5; i++) { ctx.save(); ctx.translate(w * (0.14 + i * 0.16), h * 0.44); ctx.rotate((i % 2 ? 1 : -1) * 0.08); ctx.fillRect(0, 0, w * 0.13, h * 0.3); ctx.restore(); }
+      ctx.fillStyle = '#ba0018'; ctx.beginPath(); ctx.arc(w * 0.9, h * 0.33, w * 0.06, 0, TWO_PI); ctx.fill();
+    },
+    traffic: function (ctx, w, h) {
+      ctx.fillStyle = '#ba0018'; ctx.beginPath(); ctx.moveTo(w * 0.33, h * 0.9); ctx.lineTo(w * 0.47, h * 0.3); ctx.lineTo(w * 0.53, h * 0.3); ctx.lineTo(w * 0.67, h * 0.9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(w * 0.4, h * 0.6, w * 0.2, h * 0.08);
+      ctx.fillStyle = '#777'; roundRect(ctx, w * 0.55, h * 0.55, w * 0.38, h * 0.22, w * 0.05); ctx.fill();
+      ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(w * 0.64, h * 0.8, w * 0.05, 0, TWO_PI); ctx.arc(w * 0.86, h * 0.8, w * 0.05, 0, TWO_PI); ctx.fill();
+    },
     'splash-drop': function (ctx, w, h) {
       ctx.fillStyle = '#804018';
       ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w * 0.86, h * 0.56); ctx.lineTo(w * 0.14, h * 0.56); ctx.closePath(); ctx.fill();

@@ -3,9 +3,9 @@
  *   const game = DunkGame.create({
  *     canvas,            // 1080x1920 transparent canvas (null => headless, for tests)
  *     sprites,           // result of DunkSprites.load(manifest)
- *     duration: 45,      // seconds of play
+ *     duration: 40,      // seconds of play
  *     difficulty: 'normal',   // 'easy' | 'normal' | 'hard'
- *     reducedEffects: false,  // fewer particles, no rays / vignette
+ *     reducedEffects: false,  // fewer particles, no rays / trails / speed lines / vignette
  *     seed: 1234,        // optional; same seed => same spawn sequence
  *     onTick(state), onEvent(evt), onEnd(result)
  *   });
@@ -13,25 +13,32 @@
  *   game.start(); game.pause(); game.resume(); game.stop(); game.destroy();
  *   game.getState();      // live, read-only state object (see STATE below)
  *
- * Design notes (RK3566 kiosk, Chrome, weak GPU):
+ * Events (onEvent): start, spawn{kind,cls,bad,lane,t,x,pattern}, pattern{name,t},
+ *   catch{kind:'wafer'|'gold',points,score,streak,x}, streak{n,score}, miss{kind},
+ *   hit{kind,score}, dodge{kind}, final10{timeLeft}, final5{timeLeft}, pause{reason},
+ *   resume, lost, regained, end{result}.
+ *
+ * Design notes (RK3566 / Mali-G52 kiosk, Chrome, weak GPU):
  *  - one requestAnimationFrame loop, fixed-timestep physics (1/120 s accumulator)
  *    with render interpolation; the loop pauses when document.hidden.
- *  - everything blitted is pre-rendered (sprites, popups, vignette, glow, rays);
- *    no per-frame gradients, shadowBlur, filters or text layout.
- *  - object pools for items / particles / popups / glows; zero per-frame allocation
- *    on the hot path (the state object is mutated in place).
+ *  - everything blitted is pre-rendered (sprites, popups, vignette, glows, rays,
+ *    speed lines, combo text, hazard fragments); no per-frame gradients,
+ *    shadowBlur, filters or text layout. Only the mug and the hazard fragments
+ *    use a per-frame canvas transform (one drawImage each).
+ *  - object pools for items / particles / popups / glows / fragments; zero per-frame
+ *    allocation on the hot path (the state object is mutated in place).
  *  - all gameplay numbers live in TUNING at the top of this file.
- *  - the engine is deterministic for a given seed when stepped with advance();
- *    the mug idle bob and shake are driven by the wall clock and are cosmetic only.
+ *  - the gameplay sim is deterministic for a given seed when stepped with advance();
+ *    effects use their own PRNG, so reducedEffects never changes a round.
  *
  * Only `window.DunkGame` is exported. `DunkGame.internals` exposes the pure parts
- * (PRNG, spring, schedule, catch test) for unit tests.
+ * (PRNG, spring, schedule, catch test, kind pickers) for unit tests.
  */
 (function (root) {
   'use strict';
 
   /* ================================================================== */
-  /*  TUNING — every gameplay/feel constant. Units: px, s, px/s, rad.    */
+  /*  TUNING — every gameplay/feel constant. Units: px, s, px/s, deg.    */
   /* ================================================================== */
   var TUNING = {
     STAGE_W: 1080,
@@ -40,47 +47,71 @@
     DT: 1 / 120,            // fixed physics step
     MAX_FRAME_DT: 0.1,      // clamp for a long frame (tab switch, GC pause)
 
-    // --- Mug / layout (from reference/game-screen-reference.webp x 1.1477)
+    // --- Mug / layout. mug.png is drawn 560 px wide (manifest); the rim/drink
+    //     centre is the sprite anchor and sits at MUG_RIM_Y. The body bottom is
+    //     382 px below the rim, so 1180 keeps it above the slider at y 1575.
     MUG_MIN_X: 240,         // mug centre range
     MUG_MAX_X: 840,
-    MUG_RIM_Y: 1195,        // y of the cocoa surface / rim centre
-    MUG_HALF_WIDTH: 230,    // half of the 460 px mug sprite
-    CATCH_HALF_FRAC: 0.75,  // catch window = MUG_HALF_WIDTH * this
-    CATCH_BAND: 40,         // item centre must be within rim y +/- this
+    MUG_RIM_Y: 1180,        // y of the drink surface / rim centre
+    MUG_HALF_WIDTH: 280,    // half of the 560 px mug sprite
+    CATCH_HALF_FRAC: 0.60,  // catch window = MUG_HALF_WIDTH * this (168 px = the drink surface)
+    CATCH_BAND: 44,         // item centre must be within rim y +/- this
     MUG_BOB_AMP: 4,         // idle bob (px) — cosmetic
     MUG_BOB_HZ: 0.8,
+    MUG_TILT_MAX: 6,        // deg; lean into the direction of motion
+    MUG_TILT_SPEED: 900,    // mug velocity (px/s) that gives the full tilt
+    MUG_TILT_SMOOTH: 9,     // 1/s; tilt follows velocity with this rate
+    MUG_RECOIL_PX: 22,      // sideways jolt away from a hazard on hit
+    MUG_RECOIL_TILT: 7,     // deg kick on hit
+    MUG_RECOIL_SECONDS: 0.4,
+    SPLASH_FRAME_SECONDS: 0.4, // mug-splash sprite shown this long after a catch
+    SPLASH_SQUASH: 0.06,    // 1.0 -> 1.06 -> 1.0 width squash at the start of the splash
 
     // --- Mug follow spring (critically damped). Higher = snappier.
     SPRING_OMEGA: 22,       // rad/s; settles ~95% in ~0.2 s
     SPRING_SNAP_IDLE: true, // before start() the mug snaps to the tracker
 
     // --- Spawning
-    SPAWN_Y: -200,          // item centre y at spawn (above the stage)
+    SPAWN_Y: -220,          // item centre y at spawn (above the stage)
     MISS_Y: 1330,           // a wafer passing this y is a miss; items fade from here
     KILL_Y: 1560,           // item fully gone (mug bottom; never over the slider)
     LANES: 5,               // spawn lanes across the mug range
-    LANE_JITTER: 0.3,       // +/- fraction of lane width
-    SPAWN_PAD: 0,           // widen the spawn range beyond the mug range by this many px per side
+    LANE_JITTER: 0.25,      // +/- fraction of lane width
+    SPAWN_PAD: 150,         // widen the spawn range beyond the mug range by this many px per side (lanes 180 px apart)
                             // (keep < MUG_HALF_WIDTH*CATCH_HALF_FRAC so edge items stay catchable)
-    SPEED_START: 420,       // fall speed ramps linearly over the round
-    SPEED_END: 820,
+    SPEED_START: 480,       // fall speed ramps linearly over the round
+    SPEED_END: 980,
     SPAWN_START: 1.0,       // spawn interval ramps linearly over the round
-    SPAWN_END: 0.5,
+    SPAWN_END: 0.45,
     SPAWN_JITTER: 0.15,     // +/- fraction of the interval
-    WAFERS_ONLY_SECONDS: 8, // warm-up: only wafers
-    MIX: { wafer: 0.65, alarm: 0.20, deadline: 0.15 },
-    BAD_LANE_COOLDOWN: 0.8, // no bad in a lane within this of the previous bad there
-    MAX_CONSECUTIVE_BADS: 2,// global: never more than N bads in a row
+    WAFERS_ONLY_SECONDS: 6, // warm-up: only wafers
+    MIX: { wafer: 0.55, hazard: 0.45 }, // after warm-up (hazard weight x DIFFICULTY.bad)
+    GOLD_SHARE: 0.06,       // fraction of spawns that are gold wafers ...
+    GOLD_AFTER_SECONDS: 10, // ... after this many seconds
+    GOLD_SCORE: 3,
+    HAZARDS: ['alarm', 'deadline', 'phone', 'orders', 'traffic'], // rotated, no immediate repeat
+    HAZARD_FALLBACK: ['alarm', 'deadline'], // used when none of HAZARDS loaded (vector fallbacks exist)
+    BAD_LANE_COOLDOWN: 0.8, // no hazard in a lane within this of the previous hazard there
+    MAX_CONSECUTIVE_BADS: 2,// global: never more than N hazards in a row
     SPAWN_ONLY_IF_REACHABLE: true, // stop spawning once an item could not reach the rim
 
+    // --- Patterns
+    CROSSFIRE_AFTER: 15,    // from this time: a hazard + a wafer CROSSFIRE_GAP apart in adjacent lanes
+    CROSSFIRE_EVERY: 6,     // seconds between crossfires (+/- CROSSFIRE_JITTER)
+    CROSSFIRE_JITTER: 0.2,
+    CROSSFIRE_GAP: 0.25,
+    DOUBLE_AFTER: 4,        // from this time: occasional two wafers DOUBLE_GAP apart in adjacent lanes
+    DOUBLE_CHANCE: 0.10,    // per regular spawn
+    DOUBLE_GAP: 0.2,
+
     // --- Item motion
-    SWAY_AMP: [8, 26],      // px, random per item
+    SWAY_AMP: [8, 34],      // px, random per item
     SWAY_HZ: [0.45, 0.85],
     ROT_AMP: [0.15, 0.55],  // rad, slow tumble around a random base angle
     ROT_HZ: [0.2, 0.45],
     ROT_BASE: [-0.5, 0.5],  // rad; wafers fall mostly upright like the reference
     DUNK_SECONDS: 0.35,     // caught wafer sinks behind the mug
-    POP_SECONDS: 0.25,      // bad item bursts on hit
+    POP_SECONDS: 0.12,      // hit hazard flashes out (its fragments carry on)
 
     // --- Scoring
     STREAK_EVERY: 3,
@@ -89,41 +120,83 @@
     STUN_SECONDS: 1.2,
     STUN_BLOCKS_CATCH: false, // true => wafers pass through while stunned
     STUN_INVULNERABLE: true,  // no second hit while stunned
-    STUN_SHAKE_PX: 10,
     FINAL_SECONDS: 5,         // 'final5' event
+    FINAL_FX_SECONDS: 10,     // 'final10' event; speed lines + stronger rays from here
 
     // --- Tracking
     LOST_GRACE: 2.0,        // s without the mug before auto-pause
     REGAIN_DELAY: 0.5,      // s after regain before play resumes
 
-    // --- Pools / effects
-    ITEM_POOL: 12,
-    PARTICLE_POOL: 80,
+    // --- Pools
+    ITEM_POOL: 16,
+    PARTICLE_POOL: 140,
     POPUP_POOL: 8,
     GLOW_POOL: 4,
-    SPLASH_PARTICLES: 14,   // per catch (reducedEffects: SPLASH_PARTICLES_REDUCED)
-    SPLASH_PARTICLES_REDUCED: 6,
-    SPLASH_SPEED: [260, 640],
-    SPLASH_SPREAD: 320,     // horizontal speed +/-
-    GRAVITY: 1900,
-    PARTICLE_LIFE: [0.45, 0.85],
+    FLASH_POOL: 3,
+    FRAGMENT_POOL: 12,      // 4 per hazard hit
+
+    // --- Catch effects
+    SPLASH_PARTICLES: 22,   // splash-drop droplets per catch (reducedEffects: SPLASH_PARTICLES_REDUCED)
+    SPLASH_PARTICLES_REDUCED: 8,
+    SPLASH_CRUMBS: 3,       // wafer-piece crumbs per catch
+    SPLASH_SPEED: [300, 760],
+    SPLASH_SPREAD: 360,     // horizontal speed +/-
+    SPLASH_SPIN: 9,         // rad/s +/- for droplets and crumbs
+    GRAVITY: 2000,
+    PARTICLE_LIFE: [0.45, 0.9],
+    GOLD_BURST: 9,          // sparkle.png particles on a gold catch
+    GOLD_TRAIL_EVERY: 0.05, // s between trail sparkles behind a falling gold wafer
     POPUP_SECONDS: 0.9,
     BIG_POPUP_SECONDS: 1.3,
-    GLOW_SECONDS: 0.35,
+    POPUP_POP: 1.35,        // "+1" overshoot scale
+    GLOW_SECONDS: 0.35,     // gold ring pulse
+    FLASH_SECONDS: 0.22,    // radial flash on catch
     SHOW_PENALTY_POPUP: true,
-    RAYS_MIN_STREAK: 3,     // light rays behind the mug from this streak (not in reducedEffects)
+
+    // --- Hit effects
+    SHAKE_SECONDS: 0.35,
+    SHAKE_PX: 14,
+    FRAGMENT_SECONDS: 0.6,
+    FRAGMENT_SPEED: [220, 420],
+    FRAGMENT_SPIN: 9,
     VIGNETTE_RES: 0.25,     // pre-rendered vignette resolution (fraction of stage)
 
+    // --- Ambience
+    TRAIL_GHOSTS: 3,        // motion-trail copies behind each falling item (reduced: 1)
+    TRAIL_SPACING: 0.03,    // s of travel between ghosts
+    TRAIL_ALPHA: 0.34,      // first ghost alpha at full speed
+    TRAIL_MIN_SPEED: 300,   // trails fade in from this fall speed to SPEED_END
+    ITEM_GLOW_ALPHA: 0.6,
+    RAYS_MIN_STREAK: 3,     // rays brighten from this streak ...
+    RAYS_FULL_STREAK: 7,    // ... and reach RAYS_MAX_ALPHA here
+    RAYS_IDLE_ALPHA: 0.2,
+    RAYS_MAX_ALPHA: 0.62,
+    RAYS_ROT_SPEED: 0.12,   // rad/s
+    RAYS_Y_OFFSET: 150,     // ray origin this far above the rim
+    RAYS_RADIUS: 600,
+    SPEEDLINES_SPEED: 1100, // px/s scroll in the final seconds
+    SPEEDLINES_ALPHA: 0.55,
+    SPEEDLINE_COUNT: 34,    // streak blits per frame in the final seconds
+    MOTES: 7,               // ambient sparkle motes (0 in reducedEffects)
+    MOTE_ALPHA: 0.5,
+    MOTE_SPEED: [22, 48],   // px/s upwards
+    COMBO_MIN_STREAK: 3,    // "xN STREAK" meter from this streak ...
+    COMBO_Y_OFFSET: 22,     // ... drawn this far below the rim centre (on the drink surface, under the splash crown)
+
+    // multipliers: fall speed, spawn interval, hazard weight, crossfire cadence (CROSSFIRE_EVERY x this)
     DIFFICULTY: {
-      easy:   { speed: 0.85, spawn: 1.20, bad: 0.70 },
-      normal: { speed: 1.00, spawn: 1.00, bad: 1.00 },
-      hard:   { speed: 1.15, spawn: 0.85, bad: 1.30 }
+      easy:   { speed: 0.85, spawn: 1.20, bad: 0.70, crossfire: 1.6 },
+      normal: { speed: 1.00, spawn: 1.00, bad: 1.00, crossfire: 1.0 },
+      hard:   { speed: 1.15, spawn: 0.85, bad: 1.30, crossfire: 0.7 }
     }
   };
 
-  var KIND = { WAFER: 'wafer', ALARM: 'alarm', DEADLINE: 'deadline' };
-  var BAD_KINDS = [KIND.ALARM, KIND.DEADLINE];
-  var TWO_PI = Math.PI * 2;
+  // Sprite names. 'alarm'/'deadline' kept as named constants for backwards compatibility.
+  var KIND = { WAFER: 'wafer', GOLD: 'gold', ALARM: 'alarm', DEADLINE: 'deadline', PHONE: 'phone', ORDERS: 'orders', TRAFFIC: 'traffic' };
+  // Item classes (what the rules care about). Hazard items carry their sprite name in `kind`.
+  var CLS = { WAFER: 'wafer', GOLD: 'gold', HAZARD: 'hazard' };
+  var BAD_KINDS = TUNING.HAZARDS.slice();
+  var TWO_PI = Math.PI * 2, DEG = Math.PI / 180;
 
   /* ================================================================== */
   /*  Pure helpers (exported via DunkGame.internals)                      */
@@ -144,10 +217,7 @@
     return rng;
   }
 
-  /**
-   * One semi-implicit Euler step of a critically damped spring.
-   * Returns nothing; mutates s = { x, v }.
-   */
+  /** One semi-implicit Euler step of a critically damped spring. Mutates s = { x, v }. */
   function springStep(s, target, omega, dt) {
     var a = omega * omega * (target - s.x) - 2 * omega * s.v;
     s.v += a * dt;
@@ -172,26 +242,36 @@
   }
 
   /**
-   * Choose the kind for a spawn. `lanes[lane].lastBadAt` is the sim time of
-   * the previous bad item in that lane; `consecutiveBads` is the global run.
+   * Choose the class ('wafer' | 'gold' | 'hazard') for a regular spawn.
+   * `lanes[lane].lastBadAt` is the sim time of the previous hazard in that lane;
+   * `consecutiveBads` is the global run.
    */
   function pickKind(rng, elapsed, now, lane, lanes, consecutiveBads, T, diff) {
     T = T || TUNING; diff = diff || TUNING.DIFFICULTY.normal;
-    if (elapsed < T.WAFERS_ONLY_SECONDS) return KIND.WAFER;
-    var wW = T.MIX.wafer, wA = T.MIX.alarm * diff.bad, wD = T.MIX.deadline * diff.bad;
-    var r = rng() * (wW + wA + wD);
-    var kind = r < wW ? KIND.WAFER : (r < wW + wA ? KIND.ALARM : KIND.DEADLINE);
-    if (kind !== KIND.WAFER) {
-      if (now - lanes[lane].lastBadAt < T.BAD_LANE_COOLDOWN) return KIND.WAFER;
-      if (consecutiveBads >= T.MAX_CONSECUTIVE_BADS) return KIND.WAFER;
+    if (elapsed < T.WAFERS_ONLY_SECONDS) return CLS.WAFER;
+    if (elapsed >= T.GOLD_AFTER_SECONDS && rng() < T.GOLD_SHARE) return CLS.GOLD;
+    var wW = T.MIX.wafer, wH = T.MIX.hazard * diff.bad;
+    var cls = rng() * (wW + wH) < wW ? CLS.WAFER : CLS.HAZARD;
+    if (cls === CLS.HAZARD) {
+      if (now - lanes[lane].lastBadAt < T.BAD_LANE_COOLDOWN) return CLS.WAFER;
+      if (consecutiveBads >= T.MAX_CONSECUTIVE_BADS) return CLS.WAFER;
     }
-    return kind;
+    return cls;
+  }
+
+  /** Uniform pick from `list` excluding `last` (no immediate repeat). */
+  function pickHazard(rng, list, last) {
+    if (list.length === 1) return list[0];
+    var i = rng.int(list.length - 1);
+    var k = list[i];
+    if (k === last) k = list[list.length - 1];
+    return k;
   }
 
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function easeOutCubic(t) { t = 1 - t; return 1 - t * t * t; }
-  function easeOutBack(t) { var c = 1.70158; t -= 1; return 1 + t * t * ((c + 1) * t + c); }
+  function easeOutBack(t, c) { c = c || 1.70158; t -= 1; return 1 + t * t * ((c + 1) * t + c); }
 
   /* ================================================================== */
   /*  Pre-rendered effect layers                                          */
@@ -225,6 +305,10 @@
     var s1 = makeCanvas(160 * scale, 110 * scale), c1 = s1.getContext('2d');
     c1.scale(scale, scale); fillGoldText(c1, '+1', 80, 55, 78, true);
     out.plus = { canvas: s1, w: 160, h: 110, ox: 80, oy: 55 };
+    // "+3" (gold wafer)
+    var s4 = makeCanvas(220 * scale, 150 * scale), c4 = s4.getContext('2d');
+    c4.scale(scale, scale); fillGoldText(c4, '+3', 110, 75, 108, true);
+    out.plus3 = { canvas: s4, w: 220, h: 150, ox: 110, oy: 75 };
     // big "+1 / N IN A ROW"
     var s2 = makeCanvas(440 * scale, 320 * scale), c2 = s2.getContext('2d');
     c2.scale(scale, scale); fillGoldText(c2, '+1', 220, 120, 190, true);
@@ -243,17 +327,27 @@
     return out;
   }
 
+  /** "xN STREAK" combo meter, rasterised once per streak value. */
+  function buildComboText(n, scale) {
+    var w = 360, h = 90;
+    var c = makeCanvas(w * scale, h * scale), ctx = c.getContext('2d');
+    ctx.scale(scale, scale);
+    fillGoldText(ctx, 'x' + n + ' STREAK', w / 2, h / 2, 46, true);
+    return { canvas: c, w: w, h: h, ox: w / 2, oy: h / 2 };
+  }
+
   function buildVignette(scale) {
     var W = TUNING.STAGE_W, H = TUNING.STAGE_H, res = TUNING.VIGNETTE_RES;
     var c = makeCanvas(W * res, H * res), ctx = c.getContext('2d');
     var g = ctx.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.25, c.width / 2, c.height / 2, c.height * 0.62);
-    g.addColorStop(0, 'rgba(200,0,24,0)'); g.addColorStop(1, 'rgba(200,0,24,0.85)');
+    g.addColorStop(0, 'rgba(120,0,14,0)'); g.addColorStop(0.55, 'rgba(150,0,18,0.45)'); g.addColorStop(1, 'rgba(70,0,8,0.92)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
     return { canvas: c, w: W, h: H };
   }
 
+  /** Gold ring pulse on the rim. */
   function buildGlow(scale) {
-    var R = 170;
+    var R = 200;
     var c = makeCanvas(R * 2 * scale, R * 2 * scale), ctx = c.getContext('2d');
     ctx.scale(scale, scale);
     var g = ctx.createRadialGradient(R, R, R * 0.45, R, R, R);
@@ -263,21 +357,91 @@
     return { canvas: c, w: R * 2, h: R * 2, ox: R, oy: R };
   }
 
+  /** Soft radial disc (item glow / catch flash). Rendered at half resolution. */
+  function buildRadial(R, stops, scale) {
+    var res = 0.5 * scale;
+    var c = makeCanvas(R * 2 * res, R * 2 * res), ctx = c.getContext('2d');
+    ctx.scale(res, res);
+    var g = ctx.createRadialGradient(R, R, 0, R, R, R);
+    for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, R * 2, R * 2);
+    return { canvas: c, w: R * 2, h: R * 2, ox: R, oy: R };
+  }
+
+  function buildItemGlows(scale) {
+    return {
+      wafer: buildRadial(190, [[0, 'rgba(255,225,150,0.95)'], [0.4, 'rgba(255,200,90,0.5)'], [1, 'rgba(255,170,60,0)']], scale),
+      gold: buildRadial(230, [[0, 'rgba(255,245,190,1)'], [0.35, 'rgba(255,215,100,0.6)'], [1, 'rgba(255,190,60,0)']], scale),
+      // hazards: hot orange-white core so the halo still reads on the red stage
+      hazard: buildRadial(165, [[0, 'rgba(255,170,110,0.95)'], [0.4, 'rgba(255,80,40,0.5)'], [1, 'rgba(255,40,30,0)']], scale)
+    };
+  }
+
+  function buildFlash(scale) {
+    return buildRadial(240, [[0, 'rgba(255,255,235,1)'], [0.25, 'rgba(255,235,170,0.8)'], [0.6, 'rgba(255,200,90,0.3)'], [1, 'rgba(255,190,80,0)']], scale);
+  }
+
+  /** Warm gold light rays from a point; one texture, rotated slowly per frame. */
   function buildRays(scale) {
-    var R = 380, n = 14;
-    var c = makeCanvas(R * 2 * scale, R * 2 * scale), ctx = c.getContext('2d');
-    ctx.scale(scale, scale); ctx.translate(R, R);
-    var g = ctx.createRadialGradient(0, 0, R * 0.1, 0, 0, R);
-    g.addColorStop(0, 'rgba(255,215,120,0.55)'); g.addColorStop(1, 'rgba(255,200,80,0)');
+    var R = TUNING.RAYS_RADIUS, n = 18, res = 0.5 * scale;
+    var c = makeCanvas(R * 2 * res, R * 2 * res), ctx = c.getContext('2d');
+    ctx.scale(res, res); ctx.translate(R, R);
+    var rng = createRng(4242);
+    var g = ctx.createRadialGradient(0, 0, R * 0.05, 0, 0, R);
+    g.addColorStop(0, 'rgba(255,225,150,0.7)'); g.addColorStop(0.35, 'rgba(255,205,110,0.42)'); g.addColorStop(1, 'rgba(255,190,80,0)');
     ctx.fillStyle = g;
     for (var i = 0; i < n; i++) {
-      var a = (i / n) * TWO_PI, hw = 0.09;
+      var a = (i / n) * TWO_PI + rng.range(-0.08, 0.08), hw = rng.range(0.035, 0.11);
       ctx.beginPath(); ctx.moveTo(0, 0);
       ctx.lineTo(Math.cos(a - hw) * R, Math.sin(a - hw) * R);
       ctx.lineTo(Math.cos(a + hw) * R, Math.sin(a + hw) * R);
       ctx.closePath(); ctx.fill();
     }
+    // soft bloom at the origin
+    var b = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.35);
+    b.addColorStop(0, 'rgba(255,235,180,0.55)'); b.addColorStop(1, 'rgba(255,220,150,0)');
+    ctx.fillStyle = b; ctx.beginPath(); ctx.arc(0, 0, R * 0.35, 0, TWO_PI); ctx.fill();
     return { canvas: c, w: R * 2, h: R * 2, ox: R, oy: R };
+  }
+
+  /**
+   * Speed lines for the final seconds: ONE soft streak sprite (white + gold variant)
+   * blitted SPEEDLINE_COUNT times at scrolling positions. Small blits are far cheaper
+   * than a full-stage scrolling layer, on the GPU and on a software rasteriser alike.
+   */
+  function buildStreak(scale, gold) {
+    var w = 12, h = 512, res = 0.5 * scale;
+    var c = makeCanvas(w * res, h * res), ctx = c.getContext('2d');
+    ctx.scale(res, res);
+    var col = gold ? '255,228,160' : '255,255,255';
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(' + col + ',0)'); g.addColorStop(0.5, 'rgba(' + col + ',1)'); g.addColorStop(1, 'rgba(' + col + ',0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    var hg = ctx.createLinearGradient(0, 0, w, 0);
+    hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(0.5, 'rgba(0,0,0,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = hg; ctx.fillRect(0, 0, w, h);
+    return { canvas: c, w: w, h: h };
+  }
+
+  function buildSpeedLines(scale) {
+    var rng = createRng(777), lines = [];
+    for (var i = 0; i < TUNING.SPEEDLINE_COUNT; i++) {
+      lines.push({ x: rng.range(10, TUNING.STAGE_W - 10), ph: rng(), len: rng.range(160, 560), w: rng.range(3, 8), a: rng.range(0.3, 0.85), gold: rng() < 0.5 });
+    }
+    return { white: buildStreak(scale, false), gold: buildStreak(scale, true), lines: lines };
+  }
+
+  /** Four quadrants of a hazard sprite (shatter fragments), anchored at their centres. */
+  function buildFragments(sprite) {
+    var out = [], hw = sprite.w / 2, hh = sprite.h / 2, s = sprite.scale;
+    for (var q = 0; q < 4; q++) {
+      var qx = q % 2, qy = q >> 1;
+      var c = makeCanvas(hw * s, hh * s), ctx = c.getContext('2d');
+      ctx.drawImage(sprite.canvas, qx * hw * s, qy * hh * s, hw * s, hh * s, 0, 0, hw * s, hh * s);
+      // offset of the quadrant centre from the sprite anchor (logical px)
+      out.push({ canvas: c, w: hw, h: hh, ox: hw / 2, oy: hh / 2, dx: qx * hw + hw / 2 - sprite.ax, dy: qy * hh + hh / 2 - sprite.ay });
+    }
+    return out;
   }
 
   /* ================================================================== */
@@ -290,7 +454,7 @@
     var canvas = opts.canvas || null;
     var ctx = canvas ? canvas.getContext('2d', { alpha: true }) : null;
     var sprites = opts.sprites || null;
-    var duration = opts.duration > 0 ? +opts.duration : 45;
+    var duration = opts.duration > 0 ? +opts.duration : 40;
     var diff = T.DIFFICULTY[opts.difficulty] || T.DIFFICULTY.normal;
     var reduced = !!opts.reducedEffects;
     var onTick = typeof opts.onTick === 'function' ? opts.onTick : null;
@@ -298,11 +462,16 @@
     var onEnd = typeof opts.onEnd === 'function' ? opts.onEnd : null;
     var autoLoop = opts.autoLoop !== false && !!canvas && typeof requestAnimationFrame === 'function';
     var seed = (opts.seed === undefined || opts.seed === null) ? ((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) : (opts.seed >>> 0);
-    var rng = createRng(seed);
+    var rng = createRng(seed);                     // gameplay
+    var frng = createRng((seed ^ 0x5bd1e995) >>> 0); // effects only (never touches gameplay)
     var scale = sprites && sprites.$scale ? sprites.$scale : (canvas ? canvas.width / T.STAGE_W : 1);
 
     var hasDoc = typeof document !== 'undefined' && document && typeof document.addEventListener === 'function';
     var perf = (typeof performance !== 'undefined' && performance.now) ? performance : { now: function () { return Date.now(); } };
+
+    // Hazard rotation: whichever of TUNING.HAZARDS actually loaded (headless: all).
+    var hazards = T.HAZARDS.filter(function (n) { return !sprites || (sprites[n] && sprites[n].fromImage); });
+    if (!hazards.length) hazards = T.HAZARD_FALLBACK.slice();
 
     // ---- Public, live state (mutated in place; never replaced) ---------
     var state = {
@@ -313,6 +482,7 @@
       streak: 0,
       bestStreak: 0,
       caught: 0,
+      gold: 0,                // gold wafers caught (included in caught)
       missed: 0,
       hits: 0,
       dodged: 0,
@@ -323,6 +493,7 @@
       stunned: false,
       pauseReason: null,      // 'user' | 'lost' | 'hidden' | null
       seed: seed,
+      hazards: hazards.slice(),
       stats: { items: 0, particles: 0, popups: 0, drawCalls: 0, frameMs: 0, fps: 0 }
     };
 
@@ -333,8 +504,10 @@
     var clock = 0;               // real seconds since create (runs while paused)
     var spawnTimer = 0.6;        // first item shortly after start
     var consecutiveBads = 0;
+    var lastHazard = null;
+    var nextCrossfireAt = T.CROSSFIRE_AFTER;
     var stunT = 0;
-    var final5Sent = false;
+    var finalSent = false, final10Sent = false;
     var pausedBy = { user: false, lost: false, hidden: false };
     var lostAt = -1;             // clock when tracking was lost (-1 = tracking)
     var regainTimer = 0;
@@ -343,6 +516,10 @@
     var lastFrame = 0;
     var frameSamples = 0, frameAccumMs = 0, fpsWindowStart = 0;
 
+    // cosmetic timers (real time)
+    var splashT = 0, shakeT = 0, recoilT = 0, recoilDir = 1, tilt = 0, comboPulse = 0, comboN = 0;
+    var raysX = mug.x;
+
     var lanes = [];
     for (var li = 0; li < T.LANES; li++) lanes.push({ lastBadAt: -Infinity, lastAt: -Infinity, lastKind: null });
     var spawnMinX = T.MUG_MIN_X - T.SPAWN_PAD;
@@ -350,33 +527,54 @@
 
     // ---- Pools --------------------------------------------------------------
     function makeItem() {
-      return { active: false, kind: KIND.WAFER, bad: false, state: 'fall', lane: 0,
-        x: 0, y: 0, px: 0, py: 0, rot: 0, prot: 0, baseX: 0, vy: 0, t: 0, ft: 0,
+      return { active: false, kind: KIND.WAFER, cls: CLS.WAFER, bad: false, gold: false, state: 'fall', lane: 0, pattern: null,
+        x: 0, y: 0, px: 0, py: 0, rot: 0, prot: 0, baseX: 0, vy: 0, t: 0, ft: 0, trailT: 0,
         swayAmp: 0, swayW: 0, swayPh: 0, rotBase: 0, rotAmp: 0, rotW: 0, rotPh: 0,
         alpha: 1, size: 1, resolved: false };
     }
     var items = [];
     for (var ii = 0; ii < T.ITEM_POOL; ii++) items.push(makeItem());
+    // particle kinds: 0 droplet (mug-relative), 1 crumb (mug-relative), 2 sparkle (world)
     var particles = [];
-    for (var pi = 0; pi < T.PARTICLE_POOL; pi++) particles.push({ active: false, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, life: 0, maxLife: 0, size: 1, piece: false, rot: 0, rotV: 0 });
+    for (var pi = 0; pi < T.PARTICLE_POOL; pi++) particles.push({ active: false, kind: 0, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, g: 0, life: 0, maxLife: 0, size: 1, rot: 0, rotV: 0 });
     var popups = [];
     for (var qi = 0; qi < T.POPUP_POOL; qi++) popups.push({ active: false, kind: 'plus', x: 0, y: 0, t: 0, dur: 0 });
     var glows = [];
     for (var gi = 0; gi < T.GLOW_POOL; gi++) glows.push({ active: false, t: 0 });
+    var flashes = [];
+    for (var fi = 0; fi < T.FLASH_POOL; fi++) flashes.push({ active: false, t: 0, gold: false });
+    var fragments = [];
+    for (var ri = 0; ri < T.FRAGMENT_POOL; ri++) fragments.push({ active: false, kind: null, q: 0, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0 });
+    // spawn queue for patterns (second item of a pair)
+    var queue = [{ active: false, at: 0, cls: CLS.WAFER, lane: 0, pattern: null }, { active: false, at: 0, cls: CLS.WAFER, lane: 0, pattern: null }];
+    // ambient motes (cosmetic, real time)
+    var motes = [];
+    var moteCount = (reduced || !sprites) ? 0 : T.MOTES;
+    for (var mi = 0; mi < moteCount; mi++) {
+      motes.push({ x: frng.range(60, T.STAGE_W - 60), y: frng.range(300, T.KILL_Y), vy: frng.pick(T.MOTE_SPEED),
+        swayAmp: frng.range(10, 30), swayW: frng.range(0.3, 0.7) * TWO_PI, ph: frng() * TWO_PI, size: frng.range(0.55, 1.1), rot: frng() * TWO_PI, rotV: frng.range(-0.6, 0.6) });
+    }
 
     // ---- Render resources (browser only) --------------------------------------
-    var text = null, vignette = null, glowTex = null, raysTex = null;
+    var text = null, vignette = null, glowTex = null, raysTex = null, linesTex = null, flashTex = null, itemGlow = null;
+    var comboCache = {};
+    var fragmentCache = {};
     if (ctx) {
       vignette = buildVignette(scale);
       glowTex = buildGlow(scale);
-      if (!reduced) raysTex = buildRays(scale);
+      flashTex = buildFlash(scale);
+      itemGlow = buildItemGlows(scale);
+      if (!reduced) { raysTex = buildRays(scale); linesTex = buildSpeedLines(scale); }
       text = buildTextSprites(scale);
-      // Re-rasterise popups once web fonts arrive (first build may use a fallback font).
+      for (var cn = T.COMBO_MIN_STREAK; cn <= T.COMBO_MIN_STREAK + 9; cn++) comboCache[cn] = buildComboText(cn, scale);
+      // Re-rasterise text once web fonts arrive (first build may use a fallback font).
       if (hasDoc && document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(function () { if (!destroyed) text = buildTextSprites(scale); });
+        document.fonts.ready.then(function () { if (!destroyed) { text = buildTextSprites(scale); comboCache = {}; } });
       }
       if (sprites) {
-        ['wafer', 'alarm', 'deadline', 'wafer-piece'].forEach(function (n) { if (sprites[n]) sprites[n].prewarm(); });
+        var pre = ['wafer', 'gold', 'wafer-piece', 'splash-drop', 'sparkle'].concat(hazards);
+        pre.forEach(function (n) { if (sprites[n]) sprites[n].prewarm(); });
+        hazards.forEach(function (n) { if (sprites[n]) fragmentCache[n] = buildFragments(sprites[n]); });
       }
     }
 
@@ -417,25 +615,86 @@
       return null;
     }
 
-    function spawn(speed) {
+    function reachable(speed) {
+      return !T.SPAWN_ONLY_IF_REACHABLE || (duration - simTime) * speed >= (T.MUG_RIM_Y - T.SPAWN_Y);
+    }
+
+    /** Put one item in play. `cls` is a CLS value; hazards get a rotating sprite. */
+    function spawnItem(cls, lane, pattern, speed) {
       var it = freeItem();
-      if (!it) return;
-      var lane = rng.int(T.LANES);
-      var kind = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
-      var bad = kind !== KIND.WAFER;
+      if (!it) return null;
       var L = lanes[lane];
+      if (cls === CLS.HAZARD) {
+        // queued hazards re-check the rules (a regular spawn may have moved the counters)
+        if (consecutiveBads >= T.MAX_CONSECUTIVE_BADS || simTime - L.lastBadAt < T.BAD_LANE_COOLDOWN) cls = CLS.WAFER;
+      }
+      var bad = cls === CLS.HAZARD;
+      var kind = bad ? pickHazard(rng, hazards, lastHazard) : (cls === CLS.GOLD ? KIND.GOLD : KIND.WAFER);
+      if (bad) lastHazard = kind;
       L.lastAt = simTime; L.lastKind = kind;
       if (bad) { L.lastBadAt = simTime; consecutiveBads++; } else consecutiveBads = 0;
 
-      it.active = true; it.kind = kind; it.bad = bad; it.state = 'fall'; it.lane = lane;
+      it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
       it.baseX = spawnMinX + laneW * (lane + 0.5) + rng.range(-1, 1) * laneW * T.LANE_JITTER;
       it.swayAmp = rng.pick(T.SWAY_AMP); it.swayW = rng.pick(T.SWAY_HZ) * TWO_PI; it.swayPh = rng() * TWO_PI;
       it.rotBase = rng.pick(T.ROT_BASE); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; it.rotPh = rng() * TWO_PI;
-      it.vy = speed; it.t = 0; it.ft = 0; it.alpha = 1; it.size = 1; it.resolved = false;
+      it.vy = speed; it.t = 0; it.ft = 0; it.trailT = 0; it.alpha = 1; it.size = 1; it.resolved = false;
       it.x = it.px = it.baseX + Math.sin(it.swayPh) * it.swayAmp;
       it.y = it.py = T.SPAWN_Y;
       it.rot = it.prot = it.rotBase + Math.sin(it.rotPh) * it.rotAmp;
-      emit({ type: 'spawn', kind: kind, lane: lane, t: simTime, x: it.baseX });
+      emit({ type: 'spawn', kind: kind, cls: cls, bad: bad, lane: lane, t: simTime, x: it.baseX, pattern: pattern });
+      return it;
+    }
+
+    function enqueue(at, cls, lane, pattern) {
+      for (var i = 0; i < queue.length; i++) if (!queue[i].active) {
+        var q = queue[i]; q.active = true; q.at = at; q.cls = cls; q.lane = lane; q.pattern = pattern; return;
+      }
+    }
+
+    function adjacentLane(lane) {
+      if (lane === 0) return 1;
+      if (lane === T.LANES - 1) return lane - 1;
+      return rng() < 0.5 ? lane - 1 : lane + 1;
+    }
+
+    /** A lane that may take a hazard now, or -1. */
+    function hazardLane() {
+      var start = rng.int(T.LANES);
+      for (var k = 0; k < T.LANES; k++) {
+        var l = (start + k) % T.LANES;
+        if (simTime - lanes[l].lastBadAt >= T.BAD_LANE_COOLDOWN) return l;
+      }
+      return -1;
+    }
+
+    /** Regular spawn tick. Returns the extra delay to add before the next regular spawn. */
+    function spawn(speed) {
+      var lane = rng.int(T.LANES);
+      // crossfire: hazard + wafer CROSSFIRE_GAP apart in adjacent lanes (order flips when the hazard cap is hit)
+      if (simTime >= nextCrossfireAt && simTime >= T.WAFERS_ONLY_SECONDS) {
+        var hl = hazardLane();
+        if (hl >= 0) {
+          var adj = adjacentLane(hl);
+          var hazardFirst = consecutiveBads < T.MAX_CONSECUTIVE_BADS;
+          nextCrossfireAt = simTime + T.CROSSFIRE_EVERY * (diff.crossfire || 1) * (1 + rng.range(-1, 1) * T.CROSSFIRE_JITTER);
+          emit({ type: 'pattern', name: 'crossfire', t: simTime });
+          spawnItem(hazardFirst ? CLS.HAZARD : CLS.WAFER, hazardFirst ? hl : adj, 'crossfire', speed);
+          enqueue(simTime + T.CROSSFIRE_GAP, hazardFirst ? CLS.WAFER : CLS.HAZARD, hazardFirst ? adj : hl, 'crossfire');
+          return T.CROSSFIRE_GAP;
+        }
+        nextCrossfireAt = simTime + 1;
+      }
+      // double wafer: "catch both"
+      if (simTime >= T.DOUBLE_AFTER && rng() < T.DOUBLE_CHANCE) {
+        emit({ type: 'pattern', name: 'double', t: simTime });
+        spawnItem(CLS.WAFER, lane, 'double', speed);
+        enqueue(simTime + T.DOUBLE_GAP, CLS.WAFER, adjacentLane(lane), 'double');
+        return T.DOUBLE_GAP;
+      }
+      var cls = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
+      spawnItem(cls, lane, null, speed);
+      return 0;
     }
 
     // ---- Effects ------------------------------------------------------------
@@ -454,36 +713,92 @@
       for (var i = 0; i < glows.length; i++) if (!glows[i].active) { glows[i].active = true; glows[i].t = 0; return; }
     }
 
+    function addFlash(gold) {
+      for (var i = 0; i < flashes.length; i++) if (!flashes[i].active) { flashes[i].active = true; flashes[i].t = 0; flashes[i].gold = gold; return; }
+    }
+
+    function freeParticle() {
+      for (var i = 0; i < particles.length; i++) if (!particles[i].active) return particles[i];
+      return null;
+    }
+
     function splash(y) {
       var n = reduced ? T.SPLASH_PARTICLES_REDUCED : T.SPLASH_PARTICLES;
-      for (var i = 0, k = 0; i < particles.length && k < n; i++) {
-        var p = particles[i];
-        if (p.active) continue;
-        p.active = true; k++;
+      var crumbs = reduced ? 1 : T.SPLASH_CRUMBS;
+      for (var k = 0; k < n + crumbs; k++) {
+        var p = freeParticle();
+        if (!p) return;
+        p.active = true;
+        p.kind = k < n ? 0 : 1;
         // x is stored RELATIVE to the mug so the splash travels with the cup.
-        p.x = p.px = rng.range(-60, 60); p.y = p.py = y - 10;
-        p.vx = rng.range(-1, 1) * T.SPLASH_SPREAD; p.vy = -rng.pick(T.SPLASH_SPEED);
-        p.maxLife = p.life = rng.pick(T.PARTICLE_LIFE);
-        p.piece = rng() < 0.3; p.size = rng.range(0.6, 1.25);
-        p.rot = rng() * TWO_PI; p.rotV = rng.range(-6, 6);
+        p.x = p.px = frng.range(-70, 70); p.y = p.py = y - 10;
+        p.vx = frng.range(-1, 1) * T.SPLASH_SPREAD; p.vy = -frng.pick(T.SPLASH_SPEED) * (p.kind ? 0.85 : 1);
+        p.g = T.GRAVITY;
+        p.maxLife = p.life = frng.pick(T.PARTICLE_LIFE);
+        p.size = p.kind ? frng.range(0.7, 1.1) : frng.range(0.55, 1.3);
+        p.rot = frng() * TWO_PI; p.rotV = frng.range(-1, 1) * T.SPLASH_SPIN;
+      }
+    }
+
+    function sparkleBurst(x, y, n) {
+      for (var k = 0; k < n; k++) {
+        var p = freeParticle();
+        if (!p) return;
+        p.active = true; p.kind = 2;
+        p.x = p.px = x + frng.range(-40, 40); p.y = p.py = y - 20;
+        var a = frng.range(-Math.PI, 0), sp = frng.range(220, 620);
+        p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp; p.g = 600;
+        p.maxLife = p.life = frng.range(0.5, 0.9);
+        p.size = frng.range(0.8, 1.6); p.rot = frng() * TWO_PI; p.rotV = frng.range(-4, 4);
+      }
+    }
+
+    function trailSparkle(it) {
+      var p = freeParticle();
+      if (!p) return;
+      p.active = true; p.kind = 2;
+      p.x = p.px = it.x + frng.range(-30, 30); p.y = p.py = it.y + frng.range(-90, 60);
+      p.vx = frng.range(-30, 30); p.vy = it.vy * 0.25; p.g = 0;
+      p.maxLife = p.life = frng.range(0.35, 0.6);
+      p.size = frng.range(0.5, 1.1); p.rot = frng() * TWO_PI; p.rotV = frng.range(-3, 3);
+    }
+
+    function shatter(it) {
+      var speed = T.FRAGMENT_SPEED;
+      for (var q = 0; q < 4; q++) {
+        var f = null;
+        for (var i = 0; i < fragments.length; i++) if (!fragments[i].active) { f = fragments[i]; break; }
+        if (!f) return;
+        f.active = true; f.kind = it.kind; f.q = q; f.t = 0;
+        var dx = (q % 2) ? 1 : -1, dy = (q >> 1) ? 1 : -1;
+        f.x = f.px = it.x; f.y = f.py = it.y;
+        f.vx = dx * frng.pick(speed) + frng.range(-60, 60);
+        f.vy = dy * frng.pick(speed) * 0.6 - 260;
+        f.rot = it.rot; f.rotV = frng.range(-1, 1) * T.FRAGMENT_SPIN;
       }
     }
 
     // ---- Resolution ---------------------------------------------------------
     function resolveCatch(it) {
       it.resolved = true; it.state = 'dunk'; it.ft = 0;
-      state.caught++; state.score += 1; state.streak++;
+      var points = it.gold ? T.GOLD_SCORE : 1;
+      state.caught++; if (it.gold) state.gold++;
+      state.score += points; state.streak++;
       if (state.streak > state.bestStreak) state.bestStreak = state.streak;
       splash(T.MUG_RIM_Y);
-      addGlow();
+      addGlow(); addFlash(it.gold);
+      splashT = T.SPLASH_FRAME_SECONDS;
+      if (it.gold) sparkleBurst(mug.x, T.MUG_RIM_Y, reduced ? 4 : T.GOLD_BURST);
       var isStreak = T.STREAK_EVERY > 0 && state.streak % T.STREAK_EVERY === 0;
       if (isStreak) {
         state.score += T.STREAK_BONUS;
         addPopup('big', clamp(mug.x + 300, 260, T.STAGE_W - 240), T.MUG_RIM_Y - 300);
+        if (it.gold) addPopup('plus3', it.x, T.MUG_RIM_Y - 120);
       } else {
-        addPopup('plus', it.x, T.MUG_RIM_Y - 120);
+        addPopup(it.gold ? 'plus3' : 'plus', it.x, T.MUG_RIM_Y - 120);
       }
-      emit({ type: 'catch', score: state.score, streak: state.streak, x: it.x });
+      if (state.streak >= T.COMBO_MIN_STREAK) comboPulse = 1;
+      emit({ type: 'catch', kind: it.kind, points: points, score: state.score, streak: state.streak, x: it.x });
       if (isStreak) emit({ type: 'streak', n: state.streak, score: state.score });
     }
 
@@ -492,6 +807,8 @@
       state.hits++; state.streak = 0;
       state.score = Math.max(0, state.score - T.HIT_PENALTY);
       stunT = T.STUN_SECONDS;
+      shakeT = T.SHAKE_SECONDS; recoilT = T.MUG_RECOIL_SECONDS; recoilDir = it.x < mug.x ? 1 : -1;
+      shatter(it);
       if (T.SHOW_PENALTY_POPUP && T.HIT_PENALTY > 0) addPopup('minus', it.x, T.MUG_RIM_Y - 120);
       emit({ type: 'hit', kind: it.kind, score: state.score });
     }
@@ -499,7 +816,7 @@
     function resolveMiss(it) {
       it.resolved = true; it.state = 'fade';
       if (it.bad) { state.dodged++; emit({ type: 'dodge', kind: it.kind }); }
-      else { state.missed++; state.streak = 0; emit({ type: 'miss' }); }
+      else { state.missed++; state.streak = 0; emit({ type: 'miss', kind: it.kind }); }
     }
 
     // ---- Fixed step ---------------------------------------------------------
@@ -514,12 +831,15 @@
       if (mug.x > T.MUG_MAX_X) { mug.x = T.MUG_MAX_X; if (mug.v > 0) mug.v = 0; }
       if (stunT > 0) stunT -= dt;
 
-      // Spawning
+      // Spawning: regular timer + pattern queue
       spawnTimer -= dt;
       if (spawnTimer <= 0) {
-        var reachable = !T.SPAWN_ONLY_IF_REACHABLE || (duration - simTime) * sch.speed >= (T.MUG_RIM_Y - T.SPAWN_Y);
-        if (reachable) spawn(sch.speed);
-        spawnTimer = sch.interval * (1 + rng.range(-1, 1) * T.SPAWN_JITTER);
+        var extra = reachable(sch.speed) ? spawn(sch.speed) : 0;
+        spawnTimer = sch.interval * (1 + rng.range(-1, 1) * T.SPAWN_JITTER) + extra;
+      }
+      for (var qq = 0; qq < queue.length; qq++) {
+        var qe = queue[qq];
+        if (qe.active && simTime >= qe.at) { qe.active = false; if (reachable(sch.speed)) spawnItem(qe.cls, qe.lane, qe.pattern, sch.speed); }
       }
 
       // Items
@@ -533,6 +853,7 @@
           it.y += it.vy * dt;
           it.x = it.baseX + Math.sin(it.swayPh + it.t * it.swayW) * it.swayAmp;
           it.rot = it.rotBase + Math.sin(it.rotPh + it.t * it.rotW) * it.rotAmp;
+          if (it.gold && ctx && !reduced) { it.trailT -= dt; if (it.trailT <= 0) { it.trailT = T.GOLD_TRAIL_EVERY; trailSparkle(it); } }
           if (!it.resolved) {
             if (catchTest(it.x, it.y, mug.x, T)) {
               if (it.bad) { if (!(T.STUN_INVULNERABLE && stunT > 0)) resolveHit(it); }
@@ -556,7 +877,7 @@
           it.ft += dt;
           var kp = it.ft / T.POP_SECONDS;
           it.alpha = clamp(1 - kp, 0, 1);
-          it.size = 1 + 0.5 * kp;
+          it.size = 1 + 0.4 * kp;
           if (kp >= 1) it.active = false;
         }
       }
@@ -566,21 +887,50 @@
         var pt = particles[p];
         if (!pt.active) continue;
         pt.px = pt.x; pt.py = pt.y;
-        pt.vy += T.GRAVITY * dt;
+        pt.vy += pt.g * dt;
         pt.x += pt.vx * dt; pt.y += pt.vy * dt;
         pt.rot += pt.rotV * dt;
         pt.life -= dt;
-        // Droplets that fall back below the rim vanish into the cocoa.
-        if (pt.life <= 0 || (pt.vy > 0 && pt.y > T.MUG_RIM_Y + 30)) pt.active = false;
+        // Droplets / crumbs that fall back below the rim vanish into the drink.
+        if (pt.life <= 0 || (pt.kind !== 2 && pt.vy > 0 && pt.y > T.MUG_RIM_Y + 30)) pt.active = false;
       }
 
-      // Popups / glows
+      // Hazard fragments
+      for (var f = 0; f < fragments.length; f++) {
+        var fr = fragments[f];
+        if (!fr.active) continue;
+        fr.px = fr.x; fr.py = fr.y;
+        fr.vy += T.GRAVITY * dt;
+        fr.x += fr.vx * dt; fr.y += fr.vy * dt; fr.rot += fr.rotV * dt;
+        fr.t += dt;
+        if (fr.t >= T.FRAGMENT_SECONDS || fr.y > T.KILL_Y) fr.active = false;
+      }
+
+      // Popups / glows / flashes
       for (var q = 0; q < popups.length; q++) if (popups[q].active && (popups[q].t += dt) >= popups[q].dur) popups[q].active = false;
       for (var g = 0; g < glows.length; g++) if (glows[g].active && (glows[g].t += dt) >= T.GLOW_SECONDS) glows[g].active = false;
+      for (var fl = 0; fl < flashes.length; fl++) if (flashes[fl].active && (flashes[fl].t += dt) >= T.FLASH_SECONDS) flashes[fl].active = false;
 
       // Timer
-      if (!final5Sent && duration - simTime <= T.FINAL_SECONDS) { final5Sent = true; emit({ type: 'final5', timeLeft: Math.max(0, duration - simTime) }); }
+      if (!final10Sent && duration - simTime <= T.FINAL_FX_SECONDS) { final10Sent = true; emit({ type: 'final10', timeLeft: Math.max(0, duration - simTime) }); }
+      if (!finalSent && duration - simTime <= T.FINAL_SECONDS) { finalSent = true; emit({ type: 'final5', timeLeft: Math.max(0, duration - simTime) }); }
       if (simTime >= duration) finish(false);
+    }
+
+    /** Cosmetic animation in real time (mug tilt, splash frame, shake, motes). */
+    function cosmetic(dt) {
+      if (splashT > 0) splashT -= dt;
+      if (shakeT > 0) shakeT -= dt;
+      if (recoilT > 0) recoilT -= dt;
+      if (comboPulse > 0) comboPulse = Math.max(0, comboPulse - dt * 4);
+      var tiltTarget = state.phase === 'playing' ? clamp(mug.v / T.MUG_TILT_SPEED, -1, 1) * T.MUG_TILT_MAX : 0;
+      tilt += (tiltTarget - tilt) * Math.min(1, T.MUG_TILT_SMOOTH * dt);
+      raysX += (mug.x - raysX) * Math.min(1, 3 * dt);
+      for (var i = 0; i < motes.length; i++) {
+        var m = motes[i];
+        m.y -= m.vy * dt; m.rot += m.rotV * dt;
+        if (m.y < 260) { m.y = T.KILL_Y + 20; m.x = frng.range(60, T.STAGE_W - 60); }
+      }
     }
 
     /** Per-frame update: meta timers in real time, physics in fixed steps. */
@@ -604,6 +954,7 @@
         if (acc > T.MAX_FRAME_DT) acc = T.MAX_FRAME_DT;
         while (acc >= T.DT && state.phase === 'playing') { step(T.DT); acc -= T.DT; }
       }
+      cosmetic(frameDt);
       updateDerived();
     }
 
@@ -611,13 +962,15 @@
       if (state.phase === 'ended') return;
       state.phase = 'ended';
       simTime = Math.min(simTime, duration);
-      stunT = 0;
+      stunT = 0; shakeT = 0;
       for (var i = 0; i < items.length; i++) items[i].active = false;
       for (var p = 0; p < particles.length; p++) particles[p].active = false;
       for (var q = 0; q < popups.length; q++) popups[q].active = false;
+      for (var f = 0; f < fragments.length; f++) fragments[f].active = false;
+      for (var k = 0; k < queue.length; k++) queue[k].active = false;
       updateDerived();
       var result = {
-        score: state.score, caught: state.caught, missed: state.missed, hits: state.hits,
+        score: state.score, caught: state.caught, gold: state.gold, missed: state.missed, hits: state.hits, dodged: state.dodged,
         bestStreak: state.bestStreak, durationPlayed: simTime, stopped: !!stopped, seed: seed
       };
       emit({ type: 'end', result: result });
@@ -640,57 +993,142 @@
       drawCalls++;
     }
 
+    /** Transformed blit (rotation / non-uniform scale) — used only for the mug and fragments. */
+    function blitT(v, x, y, rot, sx, sy, alpha) {
+      if (alpha <= 0) return;
+      ctx.save();
+      if (alpha < 1) ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      if (rot) ctx.rotate(rot);
+      if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+      ctx.drawImage(v.canvas, -v.ox, -v.oy, v.w, v.h);
+      ctx.restore();
+      drawCalls++;
+    }
+
+    var ghosts = reduced ? 1 : T.TRAIL_GHOSTS;
+
     function drawItem(it, a) {
       var sp = sprites && sprites[it.kind];
       if (!sp) return;
       var x = lerp(it.px, it.x, a), y = lerp(it.py, it.y, a), rot = lerp(it.prot, it.rot, a);
-      blit(sp.rotated(rot), x, y, it.alpha, it.size);
+      var falling = it.state === 'fall' || it.state === 'fade';
+      // glow under the item
+      if (itemGlow && it.alpha > 0.05) {
+        var gl = it.bad ? itemGlow.hazard : (it.gold ? itemGlow.gold : itemGlow.wafer);
+        var ga = T.ITEM_GLOW_ALPHA * it.alpha;
+        if (it.gold) ga *= 0.8 + 0.25 * Math.sin(clock * 9 + it.swayPh);
+        blit(gl, x, y, ga, it.size);
+      }
+      var v = sp.rotated(rot);
+      // motion trail: ghost copies back along the fall direction
+      if (falling && ghosts > 0) {
+        var sf = clamp((it.vy - T.TRAIL_MIN_SPEED) / (T.SPEED_END - T.TRAIL_MIN_SPEED), 0.25, 1);
+        for (var k = ghosts; k >= 1; k--) {
+          var ta = T.TRAIL_ALPHA * sf * (1 - k / (ghosts + 1)) * it.alpha;
+          blit(v, x, y - it.vy * T.TRAIL_SPACING * k, ta, 1 - 0.04 * k);
+        }
+      }
+      blit(v, x, y, it.alpha, it.size);
     }
 
     function render(a) {
       if (!ctx) return;
       drawCalls = 0;
       var W = T.STAGE_W, H = T.STAGE_H;
-      ctx.clearRect(0, 0, W, H);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (state.phase === 'idle' && !sprites) return;
+
+      // screen shake: translate the whole frame by a decaying random offset
+      var shX = 0, shY = 0;
+      if (shakeT > 0) {
+        var sk = shakeT / T.SHAKE_SECONDS; sk *= sk;
+        shX = (Math.random() * 2 - 1) * T.SHAKE_PX * sk; shY = (Math.random() * 2 - 1) * T.SHAKE_PX * sk;
+      }
+      ctx.setTransform(scale, 0, 0, scale, shX * scale, shY * scale);
 
       var mugX = lerp(mug.px, mug.x, a);
       var bobY = Math.sin(clock * TWO_PI * T.MUG_BOB_HZ) * T.MUG_BOB_AMP;
-      var shakeX = 0;
-      if (stunT > 0) {
-        var s = stunT / T.STUN_SECONDS;
-        shakeX = Math.sin(clock * 90) * T.STUN_SHAKE_PX * s;
-      }
       var rimY = T.MUG_RIM_Y;
+      var playing = state.phase === 'playing' || state.phase === 'paused';
+      var finalK = playing ? clamp((T.FINAL_FX_SECONDS - state.timeLeft) / 1.0, 0, 1) : 0;
+      var i, it, k;
 
-      // 1. streak rays behind the mug
-      if (raysTex && state.streak >= T.RAYS_MIN_STREAK && state.phase !== 'ended') {
+      // 1. background layers, clipped to the play area (never over the slider)
+      if (raysTex || linesTex || motes.length) {
         ctx.save();
-        ctx.globalAlpha = 0.6;
-        ctx.translate(mugX, rimY + 40);
-        ctx.rotate(clock * 0.35);
-        ctx.drawImage(raysTex.canvas, -raysTex.ox, -raysTex.oy, raysTex.w, raysTex.h);
+        ctx.beginPath(); ctx.rect(0, 0, W, T.KILL_Y); ctx.clip();
+        if (raysTex && state.phase !== 'ended') {
+          var sk2 = state.streak >= T.RAYS_MIN_STREAK ? clamp((state.streak - T.RAYS_MIN_STREAK + 1) / (T.RAYS_FULL_STREAK - T.RAYS_MIN_STREAK + 1), 0, 1) : 0;
+          var ra = T.RAYS_IDLE_ALPHA + (T.RAYS_MAX_ALPHA - T.RAYS_IDLE_ALPHA) * Math.max(sk2, finalK * 0.7);
+          // one textured quad: slow rotation, a gentle breathing scale, brighter with the streak / final seconds
+          var rs = 1 + 0.04 * Math.sin(clock * 1.7) + 0.08 * Math.max(sk2, finalK);
+          ctx.save();
+          ctx.translate(raysX, rimY - T.RAYS_Y_OFFSET);
+          ctx.globalAlpha = ra;
+          ctx.rotate(clock * T.RAYS_ROT_SPEED * (1 + 0.6 * Math.max(sk2, finalK)));
+          ctx.drawImage(raysTex.canvas, -raysTex.ox * rs, -raysTex.oy * rs, raysTex.w * rs, raysTex.h * rs);
+          drawCalls++;
+          ctx.restore();
+        }
+        if (linesTex && finalK > 0 && state.phase !== 'ended') {
+          var L = T.KILL_Y + 600, scroll = clock * T.SPEEDLINES_SPEED;
+          for (i = 0; i < linesTex.lines.length; i++) {
+            var ln = linesTex.lines[i];
+            var ly = (ln.ph * L + scroll) % L - 600;
+            if (ly + ln.len < 0) continue;
+            ctx.globalAlpha = ln.a * T.SPEEDLINES_ALPHA * finalK;
+            ctx.drawImage((ln.gold ? linesTex.gold : linesTex.white).canvas, ln.x - ln.w / 2, ly, ln.w, ln.len);
+            drawCalls++;
+          }
+          ctx.globalAlpha = 1;
+        }
+        var spk = sprites && sprites.sparkle;
+        if (spk) for (i = 0; i < motes.length; i++) {
+          var m = motes[i];
+          var mx = m.x + Math.sin(m.ph + clock * m.swayW) * m.swayAmp;
+          var ma = T.MOTE_ALPHA * (0.55 + 0.45 * Math.sin(m.ph * 3 + clock * 2.3));
+          blit(spk.rotated(m.rot), mx, m.y, ma, m.size);
+        }
         ctx.restore();
-        drawCalls++;
       }
 
       // 2. items at/below the rim (behind the mug) — includes dunking wafers
-      var i, it;
       for (i = 0; i < items.length; i++) {
         it = items[i];
         if (it.active && (it.y >= rimY || it.state === 'dunk')) drawItem(it, a);
       }
 
-      // 3. mug
-      var mugSp = sprites && sprites.mug;
-      if (mugSp) blit(mugSp.rotated(0), mugX + shakeX, rimY + bobY, 1, 1);
+      // 3. mug (tilt into motion, splash frame + squash, recoil on hit)
+      var mugSp = sprites && ((splashT > 0 && sprites['mug-splash'] && sprites['mug-splash'].fromImage) ? sprites['mug-splash'] : sprites.mug);
+      if (mugSp) {
+        var sx = 1, sy = 1, rot = tilt * DEG, dx = 0, dy = 0;
+        if (splashT > 0) {
+          var sp = 1 - splashT / T.SPLASH_FRAME_SECONDS;
+          var sq = sp < 0.5 ? Math.sin(Math.PI * sp * 2) : 0;
+          sx = 1 + T.SPLASH_SQUASH * sq; sy = 1 - T.SPLASH_SQUASH * 0.7 * sq;
+        }
+        if (recoilT > 0) {
+          var rr = Math.sin(Math.PI * recoilT / T.MUG_RECOIL_SECONDS);
+          dx = recoilDir * T.MUG_RECOIL_PX * rr; dy = 6 * rr; rot += -recoilDir * T.MUG_RECOIL_TILT * DEG * rr;
+        }
+        if (stunT > 0) dx += Math.sin(clock * 90) * 6 * (stunT / T.STUN_SECONDS);
+        blitT(mugSp.rotated(0), mugX + dx, rimY + bobY + dy, rot, sx, sy, 1);
+      }
 
-      // 4. catch glow on the rim
+      // 4. catch flash + glow ring on the rim
+      if (flashTex) for (i = 0; i < flashes.length; i++) {
+        var fls = flashes[i];
+        if (!fls.active) continue;
+        k = fls.t / T.FLASH_SECONDS;
+        blit(flashTex, mugX, rimY - 20, (fls.gold ? 1 : 0.8) * (1 - k), 0.6 + (fls.gold ? 1.3 : 0.9) * k);
+      }
       if (glowTex) for (i = 0; i < glows.length; i++) {
         var g = glows[i];
         if (!g.active) continue;
-        var k = g.t / T.GLOW_SECONDS;
-        blit(glowTex, mugX + shakeX, rimY + bobY, 0.85 * (1 - k), 0.7 + 0.5 * k);
+        k = g.t / T.GLOW_SECONDS;
+        blit(glowTex, mugX, rimY + bobY, 0.85 * (1 - k), 0.7 + 0.5 * k);
       }
 
       // 5. items above the rim (in front of the mug)
@@ -699,19 +1137,36 @@
         if (it.active && !(it.y >= rimY || it.state === 'dunk')) drawItem(it, a);
       }
 
-      // 6. particles
-      var drop = sprites && sprites['splash-drop'], piece = sprites && sprites['wafer-piece'];
+      // 6. hazard fragments
+      for (i = 0; i < fragments.length; i++) {
+        var fr = fragments[i];
+        if (!fr.active) continue;
+        var set = fragmentCache[fr.kind];
+        if (!set) continue;
+        var fq = set[fr.q], fa = 1 - fr.t / T.FRAGMENT_SECONDS;
+        var frot = lerp(fr.rot - fr.rotV * T.DT, fr.rot, a);
+        var cs = Math.cos(frot), sn = Math.sin(frot);
+        var fx = lerp(fr.px, fr.x, a) + fq.dx * cs - fq.dy * sn, fy = lerp(fr.py, fr.y, a) + fq.dx * sn + fq.dy * cs;
+        blitT(fq, fx, fy, frot, 1, 1, fa);
+      }
+
+      // 7. particles
+      var drop = sprites && sprites['splash-drop'], piece = sprites && sprites['wafer-piece'], spark = sprites && sprites.sparkle;
       for (i = 0; i < particles.length; i++) {
         var p = particles[i];
         if (!p.active) continue;
         var lf = p.life / p.maxLife;
         var al = lf < 0.3 ? lf / 0.3 : 1;
-        var px = mugX + shakeX + lerp(p.px, p.x, a), py = lerp(p.py, p.y, a);
-        if (p.piece && piece) blit(piece.rotated(p.rot), px, py, al, p.size);
-        else if (drop) blit(drop.rotated(0), px, py, al, p.size);
+        var px = lerp(p.px, p.x, a), py = lerp(p.py, p.y, a);
+        if (p.kind === 2) { if (spark) blit(spark.rotated(p.rot), px, py, al, p.size * (0.4 + 0.6 * lf)); }
+        else {
+          px += mugX;
+          if (p.kind === 1) { if (piece) blit(piece.rotated(p.rot), px, py, al, p.size); }
+          else if (drop) blit(drop.rotated(p.rot), px, py, al, p.size);
+        }
       }
 
-      // 7. popups
+      // 8. popups
       if (text) for (i = 0; i < popups.length; i++) {
         var pp = popups[i];
         if (!pp.active) continue;
@@ -721,18 +1176,26 @@
           var fade = tt > 0.7 ? 1 - (tt - 0.7) / 0.3 : 1;
           blit(text.big, pp.x, pp.y - 30 * tt, fade, sc);
         } else {
-          var rise = easeOutCubic(tt) * 110;
+          var rise = easeOutCubic(tt) * 120;
           var fd = tt > 0.55 ? 1 - (tt - 0.55) / 0.45 : 1;
-          var scp = tt < 0.2 ? easeOutBack(tt / 0.2) : 1;
-          blit(pp.kind === 'minus' ? text.minus : text.plus, pp.x, pp.y - rise, fd, scp);
+          var scp = tt < 0.22 ? easeOutBack(tt / 0.22, 2.4) * T.POPUP_POP : T.POPUP_POP - (T.POPUP_POP - 1) * Math.min(1, (tt - 0.22) / 0.2);
+          blit(pp.kind === 'minus' ? text.minus : (pp.kind === 'plus3' ? text.plus3 : text.plus), pp.x, pp.y - rise, fd, scp);
         }
       }
 
-      // 8. stun vignette
+      // 9. combo meter on the drink surface
+      if (state.streak >= T.COMBO_MIN_STREAK && state.phase !== 'ended') {
+        var ct = comboCache[state.streak];
+        if (!ct) ct = comboCache[state.streak] = buildComboText(state.streak, scale);
+        var cps = 1 + 0.35 * easeOutCubic(comboPulse) * comboPulse;
+        blit(ct, mugX, rimY + T.COMBO_Y_OFFSET + bobY, 1, cps);
+      }
+
+      // 10. stun vignette
       if (vignette && stunT > 0 && !reduced) {
         var va = Math.min(1, stunT / T.STUN_SECONDS * 1.6) * 0.9;
         ctx.globalAlpha = va;
-        ctx.drawImage(vignette.canvas, 0, 0, W, H);
+        ctx.drawImage(vignette.canvas, -shX, -shY, W, H);
         ctx.globalAlpha = 1;
         drawCalls++;
       }
@@ -789,7 +1252,7 @@
         x01 = clamp(x01, 0, 1);
         state.targetX01 = x01;
         mug.target = T.MUG_MIN_X + x01 * (T.MUG_MAX_X - T.MUG_MIN_X);
-        if (state.phase === 'idle' && T.SPRING_SNAP_IDLE) { mug.x = mug.px = mug.target; mug.v = 0; updateDerived(); if (ctx && !rafId) render(1); }
+        if (state.phase === 'idle' && T.SPRING_SNAP_IDLE) { mug.x = mug.px = mug.target; mug.v = 0; raysX = mug.x; updateDerived(); if (ctx && !rafId) render(1); }
       },
       /** Mug detection status from the tracker. */
       setTracking: function (found) {
@@ -822,7 +1285,7 @@
         destroyed = true;
         if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
         if (hasDoc) document.removeEventListener('visibilitychange', onVisibility);
-        if (ctx) ctx.clearRect(0, 0, T.STAGE_W, T.STAGE_H);
+        if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); }
       },
       getState: function () { return state; },
       /** Headless/manual stepping: advance real time by `seconds` (no rAF). */
@@ -839,12 +1302,14 @@
         var out = [];
         for (var i = 0; i < items.length; i++) {
           var it = items[i];
-          if (it.active) out.push({ kind: it.kind, bad: it.bad, state: it.state, lane: it.lane, x: it.x, y: it.y, vy: it.vy, resolved: it.resolved });
+          if (it.active) out.push({ kind: it.kind, cls: it.cls, bad: it.bad, gold: it.gold, state: it.state, lane: it.lane, pattern: it.pattern, x: it.x, y: it.y, vy: it.vy, resolved: it.resolved });
         }
         return out;
       },
       /** Count of active items (no allocation). */
       activeItems: function () { var n = 0; for (var i = 0; i < items.length; i++) if (items[i].active) n++; return n; },
+      /** Hazard sprite names in rotation for this round. */
+      hazards: hazards.slice(),
       tuning: T,
       seed: seed
     };
@@ -855,7 +1320,9 @@
     create: create,
     TUNING: TUNING,
     KIND: KIND,
+    CLS: CLS,
     BAD_KINDS: BAD_KINDS,
-    internals: { createRng: createRng, springStep: springStep, schedule: schedule, catchTest: catchTest, pickKind: pickKind }
+    HAZARDS: TUNING.HAZARDS,
+    internals: { createRng: createRng, springStep: springStep, schedule: schedule, catchTest: catchTest, pickKind: pickKind, pickHazard: pickHazard }
   };
 })(typeof window !== 'undefined' ? window : this);

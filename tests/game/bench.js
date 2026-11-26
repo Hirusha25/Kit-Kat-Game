@@ -2,6 +2,8 @@
 /* Playwright benchmark for the real engine (js/sprites.js + js/game.js).
  *
  *   node tests/game/bench.js [--seconds 10] [--min-fps 55] [--reduced] [--headed]
+ *                            [--seed N] [--difficulty hard] [--duration 40] [--input perfect]
+ *                            [--screenshot out.png [--shot-at 16] [--shot-on catch|hit|streak] [--shot-delay ms]]
  *
  * Serves the repo over a local static server, opens tests/game/bench.html in
  * Chromium at 1080x1920, drives the engine with a synthetic 30 Hz sine input and
@@ -50,8 +52,24 @@ function serve() {
   page.on('pageerror', e => { if (pageErrors++ < 3) console.error('[page error]', e.message); });
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log('[console.' + m.type() + ']', m.text()); });
 
-  const url = `http://127.0.0.1:${port}/tests/game/bench.html?seconds=${SECONDS}${flag('reduced') ? '&reduced=1' : ''}`;
+  const url = `http://127.0.0.1:${port}/tests/game/bench.html?seconds=${SECONDS}${flag('reduced') ? '&reduced=1' : ''}${opt('seed', '') ? '&seed=' + opt('seed', '') : ''}${opt('difficulty', '') ? '&difficulty=' + opt('difficulty', '') : ''}${opt('duration', '') ? '&duration=' + opt('duration', '') : ''}${opt('input', '') ? '&input=' + opt('input', '') : ''}`;
   await page.goto(url);
+  // --screenshot <file> [--shot-at <seconds into the round>]: one 1080x1920 frame mid-round.
+  const shot = opt('screenshot', null);
+  if (shot) {
+    const at = +opt('shot-at', Math.min(SECONDS - 1, 16));
+    await page.waitForFunction(t => window.__game && window.__game.getState().elapsed >= t, at, { timeout: (at + 30) * 1000 });
+    // --shot-on catch|hit|streak: wait for the next such event after --shot-at, then grab the frame right away
+    const on = opt('shot-on', null);
+    if (on) {
+      const n0 = await page.evaluate(k => (window.__benchEvents && window.__benchEvents[k]) || 0, on);
+      await page.waitForFunction(([k, n]) => ((window.__benchEvents && window.__benchEvents[k]) || 0) > n, [on, n0], { timeout: 30000, polling: 'raf' });
+      const delay = +opt('shot-delay', 0);
+      if (delay) await page.waitForTimeout(delay);
+    }
+    await page.screenshot({ path: shot, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+    console.log('screenshot saved: ' + shot);
+  }
   const handle = await page.waitForFunction(() => window.__benchResult, null, { timeout: (SECONDS + 30) * 1000 });
   const result = await handle.jsonValue();
 

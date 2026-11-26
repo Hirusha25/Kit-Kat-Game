@@ -1,10 +1,37 @@
 {
-  "_comment": "Dunk the Break sprite manifest. PNGs are 2x; `w`/`h` are the logical draw sizes on the 1080x1920 stage. `anchor` is the sprite point (0..1 fractions) placed at the object's position: item centre for falling items, (mugX, rim y) for the mug.",
+  "_comment": "Dunk the Break sprite manifest. `w`/`h` are the logical draw sizes on the 1080x1920 stage; `anchor` is the sprite point (0..1 fractions) placed at the object's position: item centre for falling items, (mugX, MUG_RIM_Y) = centre of the drink surface for the mug. The two mug PNGs are framed differently, so each has its own size/anchor (measured; see README.md).",
   "sprites": {
+    "mug": {
+      "src": "assets/img/game/mug.png",
+      "w": 560,
+      "h": 548,
+      "anchor": {
+        "x": 0.536,
+        "y": 0.202
+      }
+    },
+    "mug-splash": {
+      "src": "assets/img/game/mug-splash.png",
+      "w": 685,
+      "h": 670,
+      "anchor": {
+        "x": 0.508,
+        "y": 0.383
+      }
+    },
     "wafer": {
       "src": "assets/img/game/wafer.png",
-      "w": 90,
-      "h": 220,
+      "w": 100,
+      "h": 245,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "gold": {
+      "src": "assets/img/game/wafer-gold.png",
+      "w": 100,
+      "h": 245,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -12,6 +39,24 @@
     },
     "wafer-piece": {
       "src": "assets/img/game/wafer-piece.png",
+      "w": 50,
+      "h": 50,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "splash-drop": {
+      "src": "assets/img/game/splash-drop.png",
+      "w": 26,
+      "h": 35,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "sparkle": {
+      "src": "assets/img/game/sparkle.png",
       "w": 40,
       "h": 40,
       "anchor": {
@@ -21,8 +66,8 @@
     },
     "alarm": {
       "src": "assets/img/game/alarm.png",
-      "w": 150,
-      "h": 150,
+      "w": 170,
+      "h": 170,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -30,26 +75,35 @@
     },
     "deadline": {
       "src": "assets/img/game/deadline.png",
-      "w": 150,
-      "h": 150,
+      "w": 170,
+      "h": 170,
       "anchor": {
         "x": 0.5,
         "y": 0.5
       }
     },
-    "mug": {
-      "src": "assets/img/game/mug.png",
-      "w": 460,
-      "h": 450,
+    "phone": {
+      "src": "assets/img/game/phone.png",
+      "w": 170,
+      "h": 170,
       "anchor": {
-        "x": 0.5435,
-        "y": 0.23
+        "x": 0.5,
+        "y": 0.5
       }
     },
-    "splash-drop": {
-      "src": "assets/img/game/splash-drop.png",
-      "w": 24,
-      "h": 32,
+    "orders": {
+      "src": "assets/img/game/orders.png",
+      "w": 170,
+      "h": 170,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "traffic": {
+      "src": "assets/img/game/traffic.png",
+      "w": 170,
+      "h": 170,
       "anchor": {
         "x": 0.5,
         "y": 0.5

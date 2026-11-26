@@ -8,7 +8,8 @@
   Engine benchmark / smoke page. Open directly in a browser (also on the kiosk):
     tests/game/bench.html?seconds=10        synthetic sine input, prints a report
     tests/game/bench.html?manual=1          drive the mug with mouse/touch, no timeout
-    &reduced=1  reducedEffects   &difficulty=hard   &seed=123
+    &reduced=1  reducedEffects   &difficulty=hard   &seed=123   &duration=20 (round length)
+    &input=perfect  scripted player instead of the sine sweep (streaks, gold catches)
   Run headless with:  node tests/game/bench.js
 -->
 <style>
@@ -29,7 +30,7 @@
   <canvas id="game" width="1080" height="1920"></canvas>
   <div class="hud" id="hud">TIME 00:45 &nbsp;|&nbsp; SCORE 00</div>
   <div class="slider"><div class="knob" id="knob"></div></div>
-  <div class="caption">Catch wafers. Dodge alarms and deadlines.</div>
+  <div class="caption">Catch wafers. Dodge the break-breakers.</div>
   <div id="report">loading sprites...</div>
 </div>
 <script src="../../js/sprites.js"></script>
@@ -48,12 +49,12 @@
   var lastHud = '';
 
   fetch('../../assets/img/game/manifest.json').then(function (r) { return r.json(); }).then(function (manifest) {
-    return DunkSprites.load(manifest, { basePath: '../../', prewarm: ['wafer', 'alarm', 'deadline', 'wafer-piece'] });
+    return DunkSprites.load(manifest, { basePath: '../../', prewarm: ['wafer', 'gold', 'alarm', 'deadline', 'phone', 'orders', 'traffic', 'wafer-piece', 'splash-drop', 'sparkle'] });
   }).then(function (sprites) {
     var frames = [], lastTs = 0, eventCounts = {}, engineMs = 0, engineMax = 0, drawMax = 0;
     var game = DunkGame.create({
       canvas: canvas, sprites: sprites,
-      duration: manual ? 45 : Math.max(seconds + 5, 45),
+      duration: manual ? 45 : (+q.get('duration') || Math.max(seconds + 5, 45)),
       seed: q.get('seed') ? +q.get('seed') : 7,
       difficulty: q.get('difficulty') || 'normal',
       reducedEffects: q.get('reduced') === '1',
@@ -74,11 +75,28 @@
         }
       }
     });
-    window.__game = game;
+    window.__game = game; window.__benchEvents = eventCounts;
 
     if (manual) {
       var move = function (e) { var p = e.touches ? e.touches[0] : e; var r = canvas.getBoundingClientRect(); game.setTargetX((p.clientX - r.left) / r.width); };
       addEventListener('mousemove', move); addEventListener('touchmove', move, { passive: true });
+    } else if (q.get('input') === 'perfect') {
+      // Scripted player (same heuristic as tests/game/sim.test.js): chase the lowest good item, side-step hazards.
+      var T = DunkGame.TUNING, CH = T.MUG_HALF_WIDTH * T.CATCH_HALF_FRAC, RANGE = T.MUG_MAX_X - T.MUG_MIN_X;
+      setInterval(function () {
+        var st = game.getState(), items = game.getItems(), wafer = null, bad = null;
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          if (it.resolved || it.y > T.MUG_RIM_Y + T.CATCH_BAND) continue;
+          if (!it.bad) { if (!wafer || it.y > wafer.y) wafer = it; } else if (!bad || it.y > bad.y) bad = it;
+        }
+        var target = wafer ? wafer.x : st.mugX;
+        if (bad && bad.y > T.MUG_RIM_Y - 420 && (!wafer || bad.y > wafer.y) && Math.abs(bad.x - target) < CH + 40) {
+          var side = wafer && wafer.x < bad.x ? -1 : (wafer ? 1 : (bad.x > (T.MUG_MIN_X + T.MUG_MAX_X) / 2 ? -1 : 1));
+          target = bad.x + side * (CH + 60);
+        }
+        game.setTargetX(Math.min(1, Math.max(0, (target - T.MUG_MIN_X) / RANGE)));
+      }, 1000 / 30);
     } else {
       // Synthetic tracker: 30 Hz sine sweep with a little noise, like a real player.
       var t0 = performance.now();
@@ -89,6 +107,7 @@
     }
     game.start();
 
+    window.__benchMidRound = function () { var st = game.getState(); return st.phase === 'playing' && st.elapsed > 0; };
     if (!manual) setTimeout(function () {
       var st = game.getState();
       game.stop();

@@ -1,0 +1,13 @@
+{
+  "name": "KitKat Hot Cocoa · Got Hotter",
+  "short_name": "KitKat Game",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "background_color": "#8c0f1e",
+  "theme_color": "#8c0f1e",
+  "icons": [
+    { "src": "assets/img/kitkat-oval.png", "sizes": "720x462", "type": "image/png", "purpose": "any" }
+  ]
+}

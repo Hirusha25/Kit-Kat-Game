@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Register · KitKat Hot Cocoa</title>
+<meta name="theme-color" content="#8c0f1e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/img/kitkat-oval.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Great+Vibes&family=Jost:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .content { padding-top: 96px; }
+  .title-gold { font-size: 76px; }
+  .title-script { font-size: 104px; margin-bottom: 36px; }
+  body.kbd-open .content { transform: translateY(-120px); transition: transform .32s cubic-bezier(.22,1,.36,1); }
+  .content { transition: transform .32s cubic-bezier(.22,1,.36,1); }
+  .back { position: absolute; top: 40px; left: 40px; z-index: 3; display: inline-flex; align-items: center; gap: 12px; padding: 14px 26px; border-radius: 999px; border: 2px solid var(--gold); color: var(--gold-light); font-size: 26px; background: rgba(0,0,0,.15); cursor: pointer; }
+  .back svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 2.4; }
+  .ok-title { font-family: var(--script); font-size: 110px; color: #fff; }
+  .ok-sub { font-size: 34px; color: var(--gold-pale); margin-top: 10px; }
+  .ok-note { font-size: 28px; color: var(--on-dark); max-width: 760px; margin: 0 auto 48px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="viewport">
+  <main class="stage">
+    <div class="bg">
+      <img src="assets/img/bg-red-wave.webp" alt="">
+      <video autoplay muted loop playsinline poster="assets/img/bg-red-wave.webp">
+        <source src="assets/video/bg-wave-loop.webm" type="video/webm">
+        <source src="assets/video/bg-wave-loop.mp4" type="video/mp4">
+      </video>
+    </div>
+
+    <a class="back" href="index.html"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+
+    <section class="content" id="form-view">
+      <h1 class="title-gold fade-in">Register</h1>
+      <p class="title-script fade-in" style="animation-delay:.15s">for your break</p>
+
+      <form class="card fade-in" id="reg" novalidate style="animation-delay:.3s">
+        <div class="field">
+          <label for="name"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Full name</label>
+          <input id="name" name="name" type="text" placeholder="Your name" data-kbd data-caps="words" maxlength="40" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="mobile"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Mobile number</label>
+          <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="07X XXX XXXX" data-kbd maxlength="12" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="email"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</label>
+          <input id="email" name="email" type="email" placeholder="name@example.com" data-kbd maxlength="60" autocomplete="off">
+        </div>
+        <label class="consent" id="consent">
+          <span class="box"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></span>
+          <span>I agree to Nestlé Lanka contacting me about KitKat Hot Cocoa and to my details being used for this activation.</span>
+        </label>
+        <p class="err" id="err" role="alert"></p>
+        <button class="btn-gold" id="submit" type="submit">Get my code</button>
+      </form>
+    </section>
+
+    <section class="content hidden" id="code-view">
+      <h1 class="title-gold fade-in">You're in</h1>
+      <p class="ok-title fade-in" style="animation-delay:.15s" id="ok-name">Thank you</p>
+      <p class="ok-sub fade-in" style="animation-delay:.3s">Your play code</p>
+      <div class="code-box fade-in" id="code" style="animation-delay:.4s"></div>
+      <p class="ok-note fade-in" style="animation-delay:.5s">Keep this code. Enter it on the kiosk to start your break. It stays valid for the next 30 minutes.</p>
+      <button class="btn-gold fade-in" id="play" type="button" style="animation-delay:.6s">Play now</button>
+      <div class="pill fade-in" style="animation-delay:.75s; margin-top:56px; cursor:pointer" id="again">
+        <span>Register another player</span>
+      </div>
+    </section>
+
+    <div class="kbd" id="kbd" aria-label="On-screen keyboard"></div>
+
+    <footer class="footer">
+      <p class="legal">KitKat® Reg. trademark of Société des Produits Nestlé S.A.</p>
+    </footer>
+  </main>
+</div>
+
+<script src="js/stage.js"></script>
+<script src="js/keyboard.js"></script>
+<script>
+(function () {
+  const form = document.getElementById('reg');
+  const err = document.getElementById('err');
+  const consent = document.getElementById('consent');
+  const name = document.getElementById('name'), mobile = document.getElementById('mobile'), email = document.getElementById('email');
+  let agreed = false;
+
+  consent.addEventListener('pointerdown', e => { e.preventDefault(); agreed = !agreed; consent.classList.toggle('on', agreed); });
+
+  // DONE on the keyboard moves to the next empty field.
+  [name, mobile, email].forEach((inp, i, arr) => {
+    inp.addEventListener('kbd:done', () => {
+      const next = arr.slice(i + 1).find(x => !x.value);
+      if (next) setTimeout(() => KioskKeyboard.show(next), 60);
+    });
+    inp.addEventListener('input', () => inp.classList.remove('invalid'));
+  });
+
+  function makeCode() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    const a = new Uint32Array(4); crypto.getRandomValues(a);
+    for (let i = 0; i < 4; i++) s += alphabet[a[i] % alphabet.length];
+    return s;
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    KioskKeyboard.hide();
+    err.textContent = '';
+    [name, mobile, email].forEach(x => x.classList.remove('invalid'));
+    const n = name.value.trim(), m = mobile.value.replace(/\D/g, ''), em = email.value.trim();
+    if (n.length < 2) { name.classList.add('invalid'); err.textContent = 'Please enter your name.'; return; }
+    if (!/^0?7\d{8}$/.test(m)) { mobile.classList.add('invalid'); err.textContent = 'Please enter a valid Sri Lankan mobile number.'; return; }
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { email.classList.add('invalid'); err.textContent = 'Please check the email address.'; return; }
+    if (!agreed) { err.textContent = 'Please tick the consent box to continue.'; return; }
+
+    const code = makeCode();
+    const player = { name: n, mobile: m, email: em, code, createdAt: new Date().toISOString() };
+    // Local queue until the backend endpoint is wired up.
+    try {
+      const q = JSON.parse(localStorage.getItem('kk_players') || '[]'); q.push(player);
+      localStorage.setItem('kk_players', JSON.stringify(q));
+      sessionStorage.setItem('kk_current', JSON.stringify(player));
+    } catch (_) {}
+
+    document.getElementById('ok-name').textContent = n.split(' ')[0] + ', you\'re ready';
+    const box = document.getElementById('code'); box.innerHTML = '';
+    ['B', 'R', 'K'].forEach(c => { const s = document.createElement('span'); s.textContent = c; box.appendChild(s); });
+    const d = document.createElement('span'); d.className = 'dash'; d.textContent = '–'; box.appendChild(d);
+    code.split('').forEach(c => { const s = document.createElement('span'); s.textContent = c; box.appendChild(s); });
+
+    document.getElementById('form-view').classList.add('hidden');
+    document.getElementById('code-view').classList.remove('hidden');
+  });
+
+  document.getElementById('again').addEventListener('click', () => location.reload());
+  document.getElementById('play').addEventListener('click', () => { location.href = 'game.html'; });
+})();
+</script>
+</body>
+</html>

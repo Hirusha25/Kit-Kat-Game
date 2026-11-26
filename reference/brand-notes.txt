@@ -1,0 +1,28 @@
+KitKat Hot Cocoa brand elements, extracted from "New Kit Kat Hot Cocoa Toolkit 2025" (Nestle Professional / VML, internal use only).
+These are reference-quality crops and cutouts for UI design and prototyping. Request the vector masters from the Nestle Content Hub before production.
+
+Colours
+  KitKat Red   PANTONE 186  |  CMYK 10/100/90/0  |  RGB 186,0,24  |  HEX #BA0018
+  White        RGB 255,255,255 (HOT COCOA text on dark placements)
+  Cocoa brown  (from imagery, not an official swatch) approx #6B2E1F to #8C4A2F
+
+Fonts
+  Headlines: heavy condensed grotesque as used in the toolkit (Franklin Gothic Heavy family)
+  "HOT COCOA" descriptor: Franklin Gothic Heavy, CAPS only, never changed
+  "Got Hotter" steam text: Relation Two Bold (Adobe Fonts) / Daughter of Fortune (Content Hub), rendered as steam
+  "break" in copy: hand-drawn KitKat "break" lettering from the Have a break lockup
+
+Logo rules
+  Always use the KitKat HOT COCOA logo (oval + HOT COCOA), not the plain KitKat oval on its own
+  Do not recolour, do not change the font or case of HOT COCOA
+  Clear space = height of the H in HOT COCOA on all sides
+  Brand name in text: KITKAT(R) in capitals
+  Legal line on all materials: "KitKat(R) Reg. trademark of Societe des Produits Nestle S.A."
+  Tagline "Have a break, have a KitKat(R)" only on red, white lettering, never shortened or altered
+
+Approved copy
+  Ready for delicious? Your break just got hotter.
+  That delicious break you love? Got hotter.
+  KitKat(R) just got hotter. Order now.
+  Treat yourself. KitKat(R) got hotter.
+  The break you've always loved got hotter.

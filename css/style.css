@@ -1,0 +1,164 @@
+/* KitKat Hot Cocoa motion game — shared styles
+   Design frame: 1080 x 1920 portrait (kiosk native). The .stage is scaled to fit any viewport. */
+
+:root {
+  --red: #8c0f1e;
+  --red-deep: #5a0d16;
+  --red-bright: #ba0018;
+  --gold: #d2b06a;
+  --gold-light: #efd9a0;
+  --gold-pale: #fff0c8;
+  --gold-dark: #9a7630;
+  --gold-ink: #3a1a06;
+  --cream: #f1eadb;
+  --on-dark: #e9dcc6;
+  --on-dark-soft: #c9b597;
+  --display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --script: "Great Vibes", "Brush Script MT", cursive;
+  --body: "Jost", "Helvetica Neue", Arial, sans-serif;
+  --gold-grad: linear-gradient(180deg, #f5e3b0 0%, #d9b96e 38%, #b8923f 62%, #e6cd8c 100%);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #3a0609; overflow: hidden; }
+body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* Viewport that centres the 1080x1920 stage and scales it */
+.viewport { position: fixed; inset: 0; display: grid; place-items: center; background: #3a0609; }
+.stage {
+  position: relative; width: 1080px; height: 1920px; overflow: hidden;
+  transform-origin: center center; background: var(--red);
+  box-shadow: 0 0 120px rgba(0,0,0,.6);
+}
+
+/* Background: still image + looping video of the chocolate wave */
+.bg { position: absolute; inset: 0; z-index: 0; }
+.bg img, .bg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 38%, rgba(255,120,120,.14) 0%, rgba(0,0,0,0) 55%),
+              linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 22%);
+}
+
+.content { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 120px 72px 0; }
+
+/* Sparkles */
+.spark { position: absolute; width: 28px; height: 28px; color: var(--gold-light); opacity: 0; animation: twinkle 3.2s ease-in-out infinite; pointer-events: none; }
+.spark svg { width: 100%; height: 100%; fill: currentColor; filter: drop-shadow(0 0 6px rgba(255,230,160,.9)); }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(25deg); } }
+
+/* Type */
+.title-gold {
+  font-family: var(--display); font-weight: 700; font-size: 92px; line-height: 1.05; letter-spacing: .06em; text-transform: uppercase;
+  background: linear-gradient(180deg, #fff3cf 0%, #e9c983 40%, #c9a150 70%, #f1dca2 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 10px rgba(60,10,0,.45));
+}
+.title-script { font-family: var(--script); font-weight: 400; font-size: 118px; line-height: 1; color: #fff; text-shadow: 0 4px 18px rgba(60,0,0,.5); margin-top: 8px; }
+.lead { font-size: 36px; line-height: 1.5; font-weight: 400; color: #fff; max-width: 860px; margin: 44px auto 0; }
+.lead b { font-weight: 600; }
+.warm { font-size: 32px; color: var(--gold-pale); margin-top: 28px; }
+
+/* Gold pill button with sliding shine + gentle float */
+.btn-gold {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 420px; height: 128px; padding: 0 96px; border: 0; border-radius: 999px; cursor: pointer;
+  font-family: var(--display); font-weight: 700; font-size: 44px; letter-spacing: .32em; text-indent: .32em; color: var(--gold-ink);
+  background: var(--gold-grad);
+  box-shadow: 0 18px 40px rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(120,80,20,.45);
+  overflow: hidden; isolation: isolate;
+  animation: float 3.4s ease-in-out infinite;
+}
+.btn-gold::before {
+  /* shine sweep */
+  content: ""; position: absolute; top: -40%; bottom: -40%; left: -60%; width: 40%;
+  background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.75) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-18deg); mix-blend-mode: screen; pointer-events: none;
+  animation: shine 3.4s ease-in-out infinite;
+}
+.btn-gold::after {
+  /* soft outer ring pulse */
+  content: ""; position: absolute; inset: -8px; border-radius: inherit; border: 2px solid rgba(240,207,138,.6);
+  animation: ring 3.4s ease-out infinite; pointer-events: none;
+}
+.btn-gold:active { transform: scale(.97); animation-play-state: paused; }
+.btn-gold:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes shine { 0% { left: -60%; opacity: 0; } 8% { opacity: 1; } 40% { left: 120%; opacity: 1; } 41%, 100% { left: 120%; opacity: 0; } }
+@keyframes ring { 0% { transform: scale(1); opacity: .8; } 70% { transform: scale(1.18); opacity: 0; } 100% { transform: scale(1.18); opacity: 0; } }
+
+/* Gold outlined pill (info chip) */
+.pill { display: inline-flex; align-items: center; gap: 22px; padding: 22px 48px; border: 2px solid var(--gold); border-radius: 999px; font-size: 32px; color: #fff; }
+.pill .sep { width: 2px; height: 36px; background: var(--gold); opacity: .8; }
+.pill svg { width: 40px; height: 40px; stroke: var(--gold); fill: none; stroke-width: 2; }
+
+/* Logos and footer */
+.logo-hotcocoa { width: 440px; height: auto; filter: drop-shadow(0 14px 30px rgba(0,0,0,.35)); }
+.footer { position: absolute; left: 0; right: 0; bottom: 48px; display: flex; flex-direction: column; align-items: center; gap: 18px; z-index: 2; }
+.footer img { height: 72px; width: auto; opacity: .95; }
+.legal { font-size: 20px; color: rgba(255,255,255,.78); letter-spacing: .02em; }
+
+/* Registration card */
+.card {
+  width: 936px; padding: 56px 64px 60px; border-radius: 40px; text-align: left;
+  background: linear-gradient(180deg, rgba(60,6,10,.55), rgba(40,4,8,.62)); border: 2px solid var(--gold);
+  box-shadow: 0 30px 80px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,240,200,.08);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.field { display: flex; flex-direction: column; gap: 14px; margin-bottom: 30px; }
+.field label { font-size: 26px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-light); font-weight: 500; display: flex; align-items: center; gap: 14px; }
+.field label svg { width: 30px; height: 30px; stroke: var(--gold); fill: none; stroke-width: 1.8; }
+.field input {
+  width: 100%; height: 96px; padding: 0 30px; border-radius: 20px; border: 2px solid rgba(210,176,106,.55);
+  background: rgba(255,255,255,.96); color: #2b1d12; font-family: var(--body); font-size: 36px; font-weight: 500; outline: none;
+  caret-color: var(--red-bright); transition: border-color .2s, box-shadow .2s;
+}
+.field input::placeholder { color: #9a8f82; font-weight: 400; }
+.field input.active, .field input:focus { border-color: var(--gold-light); box-shadow: 0 0 0 4px rgba(239,217,160,.35); }
+.field input.invalid { border-color: #ff8a8a; box-shadow: 0 0 0 4px rgba(255,120,120,.25); }
+.consent { display: flex; align-items: flex-start; gap: 20px; font-size: 24px; line-height: 1.45; color: var(--on-dark); margin: 6px 0 36px; cursor: pointer; }
+.consent .box { flex: 0 0 44px; width: 44px; height: 44px; margin-top: 2px; border-radius: 10px; border: 2px solid var(--gold); display: grid; place-items: center; background: rgba(255,255,255,.06); }
+.consent .box svg { width: 28px; height: 28px; stroke: var(--gold-ink); stroke-width: 3; fill: none; opacity: 0; transform: scale(.6); transition: .15s; }
+.consent.on .box { background: var(--gold-grad); }
+.consent.on .box svg { opacity: 1; transform: scale(1); }
+.err { min-height: 36px; margin: 0 0 16px; font-size: 26px; color: #ffd0d0; text-align: center; }
+.card .btn-gold { display: flex; width: 100%; animation: none; }
+.card .btn-gold::after { display: none; }
+
+/* On-screen keyboard */
+.kbd {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; padding: 26px 28px 40px;
+  background: linear-gradient(180deg, rgba(40,4,8,.92), rgba(28,3,6,.98)); border-top: 2px solid var(--gold);
+  transform: translateY(104%); transition: transform .32s cubic-bezier(.22,1,.36,1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,.5);
+}
+.kbd.show { transform: translateY(0); }
+.kbd .row { display: flex; justify-content: center; gap: 14px; margin-bottom: 14px; }
+.kbd .key {
+  flex: 0 0 88px; height: 100px; border-radius: 18px; border: 2px solid rgba(210,176,106,.5);
+  background: rgba(255,255,255,.08); color: #fff; font-family: var(--body); font-size: 38px; font-weight: 500;
+  display: grid; place-items: center; cursor: pointer; transition: background .08s, transform .08s;
+}
+.kbd .key:active, .kbd .key.pressed { background: rgba(239,217,160,.35); transform: scale(.95); }
+.kbd .key.wide { flex-basis: 140px; font-size: 28px; letter-spacing: .06em; }
+.kbd .key.space { flex-basis: 480px; }
+.kbd .key.done { flex-basis: 220px; background: var(--gold-grad); color: var(--gold-ink); border-color: transparent; font-family: var(--display); font-weight: 700; letter-spacing: .2em; text-indent: .2em; }
+.kbd .key.shift.on { background: rgba(239,217,160,.5); color: var(--gold-ink); }
+.kbd .key svg { width: 40px; height: 40px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+.kbd.numeric .key { flex-basis: 200px; height: 112px; font-size: 44px; }
+
+/* Code reveal */
+.code-box { display: inline-flex; gap: 18px; margin: 36px 0 24px; }
+.code-box span {
+  width: 110px; height: 150px; border-radius: 22px; border: 2px solid var(--gold); display: grid; place-items: center;
+  font-family: var(--display); font-weight: 700; font-size: 84px; color: var(--gold-light); background: rgba(0,0,0,.18);
+}
+.code-box .dash { width: 40px; border: 0; background: none; font-size: 60px; }
+
+.hidden { display: none !important; }
+.fade-in { animation: fadeIn .6s ease both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-gold, .btn-gold::before, .btn-gold::after, .spark { animation: none !important; }
+}

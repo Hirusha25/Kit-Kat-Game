@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>KitKat Hot Cocoa · Got Hotter</title>
+<meta name="theme-color" content="#8c0f1e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/img/kitkat-oval.png">
+<link rel="apple-touch-icon" href="assets/img/kitkat-oval.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Great+Vibes&family=Jost:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="viewport">
+  <main class="stage" id="stage">
+    <div class="bg">
+      <img src="assets/img/bg-red-wave.webp" alt="">
+      <video autoplay muted loop playsinline poster="assets/img/bg-red-wave.webp">
+        <source src="assets/video/bg-wave-loop.webm" type="video/webm">
+        <source src="assets/video/bg-wave-loop.mp4" type="video/mp4">
+      </video>
+    </div>
+
+    <section class="content">
+      <h1 class="title-gold fade-in" style="animation-delay:.1s">A New Chapter</h1>
+      <p class="title-script fade-in" style="animation-delay:.25s">The Same Iconic Break</p>
+
+      <p class="lead fade-in" style="animation-delay:.4s">
+        Hold the <b>KitKat</b> mug up to the camera and move it to catch the falling wafers
+        in your hot cocoa. The more you catch, the hotter your break.
+      </p>
+      <p class="warm fade-in" style="animation-delay:.5s">Ready for delicious? Your break just got hotter.</p>
+
+      <img class="logo-hotcocoa fade-in" style="animation-delay:.6s; margin-top:64px" src="assets/img/kitkat-hot-cocoa-logo.png" alt="KitKat Hot Cocoa">
+
+      <div class="fade-in" style="animation-delay:.75s; margin-top:72px">
+        <button class="btn-gold" id="start" type="button">Start</button>
+      </div>
+
+      <div class="pill fade-in" style="animation-delay:.9s; margin-top:64px">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16v10H4z"/><path d="M8 7V5h8v2M12 10v4m-2-2h4"/></svg>
+        <span>Motion game</span><span class="sep"></span><span>45 seconds</span>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <img src="assets/img/nestle-professional.png" alt="Nestlé Professional">
+      <p class="legal">KitKat® Reg. trademark of Société des Produits Nestlé S.A.</p>
+    </footer>
+  </main>
+</div>
+
+<script src="js/stage.js"></script>
+<script>
+  document.getElementById('start').addEventListener('click', () => {
+    document.body.style.transition = 'opacity .4s';
+    document.body.style.opacity = '0';
+    setTimeout(() => { location.href = 'register.html'; }, 380);
+  });
+  // Attract mode: return here automatically is handled by later screens.
+</script>
+</body>
+</html>

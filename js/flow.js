@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const stageW = 1080;
   const qs = new URLSearchParams(location.search);
-  const DURATION = Math.max(5, Math.min(120, parseInt(qs.get('duration') || '45', 10) || 45));
+  const DURATION = Math.max(5, Math.min(120, parseInt(qs.get('duration') || '40', 10) || 40));
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
@@ -28,6 +28,12 @@
     save(LS.board, { rows: rows.slice(0, 500) });
     return 1 + rows.findIndex(r => r.ts === rows.find(x => x.score === result.score && x.name === (firstName || 'Guest')).ts);
   }
+
+  // ---------- plays per phone number: one chance; a second try only after a loss ----------
+  LS.plays = 'kk_plays';
+  function playsFor(mobile) { const all = load(LS.plays); const rec = all[mobile]; return rec && rec.day === todayKey() ? rec : { day: todayKey(), plays: 0, won: false }; }
+  function recordPlay(mobile, won) { if (!mobile) return; const all = load(LS.plays); const rec = playsFor(mobile); rec.plays += 1; rec.won = rec.won || won; all[mobile] = rec; save(LS.plays, all); return rec; }
+  let retryUsed = false;
 
   // ---------- rewards: cap and T-shirt, 80 each per day ----------
   function stock() { const st = load(LS.stock); if (st.day !== todayKey()) return { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }; return st; }
@@ -293,6 +299,14 @@
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
     $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
     const pz = awardPrize(result); const pEl = $('prize');
+    const rec = recordPlay(player && player.mobile, !!pz.kind);
+    const canRetry = !pz.kind && !retryUsed && rec && rec.plays < 2;
+    ov.end.classList.toggle('lost', !pz.kind);
+    $('again').textContent = canRetry ? 'Try Again' : 'Done';
+    $('again').dataset.mode = canRetry ? 'retry' : 'done';
+    $('tier-cap').textContent = settings.capMin + ' Points'; $('tier-tee').textContent = settings.teeMin + ' Points';
+    $('none-title').textContent = pz.soldOut ? "Prizes Are Gone" : 'So Close!';
+    $('none-msg').textContent = pz.soldOut ? 'Great score. Thanks for playing today.' : canRetry ? 'Play again to unlock a prize.' : 'Thanks for playing. Enjoy your break!';
     pEl.classList.toggle('none', !pz.kind); if (pz.kind) $('prize-pic').src = pz.kind === 'tee' ? 'assets/img/game/prize-tee.png' : 'assets/img/game/prize-cap.png';
     if (pz.kind) { $('prize-name').textContent = pz.kind === 'tee' ? 'You won a KitKat T-shirt!' : 'You won a KitKat Cap!'; $('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; $('prize-code').textContent = pz.code; $('prize-code').style.display = ''; }
     else { $('prize-name').textContent = pz.soldOut ? "Today's prizes are all gone" : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Great score. Come back tomorrow for another break.' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
@@ -304,7 +318,7 @@
     }, 900);
     armIdle(true);
   }
-  $('again').addEventListener('click', () => { hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false; startCountdown(); });
+  $('again').addEventListener('click', () => { if ($('again').dataset.mode === 'done') { location.href = 'index.html'; return; } retryUsed = true; hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false; startCountdown(); });
   $('to-home').addEventListener('click', () => { location.href = 'index.html'; });
 
   // ---------- idle: back to cover after results ----------

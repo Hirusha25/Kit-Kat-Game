@@ -97,6 +97,24 @@
   .again { position: absolute; left: 0; right: 0; top: 1700px; text-align: center; color: #fff; font-weight: 700; font-size: 32px; text-decoration: underline; text-underline-offset: 8px; cursor: pointer; }
   .legal { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-size: 17px; color: rgba(255,255,255,.75); text-shadow: 0 1px 2px rgba(0,0,0,.4); z-index: 2; }
 
+  /* OTP verification */
+  .v-sub { position: absolute; left: 80px; right: 80px; top: 610px; margin: 0; text-align: center; font: 600 36px/1.35 var(--font-body); color: #fff; }
+  .v-sub b { font-weight: 800; white-space: nowrap; }
+  .otp { position: absolute; left: 50%; top: 740px; transform: translateX(-50%); display: flex; gap: 18px; }
+  .otp span { width: 132px; height: 160px; border-radius: 24px; display: grid; place-items: center; font: 800 84px/1 var(--font-display); color: var(--kk-red); border: 6px solid transparent;
+    background: linear-gradient(180deg, #fffaf0 0%, #fdf1d8 40%, #f8e4bd 100%) padding-box, var(--gold-line) border-box; box-shadow: 0 0 22px rgba(255,210,120,.35), inset 0 2px 0 #fff, 0 6px 0 rgba(120,30,20,.28), 0 14px 26px rgba(60,0,0,.3); }
+  .otp span.on { background: linear-gradient(180deg, #fffdf6 0%, #fff6e2 40%, #ffebc8 100%) padding-box, var(--gold-line) border-box; box-shadow: 0 0 0 5px rgba(255,236,190,.55), 0 6px 0 rgba(120,30,20,.28), 0 14px 26px rgba(60,0,0,.3); }
+  .otp span.on::after { content: ""; width: 4px; height: 70px; background: var(--kk-red); animation: blink 1s steps(2) infinite; }
+  .otp span.filled::after { display: none; }
+  @keyframes blink { to { opacity: 0; } }
+  .v-err { top: 940px !important; }
+  .v-btn { top: 1030px !important; }
+  .v-links { position: absolute; left: 0; right: 0; top: 1352px; margin: 0; text-align: center; font: 700 32px/1 var(--font-body); color: #fff; display: flex; justify-content: center; align-items: center; gap: 22px; }
+  .v-link { text-decoration: underline; text-underline-offset: 8px; cursor: pointer; }
+  .v-link.disabled { opacity: .6; text-decoration: none; cursor: default; }
+  .v-dot { opacity: .6; }
+  .v-test { position: absolute; left: 50%; top: 1420px; transform: translateX(-50%); margin: 0; padding: 12px 26px; border-radius: 999px; background: rgba(0,0,0,.35); color: #ffe9a8; font: 700 24px/1 var(--font-body); letter-spacing: .04em; }
+  body.kbd-open #verify { transform: translateY(-300px); }
   /* gold borderlines */
   .field input { border: 6px solid transparent; background: linear-gradient(180deg, #fffaf0 0%, #fdf1d8 40%, #f8e4bd 100%) padding-box, var(--gold-line) border-box; box-shadow: 0 0 0 1px rgba(255,236,190,.5), 0 0 22px rgba(255,210,120,.35), inset 0 2px 0 #fff, 0 6px 0 rgba(120,30,20,.28), 0 14px 26px rgba(60,0,0,.3); }
   .field input.filled { background: linear-gradient(180deg, #fffdf6 0%, #fff4dc 40%, #ffe9c2 100%) padding-box, var(--gold-line) border-box; }
@@ -152,15 +170,31 @@
     </form>
 
 
+    <section class="pane" id="verify" style="display:none">
+      <h1 class="heading">Verify Your Number</h1>
+      <p class="v-sub">Enter the 6-digit code we sent to <b id="v-phone">07X XXX XXXX</b></p>
+      <div class="otp" id="otp"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <input id="otp-in" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-kbd="numeric" aria-label="Verification code" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">
+      <p class="err notice v-err" id="v-err" role="alert"></p>
+      <button class="btn-cream v-btn" id="v-go" type="button">Verify</button>
+      <p class="v-links"><span id="v-resend" class="v-link disabled">Resend code in <b id="v-timer">30</b>s</span><span class="v-dot">•</span><span id="v-change" class="v-link">Change number</span></p>
+      <p class="v-test" id="v-test" style="display:none">Test mode · no SMS sent · use code 000000</p>
+      <div id="recaptcha-host"></div>
+    </section>
+
     <div class="kbd" id="kbd" aria-label="On-screen keyboard"></div>
   </main>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=20261126f"></script>
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/ambient.js?v=20261126e"></script>
 <script src="js/keyboard.js?v=20261126e"></script>
 <script>
 (function () {
+  const $ = id => document.getElementById(id);
   const form = document.getElementById('reg');
   const err = document.getElementById('err');
   const consent = document.getElementById('consent');
@@ -215,18 +249,83 @@
     if (!/^0?7\d{8}$/.test(m)) { mobile.classList.add('invalid'); err.textContent = 'Please enter a valid mobile number.'; return; }
     if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { email.classList.add('invalid'); err.textContent = 'Please check the email address.'; return; }
     if (!agreed) { err.textContent = 'Please tick the box to agree.'; return; }
-
-    const code = makeCode();
-    const player = { name: n, dob: dob.value.replace(/ /g, ''), mobile: m, email: em, code, createdAt: new Date().toISOString() };
+    // One chance per phone number per day; a second try only after a loss.
     try {
-      const q = JSON.parse(localStorage.getItem('kk_players') || '[]'); q.push(player);
-      localStorage.setItem('kk_players', JSON.stringify(q));
-      sessionStorage.setItem('kk_current', JSON.stringify(player));
+      const all = JSON.parse(localStorage.getItem('kk_plays') || '{}'); const rec = all[m]; const today = new Date().toISOString().slice(0, 10);
+      if (rec && rec.day === today && (rec.won || rec.plays >= 2)) { mobile.classList.add('invalid'); err.textContent = rec.won ? 'This number has already won a prize today.' : 'This number has already played today.'; return; }
     } catch (_) {}
 
-    document.body.style.transition = 'opacity .4s'; document.body.style.opacity = '0';
-    setTimeout(() => { location.href = 'game.html'; }, 380);
+    pending = { name: n, dob: dob.value.replace(/ /g, ''), mobile: m, email: em, code: makeCode(), createdAt: new Date().toISOString() };
+    startOtp();
   });
+
+  // ---------- OTP verification (Firebase Phone Auth; test mode while no config is set) ----------
+  let pending = null, confirmation = null, resendAt = 0, resendTimer = null, sending = false;
+  const vPane = $('verify'), otpIn = $('otp-in'), boxes = [...document.querySelectorAll('#otp span')], vErr = $('v-err');
+  const fbReady = !!(window.KK_FIREBASE && window.firebase);
+  let auth = null, recaptcha = null;
+  if (fbReady) { try { firebase.initializeApp(window.KK_FIREBASE); auth = firebase.auth(); auth.useDeviceLanguage(); } catch (e) { console.warn('Firebase init failed', e); } }
+  const e164 = m => '+94' + m.replace(/\D/g, '').slice(-9);
+  const pretty = m => { const d = m.replace(/\D/g, '').slice(-9); return '0' + d.slice(0, 2) + ' ' + d.slice(2, 5) + ' ' + d.slice(5); };
+
+  function showVerify() {
+    form.style.display = 'none'; vPane.style.display = 'block';
+    $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = auth ? 'none' : 'block';
+    otpIn.value = ''; paint(); vErr.textContent = '';
+    setTimeout(() => KioskKeyboard.show(otpIn), 300);
+    armResend();
+  }
+  function paint() {
+    const v = otpIn.value.replace(/\D/g, '').slice(0, 6); if (otpIn.value !== v) otpIn.value = v;
+    boxes.forEach((b, i) => { b.textContent = v[i] || ''; b.classList.toggle('filled', !!v[i]); b.classList.toggle('on', i === v.length); });
+    if (v.length === 6) setTimeout(verify, 150);
+  }
+  otpIn.addEventListener('input', paint);
+  document.getElementById('otp').addEventListener('pointerdown', e => { e.preventDefault(); KioskKeyboard.show(otpIn); });
+  function armResend() {
+    resendAt = Date.now() + 30000; const r = $('v-resend'); r.classList.add('disabled');
+    clearInterval(resendTimer);
+    resendTimer = setInterval(() => { const left = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)); $('v-timer').textContent = String(left); r.innerHTML = left > 0 ? `Resend code in <b id="v-timer">${left}</b>s` : 'Resend code'; if (left <= 0) { r.classList.remove('disabled'); clearInterval(resendTimer); } }, 250);
+  }
+  async function startOtp() {
+    if (sending) return; sending = true; vErr.textContent = '';
+    if (!auth) { confirmation = { confirm: async c => { if (c !== '000000') { const e = new Error('bad'); e.code = 'auth/invalid-verification-code'; throw e; } return { user: { uid: 'test-' + Date.now() } }; } }; sending = false; showVerify(); return; }
+    try {
+      if (!recaptcha) { recaptcha = new firebase.auth.RecaptchaVerifier('recaptcha-host', { size: 'invisible' }); await recaptcha.render(); }
+      confirmation = await auth.signInWithPhoneNumber(e164(pending.mobile), recaptcha);
+      showVerify();
+    } catch (e) {
+      console.warn(e); err.textContent = otpError(e); try { recaptcha && recaptcha.clear(); } catch (_) {} recaptcha = null;
+    }
+    sending = false;
+  }
+  function otpError(e) {
+    const c = (e && e.code) || '';
+    if (c.includes('invalid-verification-code')) return 'That code is not right. Check the SMS and try again.';
+    if (c.includes('code-expired')) return 'That code has expired. Tap Resend code.';
+    if (c.includes('too-many-requests')) return 'Too many attempts from this kiosk. Please wait a few minutes.';
+    if (c.includes('invalid-phone-number')) return 'Please check the mobile number.';
+    if (c.includes('quota-exceeded')) return 'SMS limit reached for today. Please tell a staff member.';
+    if (c.includes('network')) return 'No internet connection. Please tell a staff member.';
+    return 'Could not send the code right now. Please try again.';
+  }
+  async function verify() {
+    const c = otpIn.value; if (c.length !== 6 || !confirmation) return;
+    vErr.textContent = ''; KioskKeyboard.hide();
+    try {
+      const res = await confirmation.confirm(c);
+      const player = Object.assign({}, pending, { verified: true, uid: res && res.user ? res.user.uid : null, verifiedAt: new Date().toISOString() });
+      try { const q = JSON.parse(localStorage.getItem('kk_players') || '[]'); q.push(player); localStorage.setItem('kk_players', JSON.stringify(q)); sessionStorage.setItem('kk_current', JSON.stringify(player)); } catch (_) {}
+      if (auth) { try { await auth.signOut(); } catch (_) {} }
+      document.body.style.transition = 'opacity .4s'; document.body.style.opacity = '0';
+      setTimeout(() => { location.href = 'game.html'; }, 380);
+    } catch (e) {
+      vErr.textContent = otpError(e); otpIn.value = ''; paint(); setTimeout(() => KioskKeyboard.show(otpIn), 200);
+    }
+  }
+  $('v-go').addEventListener('click', verify);
+  $('v-resend').addEventListener('click', () => { if (Date.now() < resendAt) return; confirmation = null; startOtp(); });
+  $('v-change').addEventListener('click', () => { vPane.style.display = 'none'; form.style.display = 'block'; clearInterval(resendTimer); setTimeout(() => KioskKeyboard.show(mobile), 200); });
 
   document.getElementById('home').addEventListener('click', () => { location.href = 'index.html'; });
   KKAmbient.create({ stage: document.getElementById('amb'), steam: { x: 880, y: 1690, w: 160, count: 7 }, sparkles: 7, sparkleArea: { x0: 60, x1: 1020, y0: 40, y1: 560 } });

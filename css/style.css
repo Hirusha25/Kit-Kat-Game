@@ -279,3 +279,21 @@ html.is-kiosk img { image-rendering: auto; }
 .res .res-stats b { text-shadow:
     -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff,
     -2px 3px 0 #5a0a12, -3px 4px 0 #5a0a12, -4px 5px 0 #5a0a12 !important; }
+
+/* Card headlines: cream face with a deep-red block, so they read on both cream cards and the red page */
+.res .res-prize .t b, .res .none-wrap > b, .res .tiers b, .res .res-stats b, .res .none-wrap > span {
+  color: #fff6e0 !important; -webkit-text-stroke: 0;
+  text-shadow: -1.5px -1.5px 0 #c8102e, 1.5px -1.5px 0 #c8102e, -1.5px 1.5px 0 #c8102e, 1.5px 1.5px 0 #c8102e, 0 -2px 0 #c8102e, 0 2px 0 #c8102e, -2px 0 0 #c8102e, 2px 0 0 #c8102e,
+    -3px 4px 0 #8a0610, -4px 5px 0 #8a0610, -5px 6px 0 #8a0610, -6px 7px 0 #8a0610, -7px 8px 0 #8a0610, -6px 14px 16px rgba(60,0,0,.3) !important;
+}
+.res .none-wrap > span, .res .res-stats b { text-shadow: -1.5px -1.5px 0 #c8102e, 1.5px -1.5px 0 #c8102e, -1.5px 1.5px 0 #c8102e, 1.5px 1.5px 0 #c8102e,
+    -2px 3px 0 #8a0610, -3px 4px 0 #8a0610, -4px 5px 0 #8a0610 !important; }
+
+/* Chosen headline style (option 4): Poppins italic, red gradient face, burgundy subline */
+.res .res-prize .t b, .res .none-wrap > b, .res .tiers b, .res .res-stats b {
+  font-family: "Poppins", var(--font-display) !important; font-weight: 900 !important; font-style: italic !important;
+  background: linear-gradient(180deg, #e8202e 0%, #c8102e 55%, #a80816 100%); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent;
+  text-shadow: none !important; filter: drop-shadow(0 3px 0 #5a0a12) drop-shadow(0 8px 10px rgba(60,0,0,.22));
+}
+.res .none-wrap > span { font: 800 italic 36px/1.2 "Poppins", var(--font-display) !important; color: #5a0d16 !important; -webkit-text-fill-color: #5a0d16; text-shadow: none !important; }
+.res .res-stats span { color: #5a0d16; }

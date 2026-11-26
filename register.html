@@ -192,7 +192,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/firebase-config.js?v=20261126f"></script>
-<script src="js/otp-config.js?v=20261127a"></script>
+<script src="js/otp-config.js?v=20261127b"></script>
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/ambient.js?v=20261126e"></script>
 <script src="js/keyboard.js?v=20261126e"></script>
@@ -303,6 +303,8 @@
   }
   async function startOtp() {
     if (sending) return; sending = true; vErr.textContent = '';
+    // TESTING: js/otp-config.js can switch verification off; the player goes straight to the game.
+    if (window.KK_OTP_SKIP) { confirmation = { confirm: async () => ({ user: { uid: 'skip-' + Date.now() } }) }; otpIn.value = '000000'; sending = false; return verify(); }
     if (otpApi) {
       const onVerify = vPane.style.display === 'block'; // resend from the code screen reports its error there
       try {

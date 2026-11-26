@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Camera test · KitKat kiosk</title>
+<style>
+  /* Staff diagnostic page: shows what this browser can see of the webcam. Not part of the game flow. */
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font: 20px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: #1b0507; color: #fff; }
+  h1 { font-size: 30px; margin: 0 0 6px; }
+  p.sub { margin: 0 0 20px; color: #f3c9c9; }
+  .verdict { padding: 18px 20px; border-radius: 14px; font-weight: 700; font-size: 24px; margin-bottom: 20px; background: #5a4a10; }
+  .verdict.ok { background: #14602f; } .verdict.bad { background: #8a1420; }
+  .verdict small { display: block; font-weight: 400; font-size: 19px; margin-top: 6px; }
+  button { font: inherit; font-weight: 700; padding: 16px 26px; border: 0; border-radius: 12px; background: #f6d58a; color: #3a0609; margin: 0 12px 12px 0; }
+  video { display: block; width: 100%; max-width: 640px; background: #000; border-radius: 12px; margin: 8px 0 20px; }
+  h2 { font-size: 22px; margin: 22px 0 8px; color: #f6d58a; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.15); vertical-align: top; word-break: break-word; }
+  td:first-child { width: 38%; color: #f3c9c9; }
+  .good { color: #7be29b; font-weight: 700; } .warn { color: #ffd166; font-weight: 700; } .err { color: #ff8a8a; font-weight: 700; }
+  pre { white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,.4); padding: 14px; border-radius: 12px; font: 15px/1.4 ui-monospace, Consolas, monospace; user-select: text; -webkit-user-select: text; }
+</style>
+</head>
+<body>
+<h1>Camera test</h1>
+<p class="sub">Shows what this browser can see of the webcam. Plug the camera in, then tap <b>Run test</b>. Unplug and re-plug it while this page is open to see whether the kiosk notices.</p>
+
+<div class="verdict" id="verdict">Tap Run test.</div>
+<button id="run">Run test</button><button id="copy">Copy report</button>
+<video id="preview" autoplay playsinline muted></video>
+
+<h2>Browser</h2><table id="t-env"></table>
+<h2>Cameras the browser lists</h2><table id="t-dev"></table>
+<h2>Opening the camera</h2><table id="t-open"></table>
+<h2>Plug / unplug events</h2><table id="t-ev"><tr><td>None yet</td><td>Re-plug the webcam to test.</td></tr></table>
+<h2>Report (send this to the developer)</h2><pre id="report"></pre>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var report = [], stream = null, events = 0;
+  function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+  function row(table, k, v, cls) { $(table).insertAdjacentHTML('beforeend', '<tr><td>' + esc(k) + '</td><td class="' + (cls || '') + '">' + esc(v) + '</td></tr>'); report.push(k + ': ' + v); }
+  function clear(id) { $(id).innerHTML = ''; }
+  function verdict(cls, title, detail) { var v = $('verdict'); v.className = 'verdict ' + cls; v.innerHTML = esc(title) + '<small>' + esc(detail) + '</small>'; report.push('VERDICT: ' + title + ' | ' + detail); }
+  function stop() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+  function withTimeout(p, ms) { return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej({ name: 'Timeout', message: 'no answer after ' + ms / 1000 + ' s' }); }, ms); })]); }
+
+  async function listCams(label) {
+    var devs = [];
+    try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(function (d) { return d.kind === 'videoinput'; }); }
+    catch (e) { row('t-dev', label, 'enumerateDevices failed: ' + e.name + ' ' + e.message, 'err'); return []; }
+    row('t-dev', label, devs.length + ' camera(s)', devs.length ? 'good' : 'err');
+    devs.forEach(function (d, i) { row('t-dev', '  camera ' + (i + 1), (d.label || '(name hidden until permission is given)') + '  [id ' + (d.deviceId ? d.deviceId.slice(0, 8) + '…' : 'none') + ']'); });
+    return devs;
+  }
+
+  async function open(label, constraints) {
+    try {
+      var s = await withTimeout(navigator.mediaDevices.getUserMedia(constraints), 15000);
+      var t = s.getVideoTracks()[0], st = t.getSettings ? t.getSettings() : {};
+      row('t-open', label, 'OK: "' + t.label + '" ' + (st.width || '?') + 'x' + (st.height || '?') + ' @' + (st.frameRate ? Math.round(st.frameRate) : '?') + 'fps' + (st.facingMode ? ' facing ' + st.facingMode : ''), 'good');
+      return s;
+    } catch (e) {
+      row('t-open', label, 'FAILED: ' + (e.name || 'Error') + (e.constraint ? ' (constraint ' + e.constraint + ')' : '') + ' — ' + (e.message || ''), 'err');
+      return { error: e.name || 'Error' };
+    }
+  }
+
+  async function run() {
+    report = []; stop(); ['t-env', 't-dev', 't-open'].forEach(clear); $('preview').srcObject = null;
+    report.push('Camera test ' + new Date().toISOString() + ' ' + location.href);
+    row('t-env', 'Browser', navigator.userAgent);
+    row('t-env', 'Screen', screen.width + 'x' + screen.height + ' @' + (window.devicePixelRatio || 1) + 'x');
+    row('t-env', 'Secure page (https)', String(window.isSecureContext), window.isSecureContext ? 'good' : 'err');
+    var hasApi = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    row('t-env', 'Camera API available', String(hasApi), hasApi ? 'good' : 'err');
+    if (!hasApi) { verdict('bad', 'This browser has no camera API here.', 'The page must be opened over https in Chrome.'); return finish(); }
+
+    var perm = 'unknown';
+    try { perm = (await navigator.permissions.query({ name: 'camera' })).state; } catch (_) {}
+    row('t-env', 'Camera permission for this site', perm, perm === 'granted' ? 'good' : perm === 'denied' ? 'err' : 'warn');
+
+    var before = await listCams('Before asking permission');
+    var first = await open('Any camera (video: true)', { video: true, audio: false });
+    var after = await listCams('After asking permission');
+
+    var working = first && !first.error ? first : null, opened = working ? 1 : 0;
+    // Try every listed camera by its id: shows whether one specific camera is the broken one.
+    for (var i = 0; i < after.length; i++) {
+      if (!after[i].deviceId) continue;
+      if (working) { working.getTracks().forEach(function (t) { t.stop(); }); working = null; }
+      var s = await open('Camera ' + (i + 1) + ' by id', { video: { deviceId: { exact: after[i].deviceId } }, audio: false });
+      if (s && !s.error) { working = s; opened++; }
+    }
+    if (!working && first && !first.error) working = (await open('Any camera again', { video: true, audio: false }));
+    if (working && !working.error) { stream = working; $('preview').srcObject = stream; }
+
+    var err = first && first.error;
+    if (stream) verdict('ok', 'Camera works in this browser.', 'You should see the picture below. If the game still fails, open the staff setup panel in the game and re-select the camera.');
+    else if (err === 'NotAllowedError' || err === 'SecurityError' || perm === 'denied') verdict('bad', 'Camera is blocked by a permission.', 'Check: Chrome site permission for this address, Android Settings > Apps > Chrome > Permissions > Camera, and Android Settings > Privacy > Camera access.');
+    else if (!after.length || err === 'NotFoundError') verdict('bad', 'Android is not giving Chrome any camera.', 'The webcam has power but the kiosk does not expose it to apps. Try another USB port, reboot with it plugged in, then check with the kiosk vendor that the firmware supports USB (UVC) cameras.');
+    else if (err === 'NotReadableError' || err === 'AbortError' || err === 'Timeout') verdict('bad', 'A camera is listed but cannot be opened.', 'Another app may be using it, or the USB port cannot supply enough power or data. Close other camera apps, try another port or a powered hub, then reboot.');
+    else verdict('bad', 'Camera could not be opened (' + (err || 'unknown') + ').', 'Send the report below to the developer.');
+    finish();
+  }
+  function finish() { $('report').textContent = report.join('\n'); }
+
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', async function () {
+      events++; if (events === 1) clear('t-ev');
+      var n = '?'; try { n = (await navigator.mediaDevices.enumerateDevices()).filter(function (d) { return d.kind === 'videoinput'; }).length; } catch (_) {}
+      row('t-ev', 'Change ' + events + ' at ' + new Date().toLocaleTimeString(), 'browser now lists ' + n + ' camera(s)', 'good'); finish();
+    });
+  }
+  $('run').addEventListener('click', run);
+  $('copy').addEventListener('click', function () {
+    var txt = $('report').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { $('copy').textContent = 'Copied'; }, function () { $('copy').textContent = 'Select the text below'; });
+  });
+  window.addEventListener('pagehide', stop);
+})();
+</script>
+</body>
+</html>

@@ -73,3 +73,13 @@ Shared style line (already inside every prompt): photoreal 3D product render, so
 - **Mug and splash.** The mug follows the player's left–right movement. On a catch the engine swaps to `mug-splash.png` for 0.35 s, spawns `splash-drop.png` particles from the rim and shows the +1. If you only generate `mug.png`, the engine keeps drawing its own splash.
 - **Falling items.** Wafers are +1. Golden wafer is +3. Every third wafer in a row is a streak bonus. The hazards are the things that get in the way of a break for every kind of player: alarm clock (everyone), exam paper (students), order-ticket rail (kitchen and culinary crowd), traffic jam (commuters), laundry pile (home), and optionally the deadline calendar (office). Each is –1, streak reset and a 1.2 s stun. The engine rotates through whichever hazard files exist, so you can ship any subset. The game ramps over the 40 seconds: fall speed 420 → 820 px/s, spawn gap 1.0 → 0.5 s, hazard share 0% in the first 8 s then 35%, so the second half demands real left–right movement to thread between hazards.
 - **Drop-in.** Put the files into `assets/img/game/` with the names above. The engine already looks for them; the new hazards and the golden wafer need one line each in the manifest, which I will add when they arrive.
+
+---
+
+## "Dunk the Break" title lettering as a vector  [attach: reference/break-lettering-reference.png]
+
+Ask for an SVG (or AI/EPS) so the title stays razor sharp on the 4K kiosk. Attach `reference/break-lettering-reference.png` (the current lettering on the brand red) and paste:
+
+> Recreate the attached title lettering exactly as a clean vector: "DUNK THE" in heavy condensed italic capitals on the top line, "Break" in a flowing brush script below it, with the long swash from the "k" sweeping back under the word and the second swash flying off the top right. Match the attached proportions, slant, letter shapes and the way the two lines overlap. Pure white (#FFFFFF) fill, no outline, no shadow, no gradient, no background. Deliver as SVG with each word as a separate group, artboard trimmed to the lettering, no raster effects. Also deliver a second version of the same lettering filled with a warm gold gradient (#FFE49A top to #C98A1E bottom).
+
+If the generator cannot output SVG, ask for a 4500 x 4000 px PNG with a transparent background and I will trace it.

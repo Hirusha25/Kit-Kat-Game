@@ -36,7 +36,16 @@
   // ---------- HUD ----------
   const hud = { time: $('hud-time'), score: $('hud-score'), rank: $('hud-rank'), el: $('hud') };
   const last = { time: '', score: '', rank: '' };
-  function setText(key, v) { if (last[key] !== v) { last[key] = v; hud[key].textContent = v; } }
+  function setText(key, v) {
+    if (last[key] === v) return;
+    last[key] = v; hud[key].textContent = v;
+    if (key !== 'time') { hud[key].classList.remove('bump'); void hud[key].offsetWidth; hud[key].classList.add('bump'); }
+  }
+  function countUp(el, to, ms) {
+    const t0 = performance.now(); const from = 0;
+    const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); el.textContent = String(Math.round(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
   function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return '00:' + String(s).padStart(2, '0'); }
   const knob = $('knob');
   const sliderLeft = 70, sliderWidth = 820 - 140; // slider inner track in stage px
@@ -110,7 +119,7 @@
   }
 
   // ---------- game ----------
-  let game = null, sprites = null, phase = 'boot', endResult = null;
+  let game = null, sprites = null, phase = 'boot', endResult = null, endAmbient = null;
   // Render scale: 1x for the 1080x1920 design, up to 2x on the 4K kiosk (2160x3840) so sprites stay crisp.
   let pixelScale = (window.KKStage && window.KKStage.pixelScale) || 1;
   if (qs.get('px')) pixelScale = Math.min(2, Math.max(0.5, parseFloat(qs.get('px')) || 1));
@@ -153,13 +162,18 @@
     phase = 'ended'; endResult = result; KKAudio.end();
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
-    $('end-score').textContent = String(result.score);
+    $('end-score').textContent = '0';
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
     $('end-title').textContent = result.score >= 20 ? 'Legend!' : result.score >= 10 ? 'Hot break!' : "Time's up!";
-    setTimeout(() => show('end'), 900);
+    setTimeout(() => {
+      show('end');
+      countUp($('end-score'), result.score, 1400);
+      if (endAmbient) endAmbient.stop();
+      endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, wafers: 10, waferSpeed: 1.6, sparkles: 14, sparkleArea: { x0: 60, x1: 1020, y0: 300, y1: 1500 } });
+    }, 900);
     armIdle(true);
   }
-  $('again').addEventListener('click', () => { hideAll(); calDone = false; startCountdown(); });
+  $('again').addEventListener('click', () => { hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false; startCountdown(); });
   $('to-home').addEventListener('click', () => { location.href = 'index.html'; });
 
   // ---------- idle: back to cover after results ----------

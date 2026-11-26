@@ -20,6 +20,7 @@
   .logo-top { position: absolute; left: 50%; top: 12px; width: 345px; transform: translateX(-50%); pointer-events: auto; cursor: pointer; }
   .title-top { position: absolute; left: 50%; top: 238px; width: 410px; transform: translateX(-50%); pointer-events: none; }
   #art { pointer-events: none; }
+  #amb canvas { position: absolute; inset: 0; }
 
   .pane { position: absolute; inset: 0; z-index: 1; transition: transform .32s cubic-bezier(.22,1,.36,1); }
   body.kbd-open .pane { transform: translateY(-390px); }
@@ -98,6 +99,7 @@
     <img class="layer" src="assets/img/cover/bg-red-ribbon.webp" alt="" fetchpriority="high">
     <div class="pane" id="art">
       <img class="layer" src="assets/img/register/decor.webp" alt="">
+      <div id="amb" class="layer"></div>
       <img class="logo-top" id="home" src="assets/img/register/logo-top.webp" alt="KitKat Chocolate Drink">
       <img class="title-top" src="assets/img/register/title-dunk.webp" alt="Dunk the Break">
     </div>
@@ -151,6 +153,7 @@
 </div>
 
 <script src="js/stage.js"></script>
+<script src="js/ambient.js"></script>
 <script src="js/keyboard.js"></script>
 <script>
 (function () {
@@ -226,6 +229,7 @@
   });
 
   document.getElementById('home').addEventListener('click', () => { location.href = 'index.html'; });
+  KKAmbient.create({ stage: document.getElementById('amb'), steam: { x: 880, y: 1690, w: 160, count: 7 }, sparkles: 7, sparkleArea: { x0: 60, x1: 1020, y0: 40, y1: 560 } });
   // Idle: return to the cover after 2 minutes without a touch.
   let idle; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { location.href = 'index.html'; }, 120000); };
   ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm();

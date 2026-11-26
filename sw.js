@@ -50,10 +50,39 @@ function staleWhileRevalidate(e, req) {
   });
 }
 
+// Video is requested in byte ranges. A stored full copy (see js/offline-sync.js) is cut to the range asked
+// for, so background videos also play with no connection. Not stored yet: the network answers.
+function rangeFromCache(req) {
+  return cached(req).then(hit => {
+    if (!hit) return null;
+    return hit.blob().then(blob => {
+      const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || ''); if (!m) return null;
+      const size = blob.size; let start = m[1] === '' ? Math.max(0, size - Number(m[2])) : Number(m[1]);
+      let end = m[1] !== '' && m[2] !== '' ? Math.min(size - 1, Number(m[2])) : size - 1;
+      if (start >= size || start > end) return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + size } });
+      return new Response(blob.slice(start, end + 1), { status: 206, headers: {
+        'Content-Type': hit.headers.get('Content-Type') || 'application/octet-stream', 'Accept-Ranges': 'bytes',
+        'Content-Range': 'bytes ' + start + '-' + end + '/' + size, 'Content-Length': String(end - start + 1) } });
+    });
+  }).catch(() => null);
+}
+
+// Google Fonts stylesheets and font files: stored copy first, refreshed in the background.
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+function fontFromCache(e, req) {
+  return caches.open(VERSION).then(c => c.match(req).then(hit => {
+    const refresh = fetch(req).then(res => { if (res && (res.ok || res.type === 'opaque')) c.put(req, res.clone()).catch(() => {}); return res; });
+    if (hit) { e.waitUntil(refresh.catch(() => {})); return hit; }
+    return refresh;
+  }));
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request; if (req.method !== 'GET') return;
-  const url = new URL(req.url); if (url.origin !== location.origin) return; // fonts etc. go straight to the network
-  if (req.headers.has('range')) return; // video seeking: let the browser talk to the network directly
+  const url = new URL(req.url);
+  if (FONT_HOSTS.indexOf(url.hostname) >= 0) { e.respondWith(fontFromCache(e, req)); return; }   // web fonts, kept for offline
+  if (url.origin !== location.origin) return; // anything else from another site goes straight to the network
+  if (req.headers.has('range')) { e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }   // video: from the stored copy when there is one
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
   const isCode = /\.(js|css|json)$/.test(url.pathname);
   if (isPage || isCode) e.respondWith(networkFirst(req, isPage));

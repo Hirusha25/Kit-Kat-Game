@@ -29,7 +29,7 @@
 
   .logo-top { position: absolute; left: 50%; top: 6px; width: 190px; transform: translateX(-50%); pointer-events: none; z-index: 2; }
   .title-top { position: absolute; left: 50%; top: 134px; width: 215px; transform: translateX(-50%); pointer-events: none; z-index: 2; filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
-  .wave { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: auto; pointer-events: none; }
+  .wave { position: absolute; left: -2px; right: -2px; bottom: -3px; width: calc(100% + 4px); height: auto; pointer-events: none; }
 
   /* HUD pill */
   .hud { position: absolute; left: 60px; top: 258px; width: 960px; height: var(--hud-h); border-radius: 999px; padding: 0 26px;
@@ -258,7 +258,6 @@
     </section>
 
     <video id="cam" playsinline muted autoplay style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none"></video>
-    <p class="legal">KitKat® Reg. trademark of Société des Produits Nestlé S.A.</p>
   </main>
 </div>
 

@@ -210,46 +210,38 @@
 
   // ---------- gold 3D number for the results screen (canvas, extruded down-left like the reference) ----------
   function drawGold3D(cv, text) {
-    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800; // 2x backing
-    ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 350);
-    const size = 300, cx = 400, baseY = 268; // stage px inside the 800x350 box
-    ctx.font = `italic 800 ${size}px Poppins, "Plus Jakarta Sans", Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    const depth = 30, dx = -0.42, dy = 1.0;
-    // warm glow behind the whole number
-    ctx.save(); ctx.shadowColor = 'rgba(255,180,60,.5)'; ctx.shadowBlur = 90; ctx.fillStyle = 'rgba(255,190,80,.35)'; ctx.fillText(text, cx + dx * depth * .5, baseY + dy * depth * .5); ctx.restore();
-    // soft drop shadow
-    ctx.save(); ctx.shadowColor = 'rgba(40,0,0,.6)'; ctx.shadowBlur = 44; ctx.shadowOffsetY = 34; ctx.shadowOffsetX = -10; ctx.fillStyle = '#7a3a00'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
-    // far-edge glint (bright rim visible beyond the extrusion)
-    for (let i = depth + 3; i > depth; i--) { ctx.fillStyle = i === depth + 3 ? '#ffe9a6' : '#fff3c8'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
-    // extrusion: saturated amber, darker away from the face, warm highlight just behind the face
+    // If the designer supplies digit artwork (assets/img/game/digits/0.png … 9.png), it is used instead of this renderer.
+    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800;
+    ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 360);
+    const size = 352, cx = 400, baseY = 300;
+    ctx.font = `italic 900 ${size}px Montserrat, Poppins, Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent, gh = bot - top;
+    const depth = Math.round(gh * 0.11), dx = -0.48, dy = 1.0;
+    // ground shadow
+    ctx.save(); ctx.shadowColor = 'rgba(60,0,0,.55)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 26; ctx.shadowOffsetX = -8; ctx.fillStyle = 'rgba(120,50,0,1)'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
+    // bright lip along the far edge of the extrusion
+    for (let i = depth + 2; i > depth; i--) { ctx.fillStyle = i === depth + 2 ? '#f6d27a' : '#fff0bd'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
+    // extrusion side: amber, lighter near the face
     for (let i = depth; i >= 1; i--) {
-      const t = i / depth; // 1 = far
-      const r = Math.round(0xf4 - (0xf4 - 0xc2) * t), g = Math.round(0xb0 - (0xb0 - 0x78) * t), b = Math.round(0x2e - (0x2e - 0x10) * t);
+      const t = i / depth;
+      const r = Math.round(0xf6 - (0xf6 - 0xc9) * t), g = Math.round(0xb8 - (0xb8 - 0x82) * t), b = Math.round(0x3a - (0x3a - 0x16) * t);
       ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillText(text, cx + dx * i, baseY + dy * i);
     }
-    // thin dark seam where the side meets the face
-    ctx.fillStyle = '#c47d12'; ctx.fillText(text, cx + dx * 1.5, baseY + dy * 1.5);
-    // face: vertical gold gradient
-    const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent;
+    // face
     const g1 = ctx.createLinearGradient(0, top, 0, bot);
-    g1.addColorStop(0, '#fff9e6'); g1.addColorStop(.14, '#ffefbf'); g1.addColorStop(.36, '#ffdc78'); g1.addColorStop(.6, '#fbc63e'); g1.addColorStop(.82, '#f1b02c'); g1.addColorStop(1, '#e9a324');
+    g1.addColorStop(0, '#fffbee'); g1.addColorStop(.22, '#fff3d0'); g1.addColorStop(.5, '#ffe49a'); g1.addColorStop(.78, '#f9cf58'); g1.addColorStop(1, '#efb83a');
     ctx.fillStyle = g1; ctx.fillText(text, cx, baseY);
-    // sharp highlight band across the upper face
+    // soft highlight band on the upper third, darker warm band near the bottom of the face
     ctx.save(); ctx.globalCompositeOperation = 'source-atop';
     const g2 = ctx.createLinearGradient(0, top, 0, bot);
-    g2.addColorStop(0, 'rgba(255,255,255,.55)'); g2.addColorStop(.22, 'rgba(255,255,255,.35)'); g2.addColorStop(.3, 'rgba(255,255,255,0)'); g2.addColorStop(.62, 'rgba(255,255,255,0)'); g2.addColorStop(.72, 'rgba(255,230,150,.18)'); g2.addColorStop(1, 'rgba(255,200,80,0)');
+    g2.addColorStop(0, 'rgba(255,255,255,.5)'); g2.addColorStop(.3, 'rgba(255,255,255,.12)'); g2.addColorStop(.38, 'rgba(255,255,255,0)'); g2.addColorStop(.86, 'rgba(230,150,30,0)'); g2.addColorStop(1, 'rgba(220,140,20,.28)');
     ctx.fillStyle = g2; ctx.fillText(text, cx, baseY); ctx.restore();
-    // crisp light edge on the face outline
-    ctx.save(); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,250,225,.75)'; ctx.strokeText(text, cx, baseY); ctx.restore();
-    // specular glints along the far bottom edge, like light catching the rim
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const rimY = bot + depth * dy - 20; const glints = [[cx - m.width * 0.36 + dx * depth, rimY], [cx + m.width * 0.10 + dx * depth, rimY + 2], [cx + m.width * 0.40 + dx * depth, rimY - 4]];
-    glints.forEach(([gx, gy], i) => { const r = i === 1 ? 30 : 22; const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r); gg.addColorStop(0, 'rgba(255,255,240,.9)'); gg.addColorStop(.3, 'rgba(255,240,190,.5)'); gg.addColorStop(.65, 'rgba(255,200,90,.15)'); gg.addColorStop(1, 'rgba(255,180,60,0)'); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.fill(); });
-    ctx.restore();
-    // sparkles around the number
-    ctx.save(); ctx.fillStyle = '#ffe9a8'; ctx.shadowColor = 'rgba(255,220,140,.9)'; ctx.shadowBlur = 12;
-    [[cx - m.width * .62, top + 40, 22], [cx - m.width * .72, top + 150, 14], [cx + m.width * .62, top + 60, 24], [cx + m.width * .70, bot - 40, 16], [cx - m.width * .66, bot - 20, 12]].forEach(([sx, sy, r]) => {
-      ctx.beginPath(); ctx.moveTo(sx, sy - r); ctx.quadraticCurveTo(sx, sy, sx + r, sy); ctx.quadraticCurveTo(sx, sy, sx, sy + r); ctx.quadraticCurveTo(sx, sy, sx - r, sy); ctx.quadraticCurveTo(sx, sy, sx, sy - r); ctx.fill();
+    // hairline light edge on the face
+    ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,248,220,.8)'; ctx.strokeText(text, cx, baseY); ctx.restore();
+    // fine four-point sparkles
+    ctx.save(); ctx.fillStyle = '#ffeec0'; ctx.shadowColor = 'rgba(255,225,150,.9)'; ctx.shadowBlur = 10;
+    [[cx - m.width * .60, top + 28, 20, 1], [cx - m.width * .70, top + 150, 12, .9], [cx + m.width * .60, top + 54, 22, 1], [cx + m.width * .69, bot - 60, 14, .9], [cx - m.width * .64, bot - 34, 10, .8]].forEach(([sx, sy, r, a]) => {
+      ctx.globalAlpha = a; const w = r * .18; ctx.beginPath(); ctx.moveTo(sx, sy - r); ctx.quadraticCurveTo(sx + w, sy - w, sx + r, sy); ctx.quadraticCurveTo(sx + w, sy + w, sx, sy + r); ctx.quadraticCurveTo(sx - w, sy + w, sx - r, sy); ctx.quadraticCurveTo(sx - w, sy - w, sx, sy - r); ctx.fill();
     });
     ctx.restore();
   }

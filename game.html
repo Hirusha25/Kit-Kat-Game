@@ -9,7 +9,7 @@
 <link rel="icon" href="assets/img/kitkat-oval.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,700&family=Figtree:ital,wght@0,500;0,600;0,700;0,900;1,900&family=Urbanist:ital,wght@0,500;0,600;0,700;0,900;1,900&family=Poppins:ital,wght@0,800;1,800;1,900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,700&family=Figtree:ital,wght@0,500;0,600;0,700;0,900;1,900&family=Urbanist:ital,wght@0,500;0,600;0,700;0,900;1,900&family=Poppins:ital,wght@0,800;1,800;1,900&family=Montserrat:ital,wght@1,900&display=swap">
 <link rel="stylesheet" href="css/style.css?v=20261126e">
 <style>
   /* ---------- Game screen, 1080x1920 stage, matched to reference/game-screen-reference.webp ---------- */
@@ -166,19 +166,19 @@
   .res .res-h { position: absolute; left: 0; right: 0; top: 306px; margin: 0; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; text-transform: uppercase; letter-spacing: 0;
     background: linear-gradient(180deg, #fff8e4 0%, #fbe5a8 50%, #f1c866 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 5px 0 #b8862a) drop-shadow(0 14px 24px rgba(60,0,0,.55)); }
   .res .res-sub { position: absolute; left: 0; right: 0; top: 430px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
-  .res .res-score { position: absolute; left: 0; right: 0; top: 440px; height: 350px; text-align: center; }
-  .res .res-score canvas { width: 800px; height: 350px; display: inline-block; }
+  .res .res-score { position: absolute; left: 0; right: 0; top: 446px; height: 360px; text-align: center; }
+  .res .res-score canvas { width: 800px; height: 360px; display: inline-block; }
   .res .res-final { position: absolute; left: 0; right: 0; top: 797px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
   .res .res-final i { width: 96px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
   .res .res-stats { position: absolute; left: 112px; top: 854px; display: flex; gap: 13px; }
-  .res .res-stats div { width: 284px; height: 149px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: url(assets/img/game/res-stat-card.png) center / 100% 100% no-repeat; filter: drop-shadow(0 12px 22px rgba(50,0,0,.4)); animation: fadeIn .5s ease both; }
+  .res .res-stats div { width: 284px; height: 149px; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 4px solid transparent; background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, linear-gradient(180deg, #fff2c6 0%, #e2b14c 45%, #f8e2a3 65%, #b8862a 100%) border-box; box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 12px 24px rgba(50,0,0,.4); animation: fadeIn .5s ease both; }
   .res .res-stats div:nth-child(2) { animation-delay: .1s; } .res .res-stats div:nth-child(3) { animation-delay: .2s; }
   .res .res-stats b { font: 900 italic 54px/1 var(--font-display); color: #bd0c18; } .res .res-stats span { font: 800 26px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: #3a1a06; }
-  .res .res-prize { position: absolute; left: 60px; top: 1030px; width: 959px; height: 425px; display: flex; align-items: center; padding: 0 30px 0 66px; box-sizing: border-box; background: url(assets/img/game/res-prize-card.png) center / 100% 100% no-repeat; filter: drop-shadow(0 18px 34px rgba(50,0,0,.42)); animation: fadeIn .6s .35s ease both; }
+  .res .res-prize { position: absolute; left: 60px; top: 1030px; width: 959px; height: 425px; border-radius: 40px; display: flex; align-items: center; padding: 0 30px 0 62px; box-sizing: border-box; border: 5px solid transparent; background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 50%, #fbe7b0 100%) padding-box, linear-gradient(180deg, #fff2c6 0%, #e2b14c 45%, #f8e2a3 65%, #b8862a 100%) border-box; box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 18px 36px rgba(50,0,0,.42); animation: fadeIn .6s .35s ease both; }
   .res .res-prize .t { flex: 1 1 auto; text-align: left; min-width: 0; }
   .res .res-prize .t b { display: block; font: 900 italic 57px/1.02 var(--font-display); text-transform: uppercase; color: #c8102e; max-width: 500px; }
   .res .res-prize .t span { display: block; margin-top: 20px; font: 600 31px/1.25 var(--font-body); color: #3a1a06; max-width: 470px; }
-  .res .res-prize .t code { display: inline-flex; align-items: center; justify-content: center; margin-top: 22px; width: 404px; height: 84px; box-sizing: border-box; padding: 0 0 3px; background: url(assets/img/game/res-code-pill.png) center / 100% 100% no-repeat; color: #fef9e2; font: 900 44px/1 var(--font-display); letter-spacing: .06em; }
+  .res .res-prize .t code { display: inline-flex; align-items: center; justify-content: center; margin-top: 22px; min-width: 404px; height: 84px; box-sizing: border-box; padding: 0 40px 3px; border-radius: 999px; background: linear-gradient(180deg, #a90c17 0%, #8a0610 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 6px 14px rgba(60,0,0,.35); color: #fef9e2; font: 900 44px/1 var(--font-display); letter-spacing: .06em; }
   .res .res-prize .pic { flex: 0 0 auto; width: 340px; max-height: 390px; object-fit: contain; margin-right: 6px; filter: drop-shadow(0 22px 26px rgba(90,20,0,.35)) drop-shadow(0 4px 6px rgba(90,20,0,.25)); }
   .res .res-prize.none .pic { display: none; } .res .res-prize.none .t span, .res .res-prize.none .t b { max-width: none; }
   .res .res-btn { position: absolute; left: 124px; top: 1436px; width: 831px; height: 285px; margin: 0; font-size: 90px; z-index: 2; }
@@ -290,7 +290,7 @@
       <img class="pre-title" src="assets/img/register/title-dunk.webp" alt="Dunk the Break">
       <h1 class="res-h" id="end-title">Legend!</h1>
       <p class="res-sub" id="end-name">What a break!</p>
-      <div class="res-score"><canvas id="end-score-cv" width="1600" height="700"></canvas><span id="end-score" hidden>0</span></div>
+      <div class="res-score"><canvas id="end-score-cv" width="1600" height="720"></canvas><span id="end-score" hidden>0</span></div>
       <p class="res-final"><i></i>Final Score<i></i></p>
       <div class="res-stats"><div><b id="end-rank">#1</b><span>Rank Today</span></div><div><b id="end-caught">0</b><span>Wafers</span></div><div><b id="end-streak">0</b><span>Best Streak</span></div></div>
       <div class="res-prize" id="prize">

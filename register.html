@@ -172,7 +172,7 @@
 
     <section class="pane" id="verify" style="display:none">
       <h1 class="heading">Verify Your Number</h1>
-      <p class="v-sub">Enter the 6-digit code we sent to <b id="v-phone">07X XXX XXXX</b></p>
+      <p class="v-sub">Enter the 6-digit code we sent <span id="v-via"></span>to <b id="v-phone">07X XXX XXXX</b></p>
       <div class="otp" id="otp"><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <input id="otp-in" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-kbd="numeric" aria-label="Verification code" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">
       <p class="err notice v-err" id="v-err" role="alert"></p>
@@ -189,6 +189,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/firebase-config.js?v=20261126f"></script>
+<script src="js/otp-config.js?v=20261127a"></script>
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/ambient.js?v=20261126e"></script>
 <script src="js/keyboard.js?v=20261126e"></script>
@@ -259,18 +260,28 @@
     startOtp();
   });
 
-  // ---------- OTP verification (Firebase Phone Auth; test mode while no config is set) ----------
+  // ---------- OTP verification ----------
+  // WhatsApp (server endpoint in api/, see js/otp-config.js) when configured and not on localhost;
+  // otherwise Firebase Phone Auth, or test mode while neither is set.
   let pending = null, confirmation = null, resendAt = 0, resendTimer = null, sending = false;
   const vPane = $('verify'), otpIn = $('otp-in'), boxes = [...document.querySelectorAll('#otp span')], vErr = $('v-err');
   const fbReady = !!(window.KK_FIREBASE && window.firebase);
   let auth = null, recaptcha = null;
+  const otpApi = (window.KK_OTP_API && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) ? window.KK_OTP_API : null;
+  async function otpCall(action, body) {
+    let j = null;
+    try { const r = await fetch(otpApi + '?a=' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); j = await r.json(); }
+    catch (_) { const e = new Error('otp'); e.code = 'api/network'; throw e; }
+    if (!j || !j.ok) { const e = new Error('otp'); e.code = 'api/' + ((j && j.error) || 'send_failed'); throw e; }
+    return j;
+  }
   if (fbReady) { try { firebase.initializeApp(window.KK_FIREBASE); auth = firebase.auth(); auth.useDeviceLanguage(); } catch (e) { console.warn('Firebase init failed', e); } }
   const e164 = m => '+94' + m.replace(/\D/g, '').slice(-9);
   const pretty = m => { const d = m.replace(/\D/g, '').slice(-9); return '0' + d.slice(0, 2) + ' ' + d.slice(2, 5) + ' ' + d.slice(5); };
 
   function showVerify() {
     form.style.display = 'none'; vPane.style.display = 'block';
-    $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = auth ? 'none' : 'block';
+    $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = (auth || otpApi) ? 'none' : 'block'; $('v-via').textContent = otpApi ? 'on WhatsApp ' : '';
     otpIn.value = ''; paint(); vErr.textContent = '';
     setTimeout(() => KioskKeyboard.show(otpIn), 300);
     armResend();
@@ -289,6 +300,15 @@
   }
   async function startOtp() {
     if (sending) return; sending = true; vErr.textContent = '';
+    if (otpApi) {
+      const onVerify = vPane.style.display === 'block'; // resend from the code screen reports its error there
+      try {
+        await otpCall('send', { mobile: e164(pending.mobile) });
+        confirmation = { confirm: async c => { const j = await otpCall('verify', { mobile: e164(pending.mobile), code: c }); return { user: { uid: 'wa-' + j.id } }; } };
+        if (onVerify) armResend(); else showVerify();
+      } catch (e) { console.warn(e); (onVerify ? vErr : err).textContent = otpError(e); }
+      sending = false; return;
+    }
     if (!auth) { confirmation = { confirm: async c => { if (c !== '000000') { const e = new Error('bad'); e.code = 'auth/invalid-verification-code'; throw e; } return { user: { uid: 'test-' + Date.now() } }; } }; sending = false; showVerify(); return; }
     try {
       if (!recaptcha) { recaptcha = new firebase.auth.RecaptchaVerifier('recaptcha-host', { size: 'invisible' }); await recaptcha.render(); }
@@ -301,6 +321,13 @@
   }
   function otpError(e) {
     const c = (e && e.code) || '';
+    if (c === 'api/invalid') return 'That code is not right. Check WhatsApp and try again.';
+    if (c === 'api/expired') return 'That code has expired. Tap Resend code.';
+    if (c === 'api/too_many') return 'Too many wrong codes. Tap Resend code for a new one.';
+    if (c === 'api/rate') return 'Please wait a moment before asking for another code.';
+    if (c === 'api/bad_number') return 'Please check the mobile number.';
+    if (c === 'api/network') return 'No internet connection. Please tell a staff member.';
+    if (c.startsWith('api/')) return 'Could not send the code right now. Please tell a staff member.';
     if (c.includes('invalid-verification-code')) return 'That code is not right. Check the SMS and try again.';
     if (c.includes('code-expired')) return 'That code has expired. Tap Resend code.';
     if (c.includes('too-many-requests')) return 'Too many attempts from this kiosk. Please wait a few minutes.';

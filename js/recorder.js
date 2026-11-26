@@ -89,7 +89,7 @@
   // ---- upload (between rounds only) ---------------------------------------------------------------
   var uploading = false, lastUpload = '', busyPlaying = false;
   function post(url, body, json) {
-    var h = { 'X-KK-Key': key }; if (json) h['Content-Type'] = 'application/json';
+    var h = { 'X-KK-Key': key, 'Content-Type': json ? 'application/json' : 'application/octet-stream' };
     return fetch(url, { method: 'POST', headers: h, body: json ? JSON.stringify(body) : body }).then(function (r) {
       return r.json().catch(function () { return null; }).then(function (j) {
         if (!j || !j.ok) { var e = new Error((j && j.error) || ('http ' + r.status)); e.fatal = r.status >= 400 && r.status < 500 && r.status !== 429; throw e; }

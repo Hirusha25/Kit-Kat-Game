@@ -21,8 +21,8 @@
     },
     "wafer": {
       "src": "assets/img/game/wafer.png",
-      "w": 100,
-      "h": 245,
+      "w": 72,
+      "h": 292,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -30,8 +30,8 @@
     },
     "gold": {
       "src": "assets/img/game/wafer-gold.png",
-      "w": 100,
-      "h": 245,
+      "w": 84,
+      "h": 294,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -66,8 +66,8 @@
     },
     "alarm": {
       "src": "assets/img/game/alarm.png",
-      "w": 170,
-      "h": 170,
+      "w": 180,
+      "h": 180,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -75,8 +75,8 @@
     },
     "deadline": {
       "src": "assets/img/game/deadline.png",
-      "w": 170,
-      "h": 170,
+      "w": 180,
+      "h": 180,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -84,26 +84,17 @@
     },
     "phone": {
       "src": "assets/img/game/phone.png",
-      "w": 170,
-      "h": 170,
+      "w": 180,
+      "h": 180,
       "anchor": {
         "x": 0.5,
         "y": 0.5
       }
     },
-    "orders": {
-      "src": "assets/img/game/orders.png",
-      "w": 170,
-      "h": 170,
-      "anchor": {
-        "x": 0.5,
-        "y": 0.5
-      }
-    },
-    "traffic": {
-      "src": "assets/img/game/traffic.png",
-      "w": 170,
-      "h": 170,
+    "inbox": {
+      "src": "assets/img/game/inbox.png",
+      "w": 180,
+      "h": 180,
       "anchor": {
         "x": 0.5,
         "y": 0.5

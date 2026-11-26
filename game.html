@@ -21,13 +21,15 @@
   body { font-family: var(--font-display); }
   .stage { background: #8a0610; }
   .layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  /* Play backdrop (reference look: red burst with warm falling light streaks baked in); the ribbon shows at the top edge */
+  .backdrop { object-fit: cover; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 240px); mask-image: linear-gradient(to bottom, transparent 0, #000 240px); }
   /* darker arena than the cover: static overlays only, nothing animated per frame */
   .shade { position: absolute; inset: 0; pointer-events: none;
     background:
       radial-gradient(ellipse 70% 45% at 50% 62%, rgba(255,120,60,.22) 0%, rgba(255,120,60,0) 60%),
-      radial-gradient(ellipse 120% 80% at 50% 50%, rgba(0,0,0,0) 45%, rgba(40,0,0,.55) 100%),
-      linear-gradient(180deg, rgba(60,0,0,.35) 0%, rgba(60,0,0,.1) 25%, rgba(60,0,0,.1) 75%, rgba(40,0,0,.45) 100%); }
-  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .55;
+      radial-gradient(ellipse 120% 80% at 50% 50%, rgba(0,0,0,0) 55%, rgba(40,0,0,.35) 100%),
+      linear-gradient(180deg, rgba(60,0,0,.22) 0%, rgba(60,0,0,.04) 25%, rgba(60,0,0,.04) 75%, rgba(40,0,0,.3) 100%); }
+  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .35;
     background: repeating-conic-gradient(from 0deg at 50% 60%, rgba(255,170,90,.0) 0deg, rgba(255,170,90,.0) 9deg, rgba(255,170,90,.10) 10deg, rgba(255,170,90,.0) 12deg);
     -webkit-mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); }
 
@@ -117,7 +119,7 @@
   /* Pre-game full screens (camera check, show your mug): plain red page, no game behind */
   .ov.pre { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; display: none; }
   .ov.pre.show { display: block; }
-  body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .wave, body.pre .pip { display: none !important; }
+  body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .backdrop, body.pre .wave, body.pre .pip { display: none !important; }
   .pre-wave { position: absolute; left: -6px; bottom: -4px; width: 1092px; height: auto; pointer-events: none; }
   .pre-logo { position: absolute; left: 50%; top: 14px; width: 345px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
   .pre-title { position: absolute; left: 50%; top: 262px; width: 410px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
@@ -189,8 +191,8 @@
   .btn-art:active { transform: scale(.98); animation-play-state: paused; }
   /* results, sizes and positions measured from the reference (941x1672) and scaled x1.1477 to 1080x1920 */
   .res .pre-logo { width: 250px; top: 10px; }
-  .res .pre-title { width: 272px; top: 184px; }
-  .res .res-h { position: absolute; left: 0; right: 0; top: 306px; margin: 0; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; text-transform: uppercase; letter-spacing: 0;
+  .res .pre-title { width: 250px; top: 176px; }
+  .res .res-h { position: absolute; left: 0; right: 0; top: 340px; margin: 0; text-align: center; font-family: "Poppins", var(--font-display); font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; text-transform: uppercase; letter-spacing: 0;
     background: linear-gradient(180deg, #fff8e4 0%, #fbe5a8 50%, #f1c866 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 5px 0 #b8862a) drop-shadow(0 14px 24px rgba(60,0,0,.55)); }
   .res .res-sub { position: absolute; left: 0; right: 0; top: 506px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
   .res .res-score { position: absolute; left: 0; right: 0; top: 536px; height: 320px; text-align: center; }
@@ -269,6 +271,7 @@
 <div class="viewport">
   <main class="stage" id="stage">
     <img class="layer" src="assets/img/cover/bg-red-ribbon.webp" alt="" fetchpriority="high">
+    <img class="layer backdrop" src="assets/img/game/backdrop.webp" srcset="assets/img/game/backdrop.webp 1080w, assets/img/game/backdrop-4k.webp 2160w" sizes="100vw" alt="">
     <div class="shade"></div>
     <div class="rays"></div>
     <div class="bg-extra"></div>

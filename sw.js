@@ -7,7 +7,7 @@
 //  - Media (images, video, fonts): served from cache at once and refreshed in the background, so a
 //    replaced image shows on the next load without slowing this one.
 // VERSION only needs to change if this file's caching rules change and old entries must be dropped.
-const VERSION = 'kk-v4';
+const VERSION = 'kk-v5';
 const NET_TIMEOUT_MS = 4000;
 const CORE = ['./', './index.html', './register.html', './game.html', './manifest.json',
   './css/style.css', './js/stage.js', './js/ambient.js', './js/keyboard.js', './js/audio.js',
@@ -16,7 +16,7 @@ const CORE = ['./', './index.html', './register.html', './game.html', './manifes
   // Gameplay artwork: fetched while the player is still on the cover/register, so the game never has to wait for it.
   './assets/img/game/mug.png', './assets/img/game/mug-splash.png', './assets/img/game/wafer.png', './assets/img/game/wafer-gold.png',
   './assets/img/game/wafer-piece.png', './assets/img/game/splash-drop.png', './assets/img/game/sparkle.png', './assets/img/game/alarm.png',
-  './assets/img/game/deadline.png', './assets/img/game/phone.png', './assets/img/game/orders.png', './assets/img/game/traffic.png',
+  './assets/img/game/deadline.png', './assets/img/game/phone.png', './assets/img/game/inbox.png', './assets/img/game/backdrop.webp', './assets/img/game/backdrop-4k.webp',
   './assets/img/game/header-dunk.png', './assets/img/game/prize-cap.png', './assets/img/game/prize-tee.png', './assets/img/game/wave-pre.webp'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting())); });

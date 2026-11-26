@@ -60,11 +60,11 @@
     DRINK_RX: 150,          // drink surface ellipse inside the mug sprite (logical px, centred on the rim anchor)
     DRINK_RY: 42,
     DRINK_ROW: 2,           // row height for the liquid displacement (px)
-    DRINK_SLOSH_PX: 16,     // max horizontal shear of the surface from a hard move
+    DRINK_SLOSH_PX: 22,     // max horizontal shear of the surface from a hard move
     DRINK_SLOSH_K: 55,      // slosh spring stiffness / damping (liquid swings then settles)
     DRINK_SLOSH_C: 6,
     DRINK_SLOSH_GAIN: 0.004,// mug acceleration (px/s^2) -> slosh drive
-    DRINK_RIPPLE_PX: 2.2,   // always-on ripple so the drink never looks frozen
+    DRINK_RIPPLE_PX: 2.6,   // always-on ripple so the drink never looks frozen
     DRINK_RIPPLE_HZ: 0.9,
     DRINK_TREMBLE_PX: 0.9,  // fine fast shimmer on top
     MUG_BOB_HZ: 0.8,
@@ -74,6 +74,10 @@
     MUG_RECOIL_PX: 22,      // sideways jolt away from a hazard on hit
     MUG_RECOIL_TILT: 7,     // deg kick on hit
     MUG_RECOIL_SECONDS: 0.4,
+    MUG_WOBBLE_SECONDS: 0.8,// after a hit the mug rocks side to side, decaying
+    MUG_WOBBLE_DEG: 9,
+    MUG_WOBBLE_HZ: 2.8,
+    HIT_SLOSH_KICK: 14,     // drink slosh velocity kick on a hit
     MUG_SHADOW_DROP: 392,   // px below the rim where the shadow ellipse sits (just under the mug base)
     MUG_SHADOW_W: 440,      // shadow ellipse size at rest (px)
     MUG_SHADOW_H: 78,
@@ -96,17 +100,19 @@
     LANE_JITTER: 0.25,      // +/- fraction of lane width
     SPAWN_PAD: 150,         // widen the spawn range beyond the mug range by this many px per side (lanes 180 px apart)
                             // (keep < MUG_HALF_WIDTH*CATCH_HALF_FRAC so edge items stay catchable)
-    SPEED_START: 480,       // fall speed ramps linearly over the round
-    SPEED_END: 980,
-    SPAWN_START: 1.0,       // spawn interval ramps linearly over the round
-    SPAWN_END: 0.45,
+    SPEED_START: 540,       // fall speed ramps linearly over the round
+    SPEED_END: 1080,
+    SPAWN_START: 0.85,      // spawn interval ramps linearly over the round
+    SPAWN_END: 0.38,
     SPAWN_JITTER: 0.15,     // +/- fraction of the interval
-    WAFERS_ONLY_SECONDS: 6, // warm-up: only wafers
-    MIX: { wafer: 0.55, hazard: 0.45 }, // after warm-up (hazard weight x DIFFICULTY.bad)
-    GOLD_SHARE: 0.06,       // fraction of spawns that are gold wafers ...
+    WAFERS_ONLY_SECONDS: 4, // warm-up: only wafers
+    MIX: { wafer: 0.52, hazard: 0.48 }, // after warm-up (hazard weight x DIFFICULTY.bad)
+    HAZARD_AT_MUG: 0.55,    // share of hazards aimed at the lane the mug is in right now (forces a dodge)
+    WAFER_AWAY: 0.70,       // share of wafers sent to a lane other than the mug's (forces a move)
+    GOLD_SHARE: 0.088,      // per regular spawn; with doubles and crossfires this lands near 6 % of all spawns ...
     GOLD_AFTER_SECONDS: 10, // ... after this many seconds
     GOLD_SCORE: 3,
-    HAZARDS: ['alarm', 'deadline', 'phone', 'orders', 'traffic'], // rotated, no immediate repeat
+    HAZARDS: ['alarm', 'deadline', 'phone', 'inbox'], // rotated, no immediate repeat (reference set)
     HAZARD_FALLBACK: ['alarm', 'deadline'], // used when none of HAZARDS loaded (vector fallbacks exist)
     BAD_LANE_COOLDOWN: 0.8, // no hazard in a lane within this of the previous hazard there
     MAX_CONSECUTIVE_BADS: 2,// global: never more than N hazards in a row
@@ -114,11 +120,11 @@
 
     // --- Patterns
     CROSSFIRE_AFTER: 15,    // from this time: a hazard + a wafer CROSSFIRE_GAP apart in adjacent lanes
-    CROSSFIRE_EVERY: 6,     // seconds between crossfires (+/- CROSSFIRE_JITTER)
+    CROSSFIRE_EVERY: 4.5,   // seconds between crossfires (+/- CROSSFIRE_JITTER)
     CROSSFIRE_JITTER: 0.2,
     CROSSFIRE_GAP: 0.25,
     DOUBLE_AFTER: 4,        // from this time: occasional two wafers DOUBLE_GAP apart in adjacent lanes
-    DOUBLE_CHANCE: 0.10,    // per regular spawn
+    DOUBLE_CHANCE: 0.16,    // per regular spawn
     DOUBLE_GAP: 0.2,
 
     // --- Item motion
@@ -126,7 +132,12 @@
     SWAY_HZ: [0.45, 0.85],
     ROT_AMP: [0.08, 0.25],  // rad, slow sway around the base angle
     ROT_HZ: [0.2, 0.45],
-    ROT_BASE: [0.45, 0.75], // rad (≈26–43°); sign is random per item — the diagonal tumble in the reference
+    ROT_BASE: [0.45, 0.75], // rad (≈26–43°); sign is random per item — the diagonal tumble (hazards)
+    WAFER_ROT_BASE: 0.22,   // wafers swing about the vertical: base +/- this (rad), broken end down
+    WAFER_ROT_AMP: [0.28, 0.5],
+    WAFER_ROT_HZ: [0.25, 0.45],
+    WAFER_ALIGN_PX: 420,    // over the last N px above the rim a wafer straightens so the broken end goes in first
+    WAFER_ALIGN: 0.85,      // how fully it straightens (1 = perfectly vertical)
     DUNK_SECONDS: 0.35,     // caught wafer sinks behind the mug
     POP_SECONDS: 0.12,      // hit hazard flashes out (its fragments carry on)
 
@@ -153,11 +164,11 @@
     FRAGMENT_POOL: 12,      // 4 per hazard hit
 
     // --- Catch effects
-    SPLASH_PARTICLES: 22,   // splash-drop droplets per catch (reducedEffects: SPLASH_PARTICLES_REDUCED)
+    SPLASH_PARTICLES: 30,   // splash-drop droplets per catch (reducedEffects: SPLASH_PARTICLES_REDUCED)
     SPLASH_PARTICLES_REDUCED: 8,
-    SPLASH_CRUMBS: 3,       // wafer-piece crumbs per catch
+    SPLASH_CRUMBS: 5,       // wafer-piece crumbs per catch
     SPLASH_SPEED: [300, 760],
-    SPLASH_SPREAD: 360,     // horizontal speed +/-
+    SPLASH_SPREAD: 420,     // horizontal speed +/-
     SPLASH_SPIN: 9,         // rad/s +/- for droplets and crumbs
     GRAVITY: 2000,
     PARTICLE_LIFE: [0.45, 0.9],
@@ -213,7 +224,7 @@
   };
 
   // Sprite names. 'alarm'/'deadline' kept as named constants for backwards compatibility.
-  var KIND = { WAFER: 'wafer', GOLD: 'gold', ALARM: 'alarm', DEADLINE: 'deadline', PHONE: 'phone', ORDERS: 'orders', TRAFFIC: 'traffic' };
+  var KIND = { WAFER: 'wafer', GOLD: 'gold', ALARM: 'alarm', DEADLINE: 'deadline', PHONE: 'phone', INBOX: 'inbox' };
   // Item classes (what the rules care about). Hazard items carry their sprite name in `kind`.
   var CLS = { WAFER: 'wafer', GOLD: 'gold', HAZARD: 'hazard' };
   var BAD_KINDS = TUNING.HAZARDS.slice();
@@ -583,6 +594,7 @@
     // cosmetic timers (real time)
     var splashT = 0, shakeT = 0, recoilT = 0, recoilDir = 1, tilt = 0, comboPulse = 0, comboN = 0;
     var sloshX = 0, sloshV = 0, prevMugV = 0; // drink surface slosh (damped oscillator driven by mug acceleration)
+    var wobbleT = 0;                             // post-hit rocking
     var raysX = T.STAGE_W / 2; // rays are pinned to the stage centre and only rotate
 
     var lanes = [];
@@ -704,7 +716,9 @@
       it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
       it.baseX = spawnMinX + laneW * (lane + 0.5) + rng.range(-1, 1) * laneW * T.LANE_JITTER;
       it.swayAmp = rng.pick(T.SWAY_AMP); it.swayW = rng.pick(T.SWAY_HZ) * TWO_PI; it.swayPh = rng() * TWO_PI;
-      it.rotBase = rng.pick(T.ROT_BASE) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; it.rotPh = rng() * TWO_PI;
+      if (bad) { it.rotBase = rng.pick(T.ROT_BASE) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; }
+      else { it.rotBase = rng.range(-T.WAFER_ROT_BASE, T.WAFER_ROT_BASE); it.rotAmp = rng.pick(T.WAFER_ROT_AMP); it.rotW = rng.pick(T.WAFER_ROT_HZ) * TWO_PI; } // swings, broken end down
+      it.rotPh = rng() * TWO_PI;
       it.vy = speed; it.t = 0; it.ft = 0; it.trailT = 0; it.alpha = 1; it.size = 1; it.resolved = false;
       it.x = it.px = it.baseX + Math.sin(it.swayPh) * it.swayAmp;
       it.y = it.py = T.SPAWN_Y;
@@ -760,6 +774,10 @@
         return T.DOUBLE_GAP;
       }
       var cls = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
+      // Make the player move: most hazards drop into the mug's own lane, most wafers land a lane or two away.
+      var mugLane = clamp(Math.floor((mug.x - spawnMinX) / laneW), 0, T.LANES - 1);
+      if (cls === CLS.HAZARD && rng() < T.HAZARD_AT_MUG && simTime - lanes[mugLane].lastBadAt >= T.BAD_LANE_COOLDOWN) lane = mugLane;
+      else if (cls !== CLS.HAZARD && rng() < T.WAFER_AWAY && T.LANES > 1) { var off = rng.int(T.LANES - 1) + 1; lane = (mugLane + off) % T.LANES; }
       spawnItem(cls, lane, null, speed);
       return 0;
     }
@@ -875,6 +893,7 @@
       state.score = Math.max(0, state.score - T.HIT_PENALTY);
       stunT = T.STUN_SECONDS;
       shakeT = T.SHAKE_SECONDS; recoilT = T.MUG_RECOIL_SECONDS; recoilDir = it.x < mug.x ? 1 : -1;
+      wobbleT = T.MUG_WOBBLE_SECONDS; sloshV += recoilDir * T.HIT_SLOSH_KICK;
       shatter(it);
       if (T.SHOW_PENALTY_POPUP && T.HIT_PENALTY > 0) addPopup('minus', it.x, T.MUG_RIM_Y - 120);
       emit({ type: 'hit', kind: it.kind, score: state.score });
@@ -900,6 +919,7 @@
       sloshV += (-T.DRINK_SLOSH_K * sloshX - T.DRINK_SLOSH_C * sloshV - mugAcc * T.DRINK_SLOSH_GAIN) * dt;
       sloshX = clamp(sloshX + sloshV * dt, -1.5, 1.5);
       if (stunT > 0) stunT -= dt;
+      if (wobbleT > 0) wobbleT -= dt;
 
       // Spawning: regular timer + pattern queue
       spawnTimer -= dt;
@@ -923,6 +943,7 @@
           it.y += it.vy * dt;
           it.x = it.baseX + Math.sin(it.swayPh + it.t * it.swayW) * it.swayAmp;
           it.rot = it.rotBase + Math.sin(it.rotPh + it.t * it.rotW) * it.rotAmp;
+          if (!it.bad) { var ak = clamp((it.y - (T.MUG_RIM_Y - T.WAFER_ALIGN_PX)) / T.WAFER_ALIGN_PX, 0, 1); ak = ak * ak * (3 - 2 * ak); it.rot *= 1 - T.WAFER_ALIGN * ak; }
           if (it.gold && ctx && !reduced) { it.trailT -= dt; if (it.trailT <= 0) { it.trailT = T.GOLD_TRAIL_EVERY; trailSparkle(it); } }
           if (!it.resolved) {
             if (catchTest(it.x, it.y, mug.x, T)) {
@@ -1113,18 +1134,19 @@
         if (it.gold) ga *= 0.8 + 0.25 * Math.sin(clock * 9 + it.swayPh);
         blit(gl, x, y, ga, it.size);
       }
-      var v = sp.rotated(rot);
+      // continuous rotation (the cached 15-degree variants stepped visibly on a slow tumble)
+      var v = sp.rotated(0);
       // drop shadow: dark silhouette offset down-left, so items read as 3D objects over the backdrop
-      if (T.ITEM_SHADOW_ALPHA > 0 && it.alpha > 0.05) blit(silhouette(v), x - T.ITEM_SHADOW_DX, y + T.ITEM_SHADOW_DY, T.ITEM_SHADOW_ALPHA * it.alpha, it.size);
+      if (T.ITEM_SHADOW_ALPHA > 0 && it.alpha > 0.05) blitT(silhouette(v), x - T.ITEM_SHADOW_DX, y + T.ITEM_SHADOW_DY, rot, it.size, it.size, T.ITEM_SHADOW_ALPHA * it.alpha);
       // motion trail: ghost copies back along the fall direction
       if (falling && ghosts > 0) {
         var sf = clamp((it.vy - T.TRAIL_MIN_SPEED) / (T.SPEED_END - T.TRAIL_MIN_SPEED), 0.25, 1);
         for (var k = ghosts; k >= 1; k--) {
-          var ta = T.TRAIL_ALPHA * sf * (1 - k / (ghosts + 1)) * it.alpha;
-          blit(v, x, y - it.vy * T.TRAIL_SPACING * k, ta, 1 - 0.04 * k);
+          var ta = T.TRAIL_ALPHA * sf * (1 - k / (ghosts + 1)) * it.alpha, ts = 1 - 0.04 * k;
+          blitT(v, x, y - it.vy * T.TRAIL_SPACING * k, rot, ts, ts, ta);
         }
       }
-      blit(v, x, y, it.alpha, it.size);
+      blitT(v, x, y, rot, it.size, it.size, it.alpha);
     }
 
     function render(a) {
@@ -1222,6 +1244,7 @@
           dx = recoilDir * T.MUG_RECOIL_PX * rr; dy = 6 * rr; rot += -recoilDir * T.MUG_RECOIL_TILT * DEG * rr;
         }
         if (stunT > 0) dx += Math.sin(clock * 90) * 6 * (stunT / T.STUN_SECONDS);
+        if (wobbleT > 0) { var wk = wobbleT / T.MUG_WOBBLE_SECONDS; rot += -recoilDir * Math.sin((1 - wk) * T.MUG_WOBBLE_SECONDS * T.MUG_WOBBLE_HZ * TWO_PI) * T.MUG_WOBBLE_DEG * DEG * wk * wk; }
         blitT(mugSp.rotated(0), mugX + dx, rimY + bobY + dy, rot, sx, sy, 1);
         if (splashT <= 0 && mugSp.fromImage && T.DRINK_RX > 0 && !reduced) drawDrink(mugSp.rotated(0), mugX + dx, rimY + bobY + dy, rot, sx, sy);
       }

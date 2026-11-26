@@ -30,7 +30,9 @@
   .wave-still { opacity: 0; transition: opacity .9s ease; -webkit-mask-image: linear-gradient(to bottom, transparent 68%, #000 74%); mask-image: linear-gradient(to bottom, transparent 68%, #000 74%); }
   .wave-still.on { opacity: 1; }
   .ready { position: absolute; left: 80px; top: 786px; margin: 0; font: 700 38px/1.3 var(--font-body); color: #fff; text-shadow: 0 2px 6px rgba(60,0,0,.35); white-space: nowrap; z-index: 1; pointer-events: none; }
-  .title { animation: breathe 5s ease-in-out infinite; transform-origin: 36% 30%; will-change: transform; }
+  /* Title lettering is a vector now (razor sharp on the 4K panel); the small "break?" stays artwork. */
+  .title { position: absolute; left: 56.6px; top: 359.5px; width: 708.5px; height: auto; pointer-events: none; animation: breathe 5s ease-in-out infinite; transform-origin: 47% 54%; will-change: transform; }
+  .break-q { position: absolute; left: 68px; top: 836px; width: 291.4px; height: auto; pointer-events: none; }
   @keyframes breathe { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.025) rotate(-.6deg); } }
   #amb-back, #amb-front { position: absolute; inset: 0; }
   #amb-back canvas, #amb-front canvas { position: absolute; inset: 0; }
@@ -69,7 +71,8 @@
     <video class="layer bg-video" id="bg-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-bg-poster.webp"></video>
     <img class="layer calm" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" aria-hidden="true">
     <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp?v=3" alt="KitKat Chocolate Drink">
-    <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-break-v2.webp" alt="Dunk the Break">
+    <img class="title enter" style="animation-delay:.2s" src="assets/img/cover/title-white.svg" alt="Dunk the Break">
+    <img class="break-q enter" style="animation-delay:.2s" src="assets/img/cover/break-q.webp" alt="break?">
     <p class="ready enter" style="animation-delay:.25s">Ready for a chocolate</p>
     <div id="amb-back" class="layer"></div>
     <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp?v=3" alt="">

@@ -65,7 +65,7 @@
   }
   function countUp(el, to, ms) {
     const t0 = performance.now(); const from = 0;
-    const bev = $('end-score-bev'); const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); const v = String(Math.round(from + (to - from) * e)); el.textContent = v; if (bev) bev.textContent = v; if (k < 1) requestAnimationFrame(step); };
+    const bev = $('end-score-bev'), lip = $('end-score-lip'); const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); const v = String(Math.round(from + (to - from) * e)); el.textContent = v; if (bev) bev.textContent = v; if (lip) lip.textContent = v; if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
   function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return '00:' + String(s).padStart(2, '0'); }
@@ -252,7 +252,7 @@
     phase = 'ended'; endResult = result; KKAudio.end();
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
-    $('end-score').textContent = '0'; $('end-score-bev').textContent = '0';
+    $('end-score').textContent = '0'; $('end-score-bev').textContent = '0'; $('end-score-lip').textContent = '0';
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
     $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
     const pz = awardPrize(result); const pEl = $('prize');

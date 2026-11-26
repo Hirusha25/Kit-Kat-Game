@@ -93,11 +93,37 @@
     if (phase === 'calibrating') calTick(s);
   }
 
+  // ---------- privacy camera view: blurred silhouette + sharp mug crop only ----------
+  const tiny = document.createElement('canvas'); tiny.width = 48; tiny.height = 27; const tctx = tiny.getContext('2d');
+  function drawPrivacy(ctx, w, h, s) {
+    if (!video.videoWidth) { ctx.fillStyle = '#2a0206'; ctx.fillRect(0, 0, w, h); return; }
+    const vw = video.videoWidth, vh = video.videoHeight;
+    // 1) heavily softened feed: draw at 48x27 then scale up with smoothing; tint red and darken
+    tctx.save(); if (settings.mirror) { tctx.translate(tiny.width, 0); tctx.scale(-1, 1); } tctx.drawImage(video, 0, 0, tiny.width, tiny.height); tctx.restore();
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.filter = 'blur(6px) saturate(.4) brightness(.55)';
+    ctx.drawImage(tiny, -8, -8, w + 16, h + 16); ctx.restore();
+    ctx.fillStyle = 'rgba(120,10,20,.45)'; ctx.fillRect(0, 0, w, h);
+    // 2) sharp crop of the mug only, in place, with a green frame
+    if (s && s.found && s.w > 0) {
+      let fx = s.frameX != null ? s.frameX : (settings.mirror ? 1 - s.rawX : s.rawX), fy = s.frameY != null ? s.frameY : s.rawY;
+      const ex = 1.6, ey = 2.4; // logo box -> whole mug
+      let cw = Math.min(1, s.w * ex), chh = Math.min(1, s.h * ey);
+      let cx = Math.min(1 - cw, Math.max(0, fx - cw / 2)), cy = Math.min(1 - chh, Math.max(0, fy - chh * 0.42));
+      const sx = cx * vw, sy = cy * vh, sw = cw * vw, sh = chh * vh;
+      let dx = (settings.mirror ? 1 - cx - cw : cx) * w, dy = cy * h, dw = cw * w, dh = chh * h;
+      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.clip();
+      ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh); // not flipped: the logo should read the right way round
+      ctx.restore();
+      ctx.save(); roundRect(ctx, dx, dy, dw, dh, 18); ctx.lineWidth = 5; ctx.strokeStyle = '#27d35b'; ctx.shadowColor = 'rgba(39,211,91,.8)'; ctx.shadowBlur = 16; ctx.stroke(); ctx.restore();
+    }
+  }
+  function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
   // ---------- PIP ----------
   let pipOn = false; const pipCv = $('pip-cv'), pipCtx = pipCv.getContext('2d');
   function setPip(on) { pipOn = on; document.body.classList.toggle('debug', on); }
   function drawPip(s) {
-    tracker.debugDraw(pipCtx, pipCv.width, pipCv.height);
+    drawPrivacy(pipCtx, pipCv.width, pipCv.height, s);
     $('pip-dot').classList.toggle('on', s.found); $('pip-txt').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
   }
 
@@ -110,7 +136,7 @@
   }
   async function beginCameraSelect() {
     phase = 'camera'; show('cam');
-    const loop = () => { if (phase !== 'camera') return; if (tracker) tracker.debugDraw(camCtx, camCv.width, camCv.height); camRaf = requestAnimationFrame(loop); };
+    const loop = () => { if (phase !== 'camera') return; if (tracker) drawPrivacy(camCtx, camCv.width, camCv.height, trackState); camRaf = requestAnimationFrame(loop); };
     loop();
     await fillCameraList($('cam-sel'));
   }
@@ -129,7 +155,7 @@
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
   let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 };
   function calTick(s) {
-    tracker.debugDraw(calCtx, calCv.width, calCv.height);
+    drawPrivacy(calCtx, calCv.width, calCv.height, s);
     $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;

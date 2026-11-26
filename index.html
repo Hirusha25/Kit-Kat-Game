@@ -78,12 +78,31 @@
   // Ambient: slow wafers drifting behind the mug, steam from the cup, gold sparkles in front.
   KKAmbient.create({ stage: document.getElementById('amb-front'), sparkles: 9, sparkleArea: { x0: 60, x1: 1020, y0: 80, y1: 1150 } });
   // Animated mug: transparent WebM over the still artwork; the still stays as the fallback/poster.
+  // Safari (and some others) decode VP9 but ignore the alpha channel, which renders as noise, so the video is
+  // shown only after a real alpha test: a transparent corner of the first frame must read as transparent.
   (function () {
     const v = document.getElementById('scene-video'), still = document.getElementById('scene-still');
-    if (!v || !v.canPlayType || !v.canPlayType('video/webm; codecs="vp9"')) { v && v.remove(); return; }
-    let shown = false;
-    const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); };
-    v.addEventListener('playing', show); v.addEventListener('timeupdate', () => { if (v.currentTime > 0.2) show(); });
+    if (!v) return;
+    const ua = navigator.userAgent;
+    const isSafari = /Safari/.test(ua) && !/Chrom(e|ium)|Edg|OPR|Android/.test(ua);
+    const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const can = v.canPlayType && v.canPlayType('video/webm; codecs="vp9"');
+    if (isSafari || isIOS || !can) { v.remove(); return; }
+    let shown = false, failed = false;
+    function alphaOk() {
+      try {
+        const c = document.createElement('canvas'); c.width = 32; c.height = 32; const g = c.getContext('2d', { willReadFrequently: true });
+        g.drawImage(v, 0, 0, 64, 64, 0, 0, 32, 32); // top-left corner of the frame is fully transparent in the source
+        const d = g.getImageData(0, 0, 32, 32).data; let a = 0; for (let i = 3; i < d.length; i += 4) a += d[i];
+        return a / (d.length / 4) < 40;
+      } catch (_) { return true; }
+    }
+    const show = () => {
+      if (shown || failed) return;
+      if (!alphaOk()) { failed = true; v.pause(); v.remove(); still.classList.remove('off'); return; }
+      shown = true; v.classList.add('on'); still.classList.add('off');
+    };
+    v.addEventListener('timeupdate', () => { if (v.currentTime > 0.2) show(); });
     v.addEventListener('error', () => { v.remove(); still.classList.remove('off'); });
     const tryPlay = () => v.play().catch(() => {});
     tryPlay(); document.addEventListener('pointerdown', tryPlay, { once: true }); document.addEventListener('visibilitychange', () => { if (!document.hidden) tryPlay(); });

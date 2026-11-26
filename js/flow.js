@@ -173,7 +173,7 @@
   }
   function beginCalibration() {
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
-    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 1.5 m from the screen and hold the mug up, logo facing the camera.';
+    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 5 feet from the screen and hold the mug up, logo facing the camera.';
   }
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
 
@@ -314,7 +314,7 @@
     try { await startTracker(); await fillCameraList($('cam-sel')); }
     catch (e) {
       const msg = e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'The camera is in use by another app.' : 'No camera found. Connect the webcam and reload.';
-      $('cam-err').textContent = msg; $('cal-skip').style.display = 'block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
+      $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
   window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock };

@@ -209,3 +209,10 @@ html.is-kiosk img { image-rendering: auto; }
 .kbd .key.done { flex-basis: 220px; background: var(--gold-grad) padding-box, var(--gold-line) border-box; color: #c8102e; font-weight: 800; letter-spacing: .12em; text-indent: .12em; box-shadow: inset 0 2px 0 #fff8e1, 0 5px 0 #9a6f22, 0 12px 24px rgba(60,0,0,.45), 0 0 22px rgba(255,210,120,.5); }
 .kbd .key svg { width: 40px; height: 40px; stroke: #c8102e; fill: none; stroke-width: 2.4; }
 .kbd.numeric .key { flex-basis: 200px; height: 108px; font-size: 46px; }
+
+/* ---- Consistent notices (errors, hints): cream pill, gold edge, red icon ---- */
+.notice { display: inline-flex; align-items: center; gap: 18px; max-width: 900px; padding: 18px 34px 18px 24px; border-radius: 999px; border: 3px solid transparent;
+  background: linear-gradient(180deg, #fffaf0, #f8e4bd) padding-box, var(--gold-line) border-box; box-shadow: var(--gold-glow), 0 12px 30px rgba(0,0,0,.35);
+  color: #3a1a06; font: 600 28px/1.25 var(--font-body); text-align: left; }
+.notice::before { content: ""; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; background: #c8102e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round'%3E%3Cpath d='M12 7v6'/%3E%3Ccircle cx='12' cy='17' r='1.2' fill='%23fff' stroke='none'/%3E%3C/svg%3E") center / 70% no-repeat; }
+.notice:empty { display: none; }

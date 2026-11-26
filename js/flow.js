@@ -182,6 +182,7 @@
     setTimeout(startCountdown, 700);
   }
   function beginCalibration() {
+    KKAudio.music('register');
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
     clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 3 feet from the screen and hold the mug up, logo facing the camera.';
   }
@@ -219,7 +220,7 @@
     // If the designer supplies digit artwork (assets/img/game/digits/0.png … 9.png), it is used instead of this renderer.
     const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800;
     ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 360);
-    const size = 352, cx = 400, baseY = 300;
+    const size = 330, cx = 400, baseY = 286;
     ctx.font = `italic 900 ${size}px Montserrat, Poppins, Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent, gh = bot - top;
     const depth = Math.round(gh * 0.11), dx = -0.48, dy = 1.0;
@@ -263,6 +264,7 @@
     sprites = await DunkSprites.load(manifest || {}, { scale: pixelScale });
   }
   function startPlay() {
+    KKAudio.music('play');
     if (game) { game.destroy(); game = null; }
     hud.el.classList.remove('final5');
     game = DunkGame.create({
@@ -284,7 +286,7 @@
     switch (e.type) {
       case 'catch': e.kind === 'gold' ? KKAudio.gold() : KKAudio.catch(); break;
       case 'pattern': KKAudio.whoosh(); break;
-      case 'final10': KKAudio.hurry(); break;
+      case 'final10': KKAudio.hurry(); KKAudio.music('playFast', { fade: 800 }); break;
       case 'streak': KKAudio.streak(); break;
       case 'hit': KKAudio.hit(); break;
       case 'miss': KKAudio.miss(); break;
@@ -294,7 +296,7 @@
     }
   }
   function onGameEnd(result) {
-    phase = 'ended'; endResult = result; KKAudio.end();
+    phase = 'ended'; endResult = result; KKAudio.end(); KKAudio.stopMusic(500);
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
     setScoreNumber(0);
@@ -314,6 +316,8 @@
     else { $('prize-name').textContent = pz.soldOut ? "Today's prizes are all gone" : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Great score. Come back tomorrow for another break.' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
     setTimeout(() => {
       show('end');
+      KKAudio.sting(pz.kind ? 'win' : 'lose'); KKAudio.countup(); setTimeout(() => KKAudio.prize(), 1500);
+      if (pz.kind) setTimeout(() => { confetti(); KKAudio.confetti(); }, 500);
       countUp($('end-score'), result.score, 1400);
       if (endAmbient) endAmbient.stop();
       endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, sparkles: 14, sparkleArea: { x0: 120, x1: 960, y0: 470, y1: 800 } });
@@ -322,6 +326,27 @@
   }
   $('again').addEventListener('click', () => { if ($('again').dataset.mode === 'done') { location.href = 'index.html'; return; } retryUsed = true; hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false; startCountdown(); });
   $('to-home').addEventListener('click', () => { location.href = 'index.html'; });
+
+  // ---------- premium confetti: gold and red foil, two bursts from the top corners, 1.6 s ----------
+  function confetti() {
+    const cv = $('confetti'); if (!cv) return; const ctx = cv.getContext('2d');
+    const ps = (window.KKStage && window.KKStage.pixelScale) || 1; cv.width = 1080 * ps; cv.height = 1920 * ps; ctx.setTransform(ps, 0, 0, ps, 0, 0);
+    const cols = ['#f6d27a', '#e9b84f', '#fff1c4', '#c8102e', '#8a0610', '#ffffff'];
+    const P = [];
+    const burst = (x, y, dir) => { for (let i = 0; i < 70; i++) { const a = dir + (Math.random() - 0.5) * 1.1, sp = 900 + Math.random() * 900; P.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, w: 10 + Math.random() * 10, h: 16 + Math.random() * 14, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14, c: cols[i % cols.length], life: 2.6 + Math.random() * 1.2, foil: Math.random() < 0.6 }); } };
+    burst(40, 560, 0.55); burst(1040, 560, Math.PI - 0.55);
+    setTimeout(() => { burst(540, 520, -Math.PI / 2 - 0.4); burst(540, 520, -Math.PI / 2 + 0.4); }, 260);
+    let last = performance.now(), raf = 0;
+    const tick = now => {
+      const dt = Math.min(0.033, (now - last) / 1000); last = now; ctx.clearRect(0, 0, 1080, 1920); let alive = 0;
+      for (const p of P) { if (p.life <= 0) continue; alive++; p.life -= dt; p.vy += 1500 * dt; p.vx *= 0.985; p.vy *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        const flip = Math.abs(Math.cos(p.rot * 1.7)); ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, p.life);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2 * flip, p.w, p.h * flip);
+        if (p.foil) { ctx.globalAlpha *= 0.55 * flip; ctx.fillStyle = '#fff'; ctx.fillRect(-p.w / 2, -p.h / 2 * flip, p.w * 0.35, p.h * flip); } ctx.restore(); }
+      if (alive) raf = requestAnimationFrame(tick); else ctx.clearRect(0, 0, 1080, 1920);
+    };
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+  }
 
   // ---------- idle: back to cover after results ----------
   let idleT = null;
@@ -350,6 +375,9 @@
   su.smooth.addEventListener('input', () => { settings.smoothing = su.smooth.value / 100; tracker && tracker.setOptions({ smoothing: settings.smoothing }); save(LS.settings, settings); });
   su.pip.addEventListener('change', () => { settings.pip = su.pip.checked; setPip(settings.pip); save(LS.settings, settings); });
   su.sound.addEventListener('change', () => { settings.sound = su.sound.checked; KKAudio.setMuted(!settings.sound); save(LS.settings, settings); });
+  const vm = $('su-vol-music'), vs = $('su-vol-sfx');
+  if (vm && vs) { const v = KKAudio.getVolumes(); vm.value = Math.round(v.music * 100); vs.value = Math.round(v.sfx * 100);
+    vm.addEventListener('input', () => KKAudio.setVolumes({ music: vm.value / 100 })); vs.addEventListener('input', () => { KKAudio.setVolumes({ sfx: vs.value / 100 }); KKAudio.catch(); }); }
   su.cam.addEventListener('change', async () => { settings.deviceId = su.cam.value; save(LS.settings, settings); try { tracker.stop(); await tracker.start({ deviceId: settings.deviceId || undefined }); toast('Camera switched'); } catch (e) { toast('Could not switch camera'); } });
   $('su-cal').addEventListener('click', async () => { try { const r = await tracker.calibrate({ x: 0.33, y: 0.2, w: 0.34, h: 0.6 }); calibrated = !!(r && r.ok); toast(calibrated ? 'Calibrated on the mug' : 'No mug seen in the box'); } catch (_) { toast('Calibration failed'); } });
   $('su-reset').addEventListener('click', () => { try { localStorage.removeItem('kk_tracker_params'); } catch (_) {} calibrated = false; toast('Calibration reset'); });
@@ -391,6 +419,6 @@
       $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
-  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber };
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber, confetti };
   boot();
 })();

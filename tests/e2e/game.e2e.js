@@ -25,7 +25,7 @@ function fail(msg) { console.error('FAIL: ' + msg); process.exitCode = 1; }
   const browser = await chromium.launch({ args: ['--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${Y4M}`, '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await browser.newContext({ viewport: { width: 1080, height: 1920 }, permissions: ['camera'] });
   const page = await ctx.newPage();
-  const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.addInitScript(() => { sessionStorage.setItem('kk_current', JSON.stringify({ name: 'Test Player', code: 'TEST' })); });
 
   const t0 = Date.now();

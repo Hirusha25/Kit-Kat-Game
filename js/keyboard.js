@@ -97,6 +97,7 @@
     const b = e.target.closest('.key'); if (!b) return;
     e.preventDefault();
     b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120);
+    if (window.KKAudio) (b.dataset.k === 'done' ? KKAudio.done : KKAudio.tap)();
     press(b.dataset.k);
   });
 

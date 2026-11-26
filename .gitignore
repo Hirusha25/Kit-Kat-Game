@@ -6,3 +6,5 @@ node_modules/
 tests/tracker/fake-mug.y4m
 tests/tracker/fake-mug.json
 tests/e2e/out/
+tests/e2e/screens/
+tests/e2e/all-screens.zip

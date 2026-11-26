@@ -69,7 +69,6 @@
   // .enter plays once, then the continuous float/sway take over.
   document.querySelectorAll('.enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }));
   // Ambient: slow wafers drifting behind the mug, steam from the cup, gold sparkles in front.
-  KKAmbient.create({ stage: document.getElementById('amb-back'), wafers: 6, waferSpeed: 0.8, waferArea: { x0: 80, x1: 1000, y0: -260, y1: 1500 }, sparkles: 0 });
   KKAmbient.create({ stage: document.getElementById('amb-front'), steam: { x: 700, y: 1010, w: 260, count: 10 }, sparkles: 9, sparkleArea: { x0: 60, x1: 1020, y0: 80, y1: 1150 } });
   document.getElementById('start').addEventListener('click', () => {
     document.body.style.transition = 'opacity .4s';

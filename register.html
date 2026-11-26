@@ -47,6 +47,9 @@
   .field input::placeholder { color: var(--brown-soft); font-weight: 600; }
   .field input.active, .field input:focus { border-color: #fff; box-shadow: inset 0 2px 0 #fff, inset 0 -6px 10px rgba(190,140,70,.22), 0 0 0 5px rgba(255,255,255,.5), 0 6px 0 rgba(120,30,20,.28), 0 14px 26px rgba(60,0,0,.3); }
   .field input.invalid { border-color: #ff6b6b; box-shadow: 0 0 0 5px rgba(255,120,120,.4); }
+  /* filled state: once the player has typed, the box turns a warmer cream with red text and a gold edge */
+  .field input.filled { color: var(--kk-red); font-weight: 700; border-color: #d9b45f; background: linear-gradient(180deg, #fffdf6 0%, #fff4dc 40%, #ffe9c2 100%); }
+  .field.filled label::after { content: ""; display: inline-block; width: 22px; height: 22px; margin-left: 14px; vertical-align: -2px; border-radius: 50%; background: #27d35b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center / 70% no-repeat; }
   .field.has-icon input { padding-right: 110px; }
   .field .icon { position: absolute; right: 30px; bottom: 20px; width: 52px; height: 52px; pointer-events: none; }
   .field .icon svg { width: 100%; height: 100%; fill: none; stroke: #6e3f1a; stroke-width: 2.4; stroke-linecap: round; }
@@ -105,27 +108,27 @@
     </div>
 
     <form class="pane" id="reg" novalidate>
-      <h1 class="heading fade-in">Register to play</h1>
+      <h1 class="heading fade-in">Register To Play</h1>
 
       <div class="field f-name fade-in" style="animation-delay:.05s">
-        <label for="name">Full name</label>
-        <input id="name" name="name" type="text" placeholder="Enter your full name" data-kbd data-caps="words" maxlength="40" autocomplete="off">
+        <label for="name">Full Name</label>
+        <input id="name" name="name" type="text" placeholder="Enter Your Full Name" data-kbd data-caps="words" maxlength="40" autocomplete="off">
       </div>
 
       <div class="field f-dob has-icon fade-in" style="animation-delay:.1s">
-        <label for="dob">Date of birth</label>
+        <label for="dob">Date of Birth</label>
         <input id="dob" name="dob" type="text" inputmode="tel" placeholder="DD / MM / YYYY" data-kbd="numeric" maxlength="14" autocomplete="off">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M7.5 14h.01M12 14h.01M16.5 14h.01M7.5 17.5h.01M12 17.5h.01M16.5 17.5h.01" stroke-width="3"/></svg></span>
       </div>
 
       <div class="field f-mobile fade-in" style="animation-delay:.15s">
-        <label for="mobile">Contact number</label>
-        <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="Enter your mobile number" data-kbd maxlength="10" autocomplete="off">
+        <label for="mobile">Contact Number</label>
+        <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="Enter Your Mobile Number" data-kbd maxlength="10" autocomplete="off">
       </div>
 
       <div class="field f-email fade-in" style="animation-delay:.2s">
-        <label for="email">Email (optional)</label>
-        <input id="email" name="email" type="email" placeholder="Enter your email address" data-kbd maxlength="60" autocomplete="off">
+        <label for="email">Email (Optional)</label>
+        <input id="email" name="email" type="email" placeholder="Enter Your Email Address" data-kbd maxlength="60" autocomplete="off">
       </div>
 
       <label class="consent fade-in" id="consent" style="animation-delay:.25s">
@@ -181,7 +184,8 @@
       const next = order.slice(i + 1).find(x => !x.value);
       if (next) setTimeout(() => KioskKeyboard.show(next), 60);
     });
-    inp.addEventListener('input', () => { inp.classList.remove('invalid'); err.textContent = ''; });
+    const mark = () => { const f = inp.value.trim().length > 0; inp.classList.toggle('filled', f); inp.parentElement.classList.toggle('filled', f); };
+    inp.addEventListener('input', () => { inp.classList.remove('invalid'); err.textContent = ''; mark(); }); mark();
   });
 
   function validDob(v) {

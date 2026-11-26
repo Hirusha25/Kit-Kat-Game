@@ -8,7 +8,9 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.5, smoothing: 0.35, pip: false, sound: true, deviceId: '' }, load(LS.settings));
+  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false }, load(LS.settings));
+  LS.stock = 'kk_stock';
+  const DAILY_STOCK = 80;
   function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null') || {}; } catch (_) { return {}; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
 
@@ -27,8 +29,28 @@
     return 1 + rows.findIndex(r => r.ts === rows.find(x => x.score === result.score && x.name === (firstName || 'Guest')).ts);
   }
 
+  // ---------- rewards: cap and T-shirt, 80 each per day ----------
+  function stock() { const st = load(LS.stock); if (st.day !== todayKey()) return { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }; return st; }
+  function prizeCode(kind) { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const r = new Uint32Array(4); crypto.getRandomValues(r); return (kind === 'tee' ? 'TEE-' : 'CAP-') + Array.from(r, n => a[n % a.length]).join(''); }
+  function awardPrize(result) {
+    const st = stock(); let kind = null;
+    if (result.score >= settings.teeMin && st.tee > 0) kind = 'tee';
+    else if (result.score >= settings.capMin && st.cap > 0) kind = 'cap';
+    else if (result.score >= settings.teeMin && st.cap > 0) kind = 'cap'; // tees gone, fall back to a cap
+    if (!kind) return { kind: null, soldOut: result.score >= settings.capMin };
+    st[kind] -= 1; const code = prizeCode(kind);
+    st.awarded.push({ kind, code, name: firstName || 'Guest', mobile: player && player.mobile, score: result.score, ts: Date.now() });
+    save(LS.stock, st);
+    return { kind, code, left: st[kind] };
+  }
+  const prizeIcons = {
+    cap: '<svg viewBox="0 0 24 24"><path d="M4 14c0-4.4 3.6-8 8-8s8 3.6 8 8v1H4v-1z"/><path d="M4 15h12c2.5 0 4.5 1 6 2.5"/><path d="M12 6V4"/></svg>',
+    tee: '<svg viewBox="0 0 24 24"><path d="M8 4l4 2 4-2 5 3-2 4-3-1v10H8V10l-3 1-2-4 5-3z"/></svg>',
+    none: '<svg viewBox="0 0 24 24"><path d="M5 8h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8z"/><path d="M19 10h2a2 2 0 0 1 0 4h-2M9 3c0 2 2 2 2 4M13 3c0 2 2 2 2 4"/></svg>'
+  };
+
   // ---------- overlays & toast ----------
-  const ov = { cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
+  const ov = { cam: $('ov-cam'), cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
   function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
@@ -76,15 +98,39 @@
   function setPip(on) { pipOn = on; document.body.classList.toggle('debug', on); }
   function drawPip(s) {
     tracker.debugDraw(pipCtx, pipCv.width, pipCv.height);
-    $('pip-dot').classList.toggle('on', s.found); $('pip-txt').textContent = s.found ? 'Mug detected' : 'Looking for mug';
+    $('pip-dot').classList.toggle('on', s.found); $('pip-txt').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
   }
+
+  // ---------- camera selection (first screen) ----------
+  const camCv = $('cam-cv'), camCtx = camCv.getContext('2d'); let camRaf = 0;
+  async function fillCameraList(selectEl) {
+    let cams = []; try { cams = await MugTracker.listCameras(); } catch (_) {}
+    selectEl.innerHTML = cams.length ? cams.map((c, i) => `<option value="${c.deviceId}" ${c.deviceId === settings.deviceId ? 'selected' : ''}>${c.label || ('Camera ' + (i + 1))}</option>`).join('') : '<option value="">No camera found</option>';
+    return cams;
+  }
+  async function beginCameraSelect() {
+    phase = 'camera'; show('cam');
+    const loop = () => { if (phase !== 'camera') return; if (tracker) tracker.debugDraw(camCtx, camCv.width, camCv.height); camRaf = requestAnimationFrame(loop); };
+    loop();
+    await fillCameraList($('cam-sel'));
+  }
+  $('cam-sel').addEventListener('change', async () => {
+    settings.deviceId = $('cam-sel').value; save(LS.settings, settings); $('cam-err').textContent = '';
+    try { tracker.stop(); await tracker.start({ deviceId: settings.deviceId || undefined }); } catch (e) { $('cam-err').textContent = cameraError(e); }
+  });
+  $('cam-ok').addEventListener('click', () => {
+    if (!tracker || !tracker.getOptions().running) { $('cam-err').textContent = 'No camera is running. Choose another camera.'; return; }
+    settings.cameraConfirmed = true; settings.deviceId = $('cam-sel').value || settings.deviceId; save(LS.settings, settings);
+    cancelAnimationFrame(camRaf); beginCalibration();
+  });
+  function cameraError(e) { return e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'That camera is in use by another app.' : 'Could not start that camera.'; }
 
   // ---------- calibration ----------
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
   let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 };
   function calTick(s) {
     tracker.debugDraw(calCtx, calCv.width, calCv.height);
-    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug detected' : 'Looking for mug';
+    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
@@ -103,9 +149,9 @@
   }
   function beginCalibration() {
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
-    clearTimeout(calTimer); calTimer = setTimeout(() => { $('cal-skip').style.display = 'block'; }, 12000);
+    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Hold the KitKat mug up, logo facing the camera.';
   }
-  $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); });
+  $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
 
   // ---------- countdown ----------
   function startCountdown() {
@@ -164,12 +210,16 @@
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
     $('end-score').textContent = '0';
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
-    $('end-title').textContent = result.score >= 20 ? 'Legend!' : result.score >= 10 ? 'Hot break!' : "Time's up!";
+    $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
+    const pz = awardPrize(result); const pEl = $('prize');
+    pEl.classList.toggle('none', !pz.kind); $('prize-ic').innerHTML = prizeIcons[pz.kind || 'none'];
+    if (pz.kind) { $('prize-name').textContent = pz.kind === 'tee' ? 'You won a KitKat T-shirt!' : 'You won a KitKat Cap!'; $('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; $('prize-code').textContent = pz.code; $('prize-code').style.display = ''; }
+    else { $('prize-name').textContent = pz.soldOut ? "Today's prizes are all gone" : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Great score. Come back tomorrow for another break.' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
     setTimeout(() => {
       show('end');
       countUp($('end-score'), result.score, 1400);
       if (endAmbient) endAmbient.stop();
-      endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, wafers: 10, waferSpeed: 1.6, sparkles: 14, sparkleArea: { x0: 60, x1: 1020, y0: 300, y1: 1500 } });
+      endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, sparkles: 16, sparkleArea: { x0: 60, x1: 1020, y0: 300, y1: 1500 } });
     }, 900);
     armIdle(true);
   }
@@ -186,6 +236,7 @@
   async function openSetup() {
     setupOpen = true; su.el.classList.add('show');
     if (game && phase === 'playing') game.pause();
+    refreshStock();
     su.mirror.checked = settings.mirror; su.sens.value = Math.round(settings.sensitivity * 100); su.smooth.value = Math.round(settings.smoothing * 100); su.pip.checked = settings.pip; su.sound.checked = settings.sound;
     try {
       const cams = await MugTracker.listCameras();
@@ -206,6 +257,25 @@
   $('su-cal').addEventListener('click', async () => { try { const r = await tracker.calibrate({ x: 0.33, y: 0.2, w: 0.34, h: 0.6 }); calibrated = !!(r && r.ok); toast(calibrated ? 'Calibrated on the mug' : 'No mug seen in the box'); } catch (_) { toast('Calibration failed'); } });
   $('su-reset').addEventListener('click', () => { try { localStorage.removeItem('kk_tracker_params'); } catch (_) {} calibrated = false; toast('Calibration reset'); });
   $('su-clear').addEventListener('click', () => { save(LS.board, { rows: [] }); toast('Leaderboard cleared'); });
+  function refreshStock() { const st = stock(); $('su-stock').textContent = `Caps left: ${st.cap} / ${DAILY_STOCK}    T-shirts left: ${st.tee} / ${DAILY_STOCK}    awarded today: ${st.awarded.length}`; $('su-cap-min').value = settings.capMin; $('su-tee-min').value = settings.teeMin; }
+  $('su-cap-min').addEventListener('change', () => { settings.capMin = Math.max(1, +$('su-cap-min').value || 12); save(LS.settings, settings); });
+  $('su-tee-min').addEventListener('change', () => { settings.teeMin = Math.max(1, +$('su-tee-min').value || 25); save(LS.settings, settings); });
+  $('su-stock-reset').addEventListener('click', () => { save(LS.stock, { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }); refreshStock(); toast('Stock reset'); });
+  $('su-export').addEventListener('click', () => {
+    const st = stock(); const rows = board();
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    let csv = 'type,time,name,mobile,score,prize,code\n';
+    rows.forEach(r => { csv += ['score', new Date(r.ts).toISOString(), r.name, '', r.score, '', ''].map(esc).join(',') + '\n'; });
+    st.awarded.forEach(a => { csv += ['prize', new Date(a.ts).toISOString(), a.name, a.mobile, a.score, a.kind, a.code].map(esc).join(',') + '\n'; });
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); const a = document.createElement('a'); a.href = url; a.download = `kitkat-${todayKey()}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+  // Capture 12 camera frames (2 s apart) into one PNG sheet for detector tuning on the real mug.
+  $('su-capture').addEventListener('click', async () => {
+    if (!tracker) return; toast('Capturing 12 frames, keep moving the mug…', 24000);
+    const sheet = document.createElement('canvas'); sheet.width = 4 * 640; sheet.height = 3 * 360; const sc = sheet.getContext('2d');
+    for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 2000)); sc.drawImage(video, (i % 4) * 640, Math.floor(i / 4) * 360, 640, 360); }
+    const a = document.createElement('a'); a.href = sheet.toDataURL('image/png'); a.download = `mug-samples-${Date.now()}.png`; a.click(); toast('Saved mug-samples PNG to Downloads. Send it over for tuning.', 5000);
+  });
   // open: key "c", or 5 taps on the logo within 3 s
   document.addEventListener('keydown', e => { if (e.key === 'c' || e.key === 'C') setupOpen ? closeSetup() : openSetup(); if (e.key === 'Escape') closeSetup(); });
   let taps = [], logo = $('logo'); logo.style.pointerEvents = 'auto';
@@ -216,13 +286,15 @@
     KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     await loadSprites();
-    beginCalibration();
-    try { await startTracker(); }
+    const pickCamera = !settings.cameraConfirmed || qs.get('camera') === '1';
+    if (pickCamera) beginCameraSelect(); else beginCalibration();
+    try { await startTracker(); if (pickCamera) await fillCameraList($('cam-sel')); }
     catch (e) {
       const msg = e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'The camera is in use by another app.' : 'No camera found. Connect the webcam and reload.';
-      $('cal-msg').textContent = msg; $('cal-skip').style.display = 'block';
+      if (pickCamera) { $('cam-err').textContent = msg; try { await fillCameraList($('cam-sel')); } catch (_) {} }
+      else { $('cal-msg').textContent = msg; $('cal-skip').style.display = 'block'; }
     }
   }
-  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; } };
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock };
   boot();
 })();

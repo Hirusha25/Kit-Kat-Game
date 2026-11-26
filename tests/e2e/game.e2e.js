@@ -31,6 +31,10 @@ function fail(msg) { console.error('FAIL: ' + msg); process.exitCode = 1; }
   const t0 = Date.now();
   await page.goto(`http://127.0.0.1:${port}/game.html?duration=${DURATION}&debug=1`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
+  // First boot shows the camera-check screen; confirm the (fake) camera to reach "Show your mug".
+  const camShown = await page.evaluate(() => document.getElementById('ov-cam').classList.contains('show'));
+  if (camShown) { await page.click('#cam-ok', { force: true }); await page.waitForTimeout(800); }
+  console.log('camera check shown:', camShown);
   await page.screenshot({ path: path.join(OUT, '1-calibration.png') });
 
   // Calibration should lock within ~6 s of the mug being visible

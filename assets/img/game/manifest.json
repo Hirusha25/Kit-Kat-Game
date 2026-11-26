@@ -1,0 +1,59 @@
+{
+  "_comment": "Dunk the Break sprite manifest. PNGs are 2x; `w`/`h` are the logical draw sizes on the 1080x1920 stage. `anchor` is the sprite point (0..1 fractions) placed at the object's position: item centre for falling items, (mugX, rim y) for the mug.",
+  "sprites": {
+    "wafer": {
+      "src": "assets/img/game/wafer.png",
+      "w": 90,
+      "h": 220,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "wafer-piece": {
+      "src": "assets/img/game/wafer-piece.png",
+      "w": 40,
+      "h": 40,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "alarm": {
+      "src": "assets/img/game/alarm.png",
+      "w": 150,
+      "h": 150,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "deadline": {
+      "src": "assets/img/game/deadline.png",
+      "w": 150,
+      "h": 150,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "mug": {
+      "src": "assets/img/game/mug.png",
+      "w": 460,
+      "h": 450,
+      "anchor": {
+        "x": 0.5435,
+        "y": 0.23
+      }
+    },
+    "splash-drop": {
+      "src": "assets/img/game/splash-drop.png",
+      "w": 24,
+      "h": 32,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  }
+}

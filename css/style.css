@@ -17,13 +17,13 @@
   --script: "Great Vibes", "Brush Script MT", cursive;
   --body: "Jost", "Helvetica Neue", Arial, sans-serif;
   --gold-grad: linear-gradient(180deg, #f5e3b0 0%, #d9b96e 38%, #b8923f 62%, #e6cd8c 100%);
-  /* Typography system. Pairing A (default): Plus Jakarta Sans for display, DM Sans for text and keys. */
-  --font-display: "Plus Jakarta Sans", "Figtree", "Segoe UI", Arial, sans-serif;
-  --font-body: "DM Sans", "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
+  /* Typography system. Default (B): Figtree throughout. */
+  --font-display: "Figtree", "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
+  --font-body: "Figtree", "DM Sans", "Segoe UI", Arial, sans-serif;
   --font-button: "Poppins", var(--font-display); /* matches the lettering baked into the START artwork */
-  --display-weight: 800;
+  --display-weight: 900;
 }
-html[data-font="b"] { --font-display: "Figtree", Arial, sans-serif; --font-body: "Figtree", Arial, sans-serif; --display-weight: 900; }
+html[data-font="a"] { --font-display: "Plus Jakarta Sans", Arial, sans-serif; --font-body: "DM Sans", Arial, sans-serif; --display-weight: 800; }
 html[data-font="c"] { --font-display: "Urbanist", Arial, sans-serif; --font-body: "Urbanist", Arial, sans-serif; --display-weight: 900; }
 
 * { box-sizing: border-box; }

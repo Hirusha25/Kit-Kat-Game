@@ -220,16 +220,16 @@
     // ground shadow
     ctx.save(); ctx.shadowColor = 'rgba(60,0,0,.55)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 26; ctx.shadowOffsetX = -8; ctx.fillStyle = 'rgba(120,50,0,1)'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
     // bright lip along the far edge of the extrusion
-    for (let i = depth + 2; i > depth; i--) { ctx.fillStyle = i === depth + 2 ? '#f3c650' : '#ffe9a0'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
+    for (let i = depth + 2; i > depth; i--) { ctx.fillStyle = i === depth + 2 ? '#c9a062' : '#f3d9a2'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
     // extrusion side: amber, lighter near the face
     for (let i = depth; i >= 1; i--) {
       const t = i / depth;
-      const r = Math.round(0xe6 - (0xe6 - 0xc7) * t), g = Math.round(0x8e - (0x8e - 0x68) * t), b = Math.round(0x26 - (0x26 - 0x02) * t);
+      const r = Math.round(0xf5 - (0xf5 - 0xa2) * t), g = Math.round(0xbe - (0xbe - 0x4c) * t), b = Math.round(0x4c - (0x4c - 0x00) * t);
       ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillText(text, cx + dx * i, baseY + dy * i);
     }
     // face
     const g1 = ctx.createLinearGradient(0, top, 0, bot);
-    g1.addColorStop(0, '#fcfdf5'); g1.addColorStop(.12, '#fdf4ce'); g1.addColorStop(.26, '#fdf0c2'); g1.addColorStop(.42, '#ffeeb4'); g1.addColorStop(.56, '#f8e295'); g1.addColorStop(.7, '#ffd974'); g1.addColorStop(.86, '#fdca53'); g1.addColorStop(1, '#ffc842');
+    g1.addColorStop(0, '#fffbf5'); g1.addColorStop(.35, '#fdf1d9'); g1.addColorStop(.6, '#fce9bf'); g1.addColorStop(.85, '#fbdca0'); g1.addColorStop(1, '#f9cf7e');
     ctx.fillStyle = g1; ctx.fillText(text, cx, baseY);
     // soft highlight band on the upper third, darker warm band near the bottom of the face
     ctx.save(); ctx.globalCompositeOperation = 'source-atop';

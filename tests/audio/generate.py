@@ -479,11 +479,15 @@ class Seq:
     """Bar-based buffer with a tail region. seal() folds the tail (reverb / release) back into
     the head with a cosine fade so the loop is seamless."""
 
-    def __init__(self, bpm, bars, tail=3.0, beats_per_bar=4):
+    def __init__(self, bpm, bars, tail=3.0, beats_per_bar=4, cycle_bars=None):
+        """cycle_bars: bars per loop cycle. The loop is snapped to an exact integer number of
+        samples (tempo error < 1 ppm) so the beat grid is identical on both sides of the seam."""
         self.bpm = bpm
-        self.spb = 60.0 / bpm
         self.bars = bars
-        self.length = ns(bars * beats_per_bar * self.spb)
+        cycle_bars = cycle_bars or bars
+        cycle_len = ns(cycle_bars * beats_per_bar * 60.0 / bpm)
+        self.spb = cycle_len / (cycle_bars * beats_per_bar) / SR
+        self.length = cycle_len * (bars // cycle_bars)
         self.n = self.length + ns(tail)
         self.buf = np.zeros((self.n, 2))
         self.send = np.zeros((self.n, 2))   # reverb send bus
@@ -696,7 +700,7 @@ def ep(freq, dur, vel=0.8):
     tau = 1.6 * (220.0 / freq) ** 0.4
     idx = (0.9 + 2.0 * vel) * np.exp(-t / 0.33) + 0.12
     mod = np.sin(TWO_PI * freq * t) * idx
-    tine = np.sin(TWO_PI * freq * 14.0 * t) * 0.10 * vel * np.exp(-t / 0.04)
+    tine = np.sin(TWO_PI * freq * 14.0 * t) * 0.17 * vel * np.exp(-t / 0.05)
     car = np.sin(TWO_PI * freq * t + mod + tine)
     car2 = 0.18 * np.sin(TWO_PI * freq * 2.0 * t + 0.5 * mod) * np.exp(-t / (tau * 0.5))
     env = np.exp(-t / tau) * np.minimum(1.0, t / 0.0025)
@@ -870,7 +874,7 @@ MARIMBA_B = [
 
 def make_attract(cycles=1):
     bpm, bars = 92, 24
-    S = Seq(bpm, bars * cycles, tail=3.5)
+    S = Seq(bpm, bars * cycles, tail=3.5, cycle_bars=bars)
     swing = 0.09  # beats, applied to off-beat 8ths
     for pos in range(bars * cycles):
         bar = pos % bars
@@ -936,7 +940,7 @@ REGISTER_PROG = ['D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'A', 'Bm', 'G', 'Em', 'A'
 
 def make_register(cycles=1):
     bpm, bars = 80, 16
-    S = Seq(bpm, bars * cycles, tail=4.0)
+    S = Seq(bpm, bars * cycles, tail=4.0, cycle_bars=bars)
     for pos in range(bars * cycles):
         bar = pos % bars
         reseed(1100 + bar)
@@ -944,7 +948,7 @@ def make_register(cycles=1):
         ch = CHORDS[REGISTER_PROG[bar]]
         # pad chord (root an octave up + voicing) with slow attack
         for m in [ch[0] + 12] + ch[1][:3]:
-            S.add(cached('pad', pad, mtof(m), 4.0 * S.spb, 0.6, 750.0, 0.9, 1.6), b0, 0.19)
+            S.add(cached('pad', pad, mtof(m), 4.0 * S.spb, 0.6, 1050.0, 0.9, 1.6), b0, 0.19)
         # EP: low root + fifth on 1, broken chord 8ths rising then falling, soft
         S.add(cached('ep', ep, mtof(ch[0] + 12), 3.5 * S.spb, 0.5), b0, 0.36, pan_=-0.2, send=0.5)
         tones = ch[1] + [ch[1][0] + 12]
@@ -961,7 +965,7 @@ def make_register(cycles=1):
             top = ch[1][-1] + 12
             S.add(cached('ep', ep, mtof(top), 1.0 * S.spb, 0.5), b0 + 3, 0.3, pan_=0.3, send=0.6)
     S.buf += reverb(S.send, rt60=1.8, mix=1.0, damp=3800.0, size=1.1) - S.send
-    S.buf = biquad(S.buf, 'highshelf', 4500.0, 0.7, 4.0)
+    S.buf = biquad(S.buf, 'highshelf', 3500.0, 0.7, 6.0)
     if cycles > 1:
         return master_music(S.buf[:S.length], loop=False, rms_db=-19.0), bpm, bars
     return master_music(S.seal(), loop=True, rms_db=-19.0), bpm, bars
@@ -1006,7 +1010,7 @@ def make_play(bpm=128, fast=False, cycles=1):
     one = list(range(24)) if not fast else list(range(8)) + [20, 21, 22, 23]
     bars = len(one)
     bar_ids = one * cycles
-    S = Seq(bpm, bars, tail=3.0) if cycles == 1 else Seq(bpm, bars * cycles, tail=3.0)
+    S = Seq(bpm, bars * cycles, tail=3.0, cycle_bars=bars)
     padbus = np.zeros((S.n, 2))
     for pos, bar in enumerate(bar_ids):
         reseed(1200 + bar)

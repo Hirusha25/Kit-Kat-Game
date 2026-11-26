@@ -146,7 +146,7 @@ body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-se
 }
 .kbd .key:active, .kbd .key.pressed { background: rgba(239,217,160,.35); transform: scale(.95); }
 .kbd .key.wide { flex-basis: 140px; font-size: 28px; letter-spacing: .06em; }
-.kbd .key.space { flex-basis: 480px; }
+.kbd .key.space { flex-basis: 400px; }
 .kbd .key.done { flex-basis: 220px; background: var(--gold-grad); color: var(--gold-ink); border-color: transparent; font-family: var(--display); font-weight: 700; letter-spacing: .2em; text-indent: .2em; }
 .kbd .key.shift.on { background: rgba(239,217,160,.5); color: var(--gold-ink); }
 .kbd .key svg { width: 40px; height: 40px; stroke: currentColor; fill: none; stroke-width: 2.2; }

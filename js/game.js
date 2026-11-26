@@ -52,7 +52,7 @@
     //     382 px below the rim, so 1180 keeps it above the slider at y 1575.
     MUG_MIN_X: 240,         // mug centre range
     MUG_MAX_X: 840,
-    MUG_RIM_Y: 1180,        // y of the drink surface / rim centre
+    MUG_RIM_Y: 1150,        // y of the drink surface / rim centre
     MUG_HALF_WIDTH: 280,    // half of the 560 px mug sprite
     CATCH_HALF_FRAC: 0.60,  // catch window = MUG_HALF_WIDTH * this (168 px = the drink surface)
     CATCH_BAND: 44,         // item centre must be within rim y +/- this
@@ -81,7 +81,7 @@
     // --- Spawning
     SPAWN_Y: -220,          // item centre y at spawn (above the stage)
     MISS_Y: 1330,           // a wafer passing this y is a miss; items fade from here
-    KILL_Y: 1560,           // item fully gone (mug bottom; never over the slider)
+    KILL_Y: 1540,           // item fully gone (mug bottom; never over the slider)
     LANES: 5,               // spawn lanes across the mug range
     LANE_JITTER: 0.25,      // +/- fraction of lane width
     SPAWN_PAD: 150,         // widen the spawn range beyond the mug range by this many px per side (lanes 180 px apart)

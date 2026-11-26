@@ -62,10 +62,7 @@
 <div class="viewport">
   <main class="stage" id="stage">
     <img class="layer" id="bg-still" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" fetchpriority="high">
-    <video class="layer bg-video" id="bg-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-bg-poster.webp">
-      <source src="assets/video/cover-bg-loop.webm" type="video/webm">
-      <source src="assets/video/cover-bg-loop.mp4" type="video/mp4">
-    </video>
+    <video class="layer bg-video" id="bg-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-bg-poster.webp"></video>
     <img class="layer calm" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" aria-hidden="true">
     <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp?v=3" alt="KitKat Chocolate Drink">
     <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-break-v2.webp" alt="Dunk the Break">
@@ -90,6 +87,10 @@
   (function () {
     const v = document.getElementById('bg-video'), still = document.getElementById('scene-still');
     if (!v) return;
+    // 4K kiosk (2160 px wide panel) gets the 2160x3840 file; everything else the 1080p pair
+    const hi = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 2000 && !/iPhone|iPad|Android.*Mobile/.test(navigator.userAgent);
+    if (hi) { v.src = 'assets/video/cover-bg-loop-4k.mp4'; }
+    else { const w = document.createElement('source'); w.src = 'assets/video/cover-bg-loop.webm'; w.type = 'video/webm'; const m = document.createElement('source'); m.src = 'assets/video/cover-bg-loop.mp4'; m.type = 'video/mp4'; v.appendChild(w); v.appendChild(m); v.load(); }
     let shown = false;
     const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); };
     v.addEventListener('timeupdate', () => { if (v.currentTime > 0.15) show(); });

@@ -267,13 +267,13 @@ html.is-kiosk img { image-rendering: auto; }
   -webkit-text-stroke: 0;
   text-shadow:
     /* white outline */
-    -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff, 0 -2px 0 #fff, 0 2px 0 #fff, -2px 0 0 #fff, 2px 0 0 #fff,
-    /* dark block */
-    -3px 4px 0 #1a1a1a, -4px 5px 0 #1a1a1a, -5px 6px 0 #1a1a1a, -6px 7px 0 #1a1a1a, -7px 8px 0 #1a1a1a !important;
+    -2px -2px 0 #fff3d6, 2px -2px 0 #fff3d6, -2px 2px 0 #fff3d6, 2px 2px 0 #fff3d6, 0 -2px 0 #fff3d6, 0 2px 0 #fff3d6, -2px 0 0 #fff3d6, 2px 0 0 #fff3d6,
+    /* burgundy block */
+    -3px 4px 0 #5a0a12, -4px 5px 0 #5a0a12, -5px 6px 0 #5a0a12, -6px 7px 0 #5a0a12, -7px 8px 0 #5a0a12 !important;
 }
 .res .none-wrap > span { text-shadow:
-    -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff,
-    -2px 3px 0 #1a1a1a, -3px 4px 0 #1a1a1a, -4px 5px 0 #1a1a1a !important; }
+    -1.5px -1.5px 0 #fff3d6, 1.5px -1.5px 0 #fff3d6, -1.5px 1.5px 0 #fff3d6, 1.5px 1.5px 0 #fff3d6,
+    -2px 3px 0 #5a0a12, -3px 4px 0 #5a0a12, -4px 5px 0 #5a0a12 !important; }
 .res .res-stats b { text-shadow:
     -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff,
-    -2px 3px 0 #1a1a1a, -3px 4px 0 #1a1a1a, -4px 5px 0 #1a1a1a !important; }
+    -2px 3px 0 #5a0a12, -3px 4px 0 #5a0a12, -4px 5px 0 #5a0a12 !important; }

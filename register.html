@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
 <title>Register to play · KitKat Dunk the Break</title>
 <meta name="theme-color" content="#c00a12">
 <link rel="manifest" href="manifest.json">
@@ -23,6 +23,7 @@
 
   .pane { position: absolute; inset: 0; z-index: 1; transition: transform .32s cubic-bezier(.22,1,.36,1); }
   body.kbd-open .pane { transform: translateY(-390px); }
+  html.is-phone body.kbd-open .pane { transform: none; }
 
   .heading {
     position: absolute; left: 0; right: 0; top: 458px; text-align: center; margin: 0; font-family: "Poppins", "Source Sans 3", Arial, sans-serif; font-weight: 900; font-style: italic; font-size: 78px; letter-spacing: 0; text-transform: uppercase;

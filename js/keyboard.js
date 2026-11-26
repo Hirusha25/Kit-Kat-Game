@@ -3,6 +3,24 @@
 (function () {
   const kbd = document.getElementById('kbd');
   if (!kbd) return;
+  // Phones use the native keyboard (better autocorrect, no layout squeeze). Kiosk and tablets use this one.
+  const qs = new URLSearchParams(location.search);
+  const forced = qs.get('kbd'); // 'native' | 'builtin'
+  const usePhoneNative = forced ? forced === 'native' : document.documentElement.classList.contains('is-phone');
+  if (usePhoneNative) {
+    kbd.remove();
+    document.querySelectorAll('input[data-kbd]').forEach(inp => {
+      inp.removeAttribute('readonly');
+      if (inp.getAttribute('inputmode') === 'none') inp.removeAttribute('inputmode');
+      if (inp.dataset.kbd === 'numeric' || inp.type === 'tel') inp.setAttribute('inputmode', 'numeric');
+      if (inp.type === 'email') inp.setAttribute('inputmode', 'email');
+      if (inp.dataset.caps === 'words') inp.setAttribute('autocapitalize', 'words');
+      inp.addEventListener('focus', () => setTimeout(() => { inp.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' }); const vp = document.querySelector('.viewport'); if (vp) vp.scrollLeft = 0; window.scrollTo({ left: 0 }); }, 250));
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.dispatchEvent(new CustomEvent('kbd:done', { bubbles: true })); } });
+    });
+    window.KioskKeyboard = { show(inp) { inp && inp.focus(); }, hide() { document.activeElement && document.activeElement.blur && document.activeElement.blur(); }, native: true };
+    return;
+  }
 
   const LAYOUT_TEXT = [
     ['1','2','3','4','5','6','7','8','9','0'],

@@ -21,10 +21,15 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #3a0609; overflow: hidden; }
+html.is-phone, html.is-phone body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; background: #8a0610; -webkit-overflow-scrolling: touch; }
 body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
 /* Viewport that centres the 1080x1920 stage and scales it */
 .viewport { position: fixed; inset: 0; display: grid; place-items: center; background: #3a0609; }
+html.is-phone .viewport { position: relative; inset: auto; display: block; width: 100%; overflow: hidden; background: #8a0610; }
+html.is-phone .stage { box-shadow: none; }
+/* crisp image scaling on the 4K kiosk */
+html.is-kiosk img { image-rendering: auto; }
 .stage {
   position: relative; width: 1080px; height: 1920px; overflow: hidden;
   transform-origin: center center; background: var(--red);

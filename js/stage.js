@@ -1,15 +1,50 @@
-// Scales the fixed 1080x1920 stage to fit the current viewport (kiosk, tablet, laptop preview).
+// Scales the fixed 1080x1920 design stage to the device.
+//  - Kiosk / desktop ("fit" mode): the stage is centred and scaled to fit the viewport. On the 4K kiosk
+//    (2160x3840 portrait) that is exactly 2x; text, CSS and the game canvas render at full native resolution.
+//  - Phone ("scroll" mode, viewport narrower than 700 CSS px): the stage is scaled to the viewport WIDTH and
+//    the page scrolls vertically, so the native keyboard and browser chrome never squash the layout.
+// Exposes window.KKStage = { scale, mode, dpr, refit() } and sets html.is-phone / html.is-kiosk.
 (function () {
   const stage = document.querySelector('.stage');
+  const viewport = document.querySelector('.viewport');
   if (!stage) return;
   const W = 1080, H = 1920;
+  const html = document.documentElement;
+  const params = new URLSearchParams(location.search);
+  const forced = params.get('mode'); // 'fit' | 'scroll' for testing
+
+  function vw() { return (window.visualViewport && window.visualViewport.width) || window.innerWidth; }
+  function vh() { return window.innerHeight; } // innerHeight ignores the on-screen keyboard; visualViewport shrinks with it
+
   function fit() {
-    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
-    stage.style.transform = `scale(${s})`;
-    document.documentElement.style.setProperty('--stage-scale', s);
+    const width = vw(), height = vh();
+    const phone = forced ? forced === 'scroll' : (width < 700 && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
+    const dpr = window.devicePixelRatio || 1;
+    let s;
+    if (phone) {
+      s = width / W;
+      html.classList.add('is-phone');
+      stage.style.transformOrigin = 'top left';
+      stage.style.transform = `scale(${s})`;
+      // collapse the layout box to the scaled size so nothing can scroll sideways
+      stage.style.marginRight = -(W - W * s) + 'px';
+      stage.style.marginBottom = -(H - H * s) + 'px';
+      if (viewport) { viewport.style.height = Math.round(H * s) + 'px'; viewport.scrollLeft = 0; }
+    } else {
+      s = Math.min(width / W, height / H);
+      html.classList.remove('is-phone');
+      stage.style.transformOrigin = 'center center';
+      stage.style.transform = `scale(${s})`;
+      stage.style.marginRight = ''; stage.style.marginBottom = '';
+      if (viewport) viewport.style.height = '';
+    }
+    html.classList.toggle('is-kiosk', !phone && height * dpr >= 1900);
+    html.style.setProperty('--stage-scale', s);
+    window.KKStage = { scale: s, mode: phone ? 'scroll' : 'fit', dpr, refit: fit, pixelScale: Math.min(2, Math.max(1, Math.round(s * dpr * 2) / 2)) };
+    window.dispatchEvent(new CustomEvent('kk:stage', { detail: window.KKStage }));
   }
   window.addEventListener('resize', fit, { passive: true });
-  window.addEventListener('orientationchange', fit, { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(fit, 150), { passive: true });
   fit();
 
   // Keep the background video playing on kiosk browsers that pause it.

@@ -49,7 +49,7 @@
     tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true });
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
-    await tracker.start({ deviceId: settings.deviceId || undefined });
+    await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
   }
   function onTrack(s) {
     trackState = s;
@@ -111,15 +111,20 @@
 
   // ---------- game ----------
   let game = null, sprites = null, phase = 'boot', endResult = null;
+  // Render scale: 1x for the 1080x1920 design, up to 2x on the 4K kiosk (2160x3840) so sprites stay crisp.
+  let pixelScale = (window.KKStage && window.KKStage.pixelScale) || 1;
+  if (qs.get('px')) pixelScale = Math.min(2, Math.max(0.5, parseFloat(qs.get('px')) || 1));
+  const gameCanvas = $('game');
+  gameCanvas.width = Math.round(1080 * pixelScale); gameCanvas.height = Math.round(1920 * pixelScale);
   async function loadSprites() {
     const manifest = await fetch('assets/img/game/manifest.json').then(r => r.json()).catch(() => null);
-    sprites = await DunkSprites.load(manifest || {});
+    sprites = await DunkSprites.load(manifest || {}, { scale: pixelScale });
   }
   function startPlay() {
     if (game) { game.destroy(); game = null; }
     hud.el.classList.remove('final5');
     game = DunkGame.create({
-      canvas: $('game'), sprites, duration: DURATION,
+      canvas: gameCanvas, sprites, duration: DURATION,
       onTick: st => {
         setText('time', fmtTime(st.timeLeft));
         setText('score', String(st.score).padStart(2, '0'));
@@ -173,7 +178,7 @@
       su.cam.innerHTML = cams.map(c => `<option value="${c.deviceId}" ${c.deviceId === settings.deviceId ? 'selected' : ''}>${c.label || 'Camera'}</option>`).join('') || '<option value="">Default camera</option>';
     } catch (_) {}
     const ctx = su.cv.getContext('2d');
-    const loop = () => { if (!setupOpen) return; if (tracker) { tracker.debugDraw(ctx, su.cv.width, su.cv.height); const s = trackState; su.stat.textContent = `found=${s.found}  x=${(s.x || 0).toFixed(3)}  conf=${(s.confidence || 0).toFixed(2)}  fps=${Math.round(s.fps || 0)}  calibrated=${calibrated}`; } suRaf = requestAnimationFrame(loop); };
+    const loop = () => { if (!setupOpen) return; if (tracker) { tracker.debugDraw(ctx, su.cv.width, su.cv.height); const s = trackState; su.stat.textContent = `found=${s.found}  x=${(s.x || 0).toFixed(3)}  conf=${(s.confidence || 0).toFixed(2)}  fps=${Math.round(s.fps || 0)}  calibrated=${calibrated}\nstage=${(window.KKStage||{}).mode} scale=${((window.KKStage||{}).scale||0).toFixed(2)} dpr=${(window.KKStage||{}).dpr} canvas=${gameCanvas.width}x${gameCanvas.height} screen=${screen.width}x${screen.height}`; } suRaf = requestAnimationFrame(loop); };
     loop();
   }
   function closeSetup() { setupOpen = false; su.el.classList.remove('show'); cancelAnimationFrame(suRaf); if (game && phase === 'playing') game.resume(); }

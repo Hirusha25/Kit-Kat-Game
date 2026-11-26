@@ -211,20 +211,22 @@
     return def;
   }
 
-  function loadImage(src, timeoutMs) {
+  /** Resolves with the image, or null after timeoutMs. A slow image keeps loading and is handed to
+   *  onLate(img) when it finally arrives, so a bad connection only delays the artwork, never loses it. */
+  function loadImage(src, timeoutMs, onLate) {
     return new Promise(function (resolve) {
       if (!src) return resolve(null);
       var img = new Image();
-      var done = false;
-      var timer = setTimeout(function () { if (!done) { done = true; resolve(null); } }, timeoutMs);
+      var done = false, late = false;
+      var timer = setTimeout(function () { if (!done) { done = true; late = true; resolve(null); } }, timeoutMs);
+      img.onerror = function () { if (!done) { done = true; clearTimeout(timer); } if (onLate) onLate(null, true); resolve(null); };
       img.onload = function () {
-        if (done) return;
+        if (done) { if (late && onLate) { if (img.decode) img.decode().then(function () { onLate(img); }, function () { onLate(img); }); else onLate(img); } return; }
         done = true; clearTimeout(timer);
         // decode() avoids a synchronous decode hitch on the first drawImage.
         if (img.decode) img.decode().then(function () { resolve(img); }, function () { resolve(img); });
         else resolve(img);
       };
-      img.onerror = function () { if (!done) { done = true; clearTimeout(timer); resolve(null); } };
       img.src = src;
     });
   }
@@ -318,6 +320,19 @@
         return v;
       },
 
+      /** Swap the artwork in after a late load: redraw the base canvas and drop cached variants. */
+      replaceImage: function (image) {
+        if (!image) return sprite;
+        ctx.clearRect(0, 0, pw, ph);
+        ctx.imageSmoothingEnabled = true;
+        if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, 0, 0, pw, ph);
+        for (var q = 1; q < ROT_STEPS; q++) rotCache[q] = null;
+        scaleCache = {};
+        fromImage = true; sprite.fromImage = true;
+        return sprite;
+      },
+
       /** Rasterise all 24 rotations now (call during load, never mid-game). */
       prewarm: function () {
         for (var q = 0; q < ROT_STEPS; q++) sprite.rotated(q * ROT_STEP);
@@ -355,9 +370,14 @@
 
     return fontsReady.then(function () {
       return Promise.all(names.map(function (name) {
-        var def = normalizeDef(name, table[name], basePath);
-        return loadImage(def.src, timeout).then(function (img) {
-          return createSprite(def, img, scale);
+        var def = normalizeDef(name, table[name], basePath), made = null, failed = false;
+        return loadImage(def.src, timeout, function (lateImg, err) {
+          if (err) { failed = true; if (made) made.failed = true; return; }
+          if (made) made.replaceImage(lateImg);
+        }).then(function (img) {
+          made = createSprite(def, img, scale);
+          if (failed) made.failed = true; // the file is missing or unreadable; nothing more will arrive
+          return made;
         });
       }));
     }).then(function (list) {

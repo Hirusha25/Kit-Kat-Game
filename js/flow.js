@@ -191,7 +191,14 @@
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
 
   // ---------- countdown ----------
-  function startCountdown() {
+  async function startCountdown() {
+    if (!spritesReady()) {
+      $('cal-msg').textContent = 'Loading the game…';
+      await Promise.race([loadSprites(), new Promise(r => setTimeout(r, 120000))]);
+      // DunkSprites keeps loading past its timeout and swaps late images in; wait for the set to be complete.
+      const t0 = performance.now();
+      while (!spritesReady() && performance.now() - t0 < 120000) await new Promise(r => setTimeout(r, 100));
+    }
     phase = 'countdown'; show('count');
     if (tracker && tracker.setAcquire) tracker.setAcquire(false);   // from here on: the parameters calibration settled on
     const el = $('count-num'), cd = el.parentElement, ticks = $('cd-ticks');
@@ -262,10 +269,18 @@
   if (qs.get('px')) pixelScale = Math.min(2, Math.max(0.5, parseFloat(qs.get('px')) || 1));
   const gameCanvas = $('game');
   gameCanvas.width = Math.round(1080 * pixelScale); gameCanvas.height = Math.round(1920 * pixelScale);
-  async function loadSprites() {
-    const manifest = await fetch('assets/img/game/manifest.json').then(r => r.json()).catch(() => null);
-    sprites = await DunkSprites.load(manifest || {}, { scale: pixelScale });
+  // Artwork loads from page open, in parallel with the camera check. The round never starts on the drawn
+  // placeholders: startCountdown waits for this promise, and a slow image swaps in as soon as it arrives.
+  let spritesPromise = null;
+  function loadSprites() {
+    if (!spritesPromise) {
+      spritesPromise = fetch('assets/img/game/manifest.json').then(r => r.json()).catch(() => null)
+        .then(manifest => DunkSprites.load(manifest || {}, { scale: pixelScale, timeout: 120000 }))
+        .then(s => { sprites = s; return s; });
+    }
+    return spritesPromise;
   }
+  const spritesReady = () => !!(sprites && !(sprites.$missing || []).some(n => sprites[n] && !sprites[n].fromImage && !sprites[n].failed));
   function startPlay() {
     KKAudio.music('play');
     if (game) { game.destroy(); game = null; }
@@ -414,7 +429,7 @@
     KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
     if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
-    await loadSprites();
+    loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race
     beginCalibration();
     try { await startTracker(); await fillCameraList($('cam-sel')); }
     catch (e) {
@@ -422,6 +437,6 @@
       $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
-  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber, confetti };
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get sprites() { return sprites; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber, confetti };
   boot();
 })();

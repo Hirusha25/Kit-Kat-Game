@@ -99,7 +99,9 @@
   // Preload everything in the background on first unlock so play is instant.
   let preloaded = false;
   function preload() { if (preloaded) return; preloaded = true; Object.values(SFX).flat().concat(Object.values(MUSIC)).forEach(n => load(n)); }
-  document.addEventListener('pointerdown', preload, { once: true, passive: true }); setTimeout(preload, 1500);
+  // Pages that load heavy artwork first (game.html) mark the script data-preload="manual" and call KKAudio.preload() themselves.
+  const manual = !!(document.currentScript && document.currentScript.dataset.preload === 'manual');
+  if (!manual) { document.addEventListener('pointerdown', preload, { once: true, passive: true }); setTimeout(preload, 1500); }
 
   // ---- effects: file if present, else the synth tone it replaces
   let catchIx = 0, muted = false;
@@ -151,4 +153,5 @@
   A.getVolumes = () => Object.assign({}, vol);
   const baseMute = A.setMuted; A.setMuted = m => { muted = !!m; baseMute(m); if (muted) stopMusic(200); };
   A.hasFiles = () => Object.keys(buffers).length > 0;
+  A.preload = preload;
 })();

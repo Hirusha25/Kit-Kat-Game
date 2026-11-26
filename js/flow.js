@@ -51,7 +51,7 @@
 
   // ---------- overlays & toast ----------
   const ov = { cam: $('ov-cam'), cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
-  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); }
+  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cam' || name === 'cal'); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 

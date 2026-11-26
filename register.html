@@ -58,7 +58,9 @@
   .field .icon { position: absolute; right: 30px; bottom: 20px; width: 52px; height: 52px; pointer-events: none; }
   .field .icon svg { width: 100%; height: 100%; fill: none; stroke: #6e3f1a; stroke-width: 2.4; stroke-linecap: round; }
 
-  .f-name { top: 616px; } .f-dob { top: 798px; } .f-mobile { top: 980px; } .f-email { top: 1162px; }
+  .f-name { top: 600px; } .f-dob { top: 774px; } .f-mobile { top: 948px; } .f-email { top: 1176px; }
+  .field .hint { display: flex; align-items: center; gap: 10px; margin: 10px 0 0 6px; font: 600 24px/1.2 var(--font-body); color: #ffe9a8; }
+  .field .hint svg { width: 24px; height: 24px; stroke: #ffe9a8; fill: none; stroke-width: 2; flex: 0 0 auto; }
 
   .consent { position: absolute; left: 78px; top: 1334px; width: 930px; margin: 0; display: flex; align-items: flex-start; gap: 24px; color: #fff; font-weight: 400; font-size: 26px; line-height: 1.28; cursor: pointer; text-shadow: 0 1px 3px rgba(60,0,0,.4); }
   .consent .text b { font-weight: 700; }
@@ -151,8 +153,9 @@
       </div>
 
       <div class="field f-mobile fade-in" style="animation-delay:.15s">
-        <label for="mobile">Contact Number</label>
-        <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="Enter Your Mobile Number" data-kbd maxlength="10" autocomplete="off">
+        <label for="mobile">WhatsApp Number</label>
+        <input id="mobile" name="mobile" type="tel" inputmode="tel" placeholder="07X XXX XXXX" data-kbd maxlength="10" autocomplete="off">
+        <p class="hint"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Keep your phone with you. We'll send a 6-digit code to this number.</p>
       </div>
 
       <div class="field f-email fade-in" style="animation-delay:.2s">
@@ -172,7 +175,7 @@
 
     <section class="pane" id="verify" style="display:none">
       <h1 class="heading">Verify Your Number</h1>
-      <p class="v-sub">Enter the 6-digit code we sent <span id="v-via"></span>to <b id="v-phone">07X XXX XXXX</b></p>
+      <p class="v-sub">Check your phone. Enter the 6-digit code we sent to <b id="v-phone">07X XXX XXXX</b></p>
       <div class="otp" id="otp"><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <input id="otp-in" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-kbd="numeric" aria-label="Verification code" style="position:absolute;opacity:0;width:1px;height:1px;left:-9999px">
       <p class="err notice v-err" id="v-err" role="alert"></p>

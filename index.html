@@ -17,9 +17,9 @@
      so every full-frame layer is placed at 100% x 100% with no resampling beyond the 0.96 stage fit. */
   .layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .scene { animation: sway 6s ease-in-out infinite; transform-origin: 60% 80%; will-change: transform; }
-  .scene-video { object-fit: fill; opacity: 0; transition: opacity .8s ease; }
-  .scene-video.on { opacity: 1; }
-  #scene-still.off { opacity: 0; transition: opacity .8s ease; }
+  .bg-video { object-fit: cover; opacity: 0; transition: opacity .9s ease; }
+  .bg-video.on { opacity: 1; }
+  #scene-still.off { opacity: 0; transition: opacity .9s ease; }
   .title { animation: breathe 5s ease-in-out infinite; transform-origin: 36% 30%; will-change: transform; }
   @keyframes breathe { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.025) rotate(-.6deg); } }
   #amb-back, #amb-front { position: absolute; inset: 0; }
@@ -55,14 +55,15 @@
 <body class="no-sparks">
 <div class="viewport">
   <main class="stage" id="stage">
-    <img class="layer" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" fetchpriority="high">
+    <img class="layer" id="bg-still" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" fetchpriority="high">
+    <video class="layer bg-video" id="bg-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-bg-poster.webp">
+      <source src="assets/video/cover-bg-loop.webm" type="video/webm">
+      <source src="assets/video/cover-bg-loop.mp4" type="video/mp4">
+    </video>
     <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp?v=3" alt="KitKat Chocolate Drink">
     <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-break-v2.webp" alt="Dunk the Break">
     <div id="amb-back" class="layer"></div>
     <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp?v=3" alt="">
-    <video class="layer scene-video" id="scene-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-mug-poster.webp">
-      <source src="assets/video/cover-mug-loop.webm" type="video/webm">
-    </video>
     <div id="amb-front" class="layer"></div>
     <button class="start enter" id="start" type="button" aria-label="Start" style="animation-delay:.4s"></button>
   </main>
@@ -75,32 +76,14 @@
   document.querySelectorAll('.enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true }));
   // Ambient: slow wafers drifting behind the mug, steam from the cup, gold sparkles in front.
   KKAmbient.create({ stage: document.getElementById('amb-front'), sparkles: 9, sparkleArea: { x0: 60, x1: 1020, y0: 80, y1: 1150 } });
-  // Animated mug: transparent WebM over the still artwork; the still stays as the fallback/poster.
-  // Safari (and some others) decode VP9 but ignore the alpha channel, which renders as noise, so the video is
-  // shown only after a real alpha test: a transparent corner of the first frame must read as transparent.
+  // Animated cover: the clip carries its own red background, ribbon, mug and wave. Once it is really playing,
+  // the still mug layer fades out; if the video cannot play, the still artwork stays.
   (function () {
-    const v = document.getElementById('scene-video'), still = document.getElementById('scene-still');
+    const v = document.getElementById('bg-video'), still = document.getElementById('scene-still');
     if (!v) return;
-    const ua = navigator.userAgent;
-    const isSafari = /Safari/.test(ua) && !/Chrom(e|ium)|Edg|OPR|Android/.test(ua);
-    const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const can = v.canPlayType && v.canPlayType('video/webm; codecs="vp9"');
-    if (isSafari || isIOS || !can) { v.remove(); return; }
-    let shown = false, failed = false;
-    function alphaOk() {
-      try {
-        const c = document.createElement('canvas'); c.width = 32; c.height = 32; const g = c.getContext('2d', { willReadFrequently: true });
-        g.drawImage(v, 0, 0, 64, 64, 0, 0, 32, 32); // top-left corner of the frame is fully transparent in the source
-        const d = g.getImageData(0, 0, 32, 32).data; let a = 0; for (let i = 3; i < d.length; i += 4) a += d[i];
-        return a / (d.length / 4) < 40;
-      } catch (_) { return true; }
-    }
-    const show = () => {
-      if (shown || failed) return;
-      if (!alphaOk()) { failed = true; v.pause(); v.remove(); still.classList.remove('off'); return; }
-      shown = true; v.classList.add('on'); still.classList.add('off');
-    };
-    v.addEventListener('timeupdate', () => { if (v.currentTime > 0.2) show(); });
+    let shown = false;
+    const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); };
+    v.addEventListener('timeupdate', () => { if (v.currentTime > 0.15) show(); });
     v.addEventListener('error', () => { v.remove(); still.classList.remove('off'); });
     const tryPlay = () => v.play().catch(() => {});
     tryPlay(); document.addEventListener('pointerdown', tryPlay, { once: true }); document.addEventListener('visibilitychange', () => { if (!document.hidden) tryPlay(); });

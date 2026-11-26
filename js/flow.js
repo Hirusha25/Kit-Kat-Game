@@ -173,7 +173,7 @@
   }
   function beginCalibration() {
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
-    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Hold the KitKat mug up, logo facing the camera.';
+    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 1.5 m from the screen and hold the mug up, logo facing the camera.';
   }
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
 

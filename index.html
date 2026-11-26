@@ -20,7 +20,6 @@
   .scene-video { object-fit: fill; opacity: 0; transition: opacity .8s ease; }
   .scene-video.on { opacity: 1; }
   #scene-still.off { opacity: 0; transition: opacity .8s ease; }
-  .ready { position: absolute; left: 80px; top: 786px; margin: 0; font: 700 38px/1.3 var(--font-body); color: #fff; text-shadow: 0 2px 6px rgba(60,0,0,.35); white-space: nowrap; z-index: 1; pointer-events: none; }
   .title { animation: breathe 5s ease-in-out infinite; transform-origin: 36% 30%; will-change: transform; }
   @keyframes breathe { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.025) rotate(-.6deg); } }
   #amb-back, #amb-front { position: absolute; inset: 0; }
@@ -30,12 +29,12 @@
   /* START: the supplied gold button artwork, floating, with a shine that is clipped to the button shape */
   .start {
     position: absolute; left: 94px; top: 1585px; width: 866px; height: 297px; border: 0; padding: 0; cursor: pointer;
-    background: url(assets/img/cover/start-button.webp) center / 100% 100% no-repeat; background-color: transparent;
+    background: url(assets/img/cover/start-button.webp?v=3) center / 100% 100% no-repeat; background-color: transparent;
     animation: float 3.4s ease-in-out infinite; will-change: transform; -webkit-tap-highlight-color: transparent;
   }
   .start::before {
     content: ""; position: absolute; inset: 0; pointer-events: none;
-    -webkit-mask: url(assets/img/cover/start-button.webp) center / 100% 100% no-repeat; mask: url(assets/img/cover/start-button.webp) center / 100% 100% no-repeat;
+    -webkit-mask: url(assets/img/cover/start-button.webp?v=3) center / 100% 100% no-repeat; mask: url(assets/img/cover/start-button.webp?v=3) center / 100% 100% no-repeat;
     background: linear-gradient(105deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.85) 50%, rgba(255,255,255,0) 58%);
     background-size: 260% 100%; background-position: 130% 0;
     animation: sweep 3.4s ease-in-out infinite;
@@ -56,12 +55,11 @@
 <body class="no-sparks">
 <div class="viewport">
   <main class="stage" id="stage">
-    <img class="layer" src="assets/img/cover/bg-red-ribbon.webp" alt="" fetchpriority="high">
-    <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp" alt="KitKat Chocolate Drink">
-    <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-tagline.webp" alt="Dunk the Break">
-    <p class="ready enter" style="animation-delay:.25s">Ready for a chocolate</p>
+    <img class="layer" src="assets/img/cover/bg-red-ribbon.webp?v=3" alt="" fetchpriority="high">
+    <img class="layer enter" style="animation-delay:.05s" src="assets/img/cover/logo.webp?v=3" alt="KitKat Chocolate Drink">
+    <img class="layer title enter" style="animation-delay:.2s" src="assets/img/cover/title-break-v2.webp" alt="Dunk the Break">
     <div id="amb-back" class="layer"></div>
-    <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp" alt="">
+    <img class="layer scene enter" id="scene-still" style="animation-delay:.1s" src="assets/img/cover/mug-wafers-wave.webp?v=3" alt="">
     <video class="layer scene-video" id="scene-video" muted loop playsinline autoplay preload="auto" poster="assets/video/cover-mug-poster.webp">
       <source src="assets/video/cover-mug-loop.webm" type="video/webm">
     </video>

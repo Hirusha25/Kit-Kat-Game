@@ -180,12 +180,31 @@
   // ---------- countdown ----------
   function startCountdown() {
     phase = 'countdown'; show('count');
-    const el = $('count-num'); let n = 3;
-    const step = () => {
-      if (n === 0) { el.textContent = 'GO!'; el.style.fontSize = '300px'; KKAudio.go(); setTimeout(() => { hideAll(); startPlay(); }, 600); return; }
-      el.style.fontSize = ''; el.textContent = String(n); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; KKAudio.tick(); n--; setTimeout(step, 900);
+    const el = $('count-num'), arc = $('cd-arc'), dot = $('cd-dot'), ticks = $('cd-ticks');
+    if (!ticks.childElementCount) {
+      let t = '';
+      for (let i = 0; i < 72; i++) { const a = i / 72 * Math.PI * 2, long = i % 6 === 0; const r1 = 318, r2 = long ? 342 : 332; t += `<line x1="${350 + Math.cos(a) * r1}" y1="${350 + Math.sin(a) * r1}" x2="${350 + Math.cos(a) * r2}" y2="${350 + Math.sin(a) * r2}"/>`; }
+      ticks.innerHTML = t;
+    }
+    const C = 2 * Math.PI * 290; arc.style.strokeDasharray = C + ' ' + C;
+    const STEP = 1000; let n = 3, t0 = performance.now(), raf = 0;
+    const setNum = txt => { el.querySelectorAll('span').forEach(sp => { sp.textContent = txt; }); el.classList.toggle('go', txt === 'GO!'); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; };
+    setNum('3'); KKAudio.tick();
+    const frame = now => {
+      const k = Math.min(1, (now - t0) / STEP);           // arc empties clockwise over the second
+      const remain = 1 - k;
+      arc.style.strokeDashoffset = String(C * (1 - remain));
+      const a = -Math.PI / 2 + remain * Math.PI * 2;      // leading tip of the arc
+      dot.setAttribute('cx', (350 + Math.cos(a) * 290).toFixed(1)); dot.setAttribute('cy', (350 + Math.sin(a) * 290).toFixed(1));
+      if (k >= 1) {
+        n--; t0 = now;
+        if (n > 0) { setNum(String(n)); KKAudio.tick(); }
+        else if (n === 0) { setNum('GO!'); KKAudio.go(); arc.style.strokeDashoffset = '0'; }
+        else { cancelAnimationFrame(raf); hideAll(); startPlay(); return; }
+      }
+      raf = requestAnimationFrame(frame);
     };
-    step();
+    raf = requestAnimationFrame(frame);
   }
 
   // ---------- game ----------

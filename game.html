@@ -138,8 +138,16 @@
   .prize .t code { display: inline-block; margin-top: 10px; padding: 8px 18px; border-radius: 12px; background: #3a1a06; color: #ffe9a8; font: 800 34px/1 var(--font-display); letter-spacing: .12em; }
   .prize.none { background: rgba(255,250,235,.92); }
   .prize.none .ic { background: #8c5a2e; }
-  .count { font-weight: 900; font-style: italic; font-size: 420px; line-height: 1; background: linear-gradient(180deg, #fff 0%, #ffe9b8 50%, #e9b84f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 10px 0 #a0742a) drop-shadow(0 24px 40px rgba(0,0,0,.55)); animation: pop .9s ease-out both; }
-  @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 30% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+
+  /* countdown: gold ring with ticks and a sweeping arc, numeral in cream-gold with a burnt-gold bevel */
+  .cd { position: relative; width: 700px; height: 700px; display: grid; place-items: center; }
+  .cd-ring { position: absolute; inset: 0; width: 700px; height: 700px; overflow: visible; }
+  .count { position: relative; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: normal; font-size: 400px; line-height: 1; letter-spacing: -.02em; filter: drop-shadow(0 18px 30px rgba(60,0,0,.55)); animation: cdPop .8s cubic-bezier(.2,1.5,.4,1) both; }
+  .count .face { position: relative; z-index: 2; background: linear-gradient(180deg, #fffbf5 0%, #fdf1d9 35%, #fce9bf 60%, #fbdca0 85%, #f9cf7e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+  .count .bev { position: absolute; left: 0; top: 0; z-index: 1; color: #d2730d;
+    text-shadow: -1px 1px 0 #f59236, -2px 2px 0 #ee8a2a, -3px 3px 0 #e8821f, -4px 4px 0 #e27b16, -5px 5px 0 #dc750f, -6px 6px 0 #d66f09, -7px 7px 0 #d06a05, -8px 8px 0 #cc6702, -9px 9px 0 #c66302, -10px 10px 0 #bf5e01, -11px 11px 0 #b85a00, -12px 12px 0 #b05500; }
+  .count.go { font-size: 250px; letter-spacing: 0; }
+  @keyframes cdPop { 0% { transform: scale(.4); opacity: 0; } 55% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 
   /* result */
   .score-big { font-weight: 900; font-style: italic; font-size: 300px; line-height: 1; margin-top: -10px; background: linear-gradient(180deg, #fff 0%, #ffe9b8 50%, #e9b84f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 8px 0 #a0742a) drop-shadow(0 20px 36px rgba(0,0,0,.55)); }
@@ -235,7 +243,22 @@
     </section>
 
     <!-- Countdown -->
-    <section class="ov" id="ov-count" style="background:rgba(40,0,4,.35)"><div class="count" id="count-num">3</div></section>
+    <section class="ov" id="ov-count" style="background:rgba(40,0,4,.35)">
+      <div class="cd">
+        <svg class="cd-ring" viewBox="0 0 700 700" aria-hidden="true">
+          <defs>
+            <linearGradient id="cdGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd25a"/><stop offset=".5" stop-color="#fabf24"/><stop offset="1" stop-color="#ec8d0e"/></linearGradient>
+            <filter id="cdGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="cdDot" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g id="cd-ticks" stroke="rgba(255,205,120,.45)" stroke-width="2.5" stroke-linecap="round"></g>
+          <circle cx="350" cy="350" r="290" fill="none" stroke="rgba(255,170,60,.22)" stroke-width="16"/>
+          <circle id="cd-arc" cx="350" cy="350" r="290" fill="none" stroke="url(#cdGold)" stroke-width="16" stroke-linecap="round" transform="rotate(-90 350 350)" filter="url(#cdGlow)"/>
+          <circle id="cd-dot" cx="350" cy="60" r="11" fill="#fff8e6" filter="url(#cdDot)"/>
+        </svg>
+        <div class="count" id="count-num"><span class="bev">3</span><span class="face">3</span></div>
+      </div>
+    </section>
 
     <!-- Lost tracking -->
     <section class="ov dim" id="ov-lost"><h1>Show The Mug</h1><p>Hold the KitKat mug up to the camera to continue.</p></section>

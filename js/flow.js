@@ -51,7 +51,7 @@
 
   // ---------- overlays & toast ----------
   const ov = { cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
-  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal'); }
+  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal' || name === 'end'); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 
@@ -65,7 +65,7 @@
   }
   function countUp(el, to, ms) {
     const t0 = performance.now(); const from = 0;
-    const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); el.textContent = String(Math.round(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
+    const bev = $('end-score-bev'); const step = now => { const k = Math.min(1, (now - t0) / ms); const e = 1 - Math.pow(1 - k, 3); const v = String(Math.round(from + (to - from) * e)); el.textContent = v; if (bev) bev.textContent = v; if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
   function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return '00:' + String(s).padStart(2, '0'); }
@@ -252,18 +252,18 @@
     phase = 'ended'; endResult = result; KKAudio.end();
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
-    $('end-score').textContent = '0';
+    $('end-score').textContent = '0'; $('end-score-bev').textContent = '0';
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
     $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
     const pz = awardPrize(result); const pEl = $('prize');
-    pEl.classList.toggle('none', !pz.kind); $('prize-ic').innerHTML = prizeIcons[pz.kind || 'none'];
+    pEl.classList.toggle('none', !pz.kind); if (pz.kind) $('prize-pic').src = pz.kind === 'tee' ? 'assets/img/game/prize-tee.png' : 'assets/img/game/prize-cap.png';
     if (pz.kind) { $('prize-name').textContent = pz.kind === 'tee' ? 'You won a KitKat T-shirt!' : 'You won a KitKat Cap!'; $('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; $('prize-code').textContent = pz.code; $('prize-code').style.display = ''; }
     else { $('prize-name').textContent = pz.soldOut ? "Today's prizes are all gone" : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Great score. Come back tomorrow for another break.' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
     setTimeout(() => {
       show('end');
       countUp($('end-score'), result.score, 1400);
       if (endAmbient) endAmbient.stop();
-      endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, sparkles: 16, sparkleArea: { x0: 60, x1: 1020, y0: 300, y1: 1500 } });
+      endAmbient = KKAmbient.create({ stage: ov.end, zIndex: 0, sparkles: 14, sparkleArea: { x0: 120, x1: 960, y0: 470, y1: 800 } });
     }, 900);
     armIdle(true);
   }

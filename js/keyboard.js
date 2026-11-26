@@ -62,7 +62,7 @@
     if (!target) return;
     if (k === 'back') { setValue(target.value.slice(0, -1)); return; }
     if (k === 'shift') { shift = !shift; applyShift(); return; }
-    if (k === 'done') { hide(); target.dispatchEvent(new CustomEvent('kbd:done', { bubbles: true })); return; }
+    if (k === 'done') { const t = target; hide(); t.dispatchEvent(new CustomEvent('kbd:done', { bubbles: true })); return; }
     if (k === 'space') k = ' ';
     const max = parseInt(target.getAttribute('maxlength') || '0', 10);
     if (max && target.value.length >= max) return;

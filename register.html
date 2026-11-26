@@ -12,19 +12,19 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Great+Vibes&family=Jost:wght@300;400;500;600&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <style>
-  .content { padding-top: 96px; }
+  .content { padding-top: 140px; }
   .title-gold { font-size: 76px; }
   .title-script { font-size: 104px; margin-bottom: 36px; }
   body.kbd-open .content { transform: translateY(-120px); transition: transform .32s cubic-bezier(.22,1,.36,1); }
   .content { transition: transform .32s cubic-bezier(.22,1,.36,1); }
-  .back { position: absolute; top: 40px; left: 40px; z-index: 3; display: inline-flex; align-items: center; gap: 12px; padding: 14px 26px; border-radius: 999px; border: 2px solid var(--gold); color: var(--gold-light); font-size: 26px; background: rgba(0,0,0,.15); cursor: pointer; }
+  .back { text-decoration: none; position: absolute; top: 40px; left: 40px; z-index: 3; display: inline-flex; align-items: center; gap: 12px; padding: 14px 26px; border-radius: 999px; border: 2px solid var(--gold); color: var(--gold-light); font-size: 26px; background: rgba(0,0,0,.15); cursor: pointer; }
   .back svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 2.4; }
   .ok-title { font-family: var(--script); font-size: 110px; color: #fff; }
   .ok-sub { font-size: 34px; color: var(--gold-pale); margin-top: 10px; }
   .ok-note { font-size: 28px; color: var(--on-dark); max-width: 760px; margin: 0 auto 48px; line-height: 1.5; }
 </style>
 </head>
-<body>
+<body class="no-sparks">
 <div class="viewport">
   <main class="stage">
     <div class="bg">
@@ -69,7 +69,7 @@
       <p class="ok-sub fade-in" style="animation-delay:.3s">Your play code</p>
       <div class="code-box fade-in" id="code" style="animation-delay:.4s"></div>
       <p class="ok-note fade-in" style="animation-delay:.5s">Keep this code. Enter it on the kiosk to start your break. It stays valid for the next 30 minutes.</p>
-      <button class="btn-gold fade-in" id="play" type="button" style="animation-delay:.6s">Play now</button>
+      <div class="fade-in" style="animation-delay:.6s"><button class="btn-gold" id="play" type="button">Play now</button></div>
       <div class="pill fade-in" style="animation-delay:.75s; margin-top:56px; cursor:pointer" id="again">
         <span>Register another player</span>
       </div>

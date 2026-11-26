@@ -55,7 +55,7 @@ body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-se
   filter: drop-shadow(0 4px 10px rgba(60,10,0,.45));
 }
 .title-script { font-family: var(--script); font-weight: 400; font-size: 118px; line-height: 1; color: #fff; text-shadow: 0 4px 18px rgba(60,0,0,.5); margin-top: 8px; }
-.lead { font-size: 36px; line-height: 1.5; font-weight: 400; color: #fff; max-width: 860px; margin: 44px auto 0; }
+.lead { font-size: 36px; line-height: 1.5; font-weight: 400; color: #fff; max-width: 860px; margin: 36px auto 0; }
 .lead b { font-weight: 600; }
 .warm { font-size: 32px; color: var(--gold-pale); margin-top: 28px; }
 
@@ -92,10 +92,15 @@ body { font-family: var(--body); color: #fff; -webkit-user-select: none; user-se
 .pill .sep { width: 2px; height: 36px; background: var(--gold); opacity: .8; }
 .pill svg { width: 40px; height: 40px; stroke: var(--gold); fill: none; stroke-width: 2; }
 
+/* KitKat HOT COCOA lockup: oval + descriptor in heavy grotesque caps */
+.lockup { display: flex; flex-direction: column; align-items: center; gap: 2px; filter: drop-shadow(0 14px 30px rgba(0,0,0,.35)); }
+.lockup img { width: 400px; height: auto; }
+.lockup span { font-family: "Libre Franklin", "Franklin Gothic Heavy", "Arial Black", sans-serif; font-weight: 900; font-size: 46px; letter-spacing: .04em; text-transform: uppercase; color: #fff; line-height: 1; }
+
 /* Logos and footer */
 .logo-hotcocoa { width: 440px; height: auto; filter: drop-shadow(0 14px 30px rgba(0,0,0,.35)); }
-.footer { position: absolute; left: 0; right: 0; bottom: 48px; display: flex; flex-direction: column; align-items: center; gap: 18px; z-index: 2; }
-.footer img { height: 72px; width: auto; opacity: .95; }
+.footer { position: absolute; left: 0; right: 0; bottom: 40px; display: flex; flex-direction: column; align-items: center; gap: 18px; z-index: 2; }
+.footer img { height: 60px; width: auto; opacity: .95; }
 .legal { font-size: 20px; color: rgba(255,255,255,.78); letter-spacing: .02em; }
 
 /* Registration card */

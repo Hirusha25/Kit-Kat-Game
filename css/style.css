@@ -227,3 +227,30 @@ html.is-kiosk img { image-rendering: auto; }
 .res .res-prize .t b { text-shadow: 0 1px 0 #fff, 0 3px 0 #e2b9b0, 0 6px 10px rgba(120,0,10,.22); }
 .res .none-wrap > b, .res .tiers b { text-shadow: 0 1px 0 #fff, 0 3px 0 #e2b9b0, 0 6px 10px rgba(120,0,10,.22); }
 .status-row .mug, .cam-pick label { text-shadow: 0 1px 0 #fff; }
+
+/* ---- Thick gold gradient borders on all cards and pills ---- */
+.res .res-stats div, .res .res-prize, .status-row, .cam-pick, .notice { border-width: 6px !important; }
+.res .res-stats div { background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, var(--gold-line) border-box !important; }
+.res .res-prize { background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 50%, #fbe7b0 100%) padding-box, var(--gold-line) border-box !important; }
+.status-row, .cam-pick, .notice { background: linear-gradient(180deg, #fffaf0, #f8e4bd) padding-box, var(--gold-line) border-box !important; }
+.res .res-prize .t code { border: 4px solid transparent; background: linear-gradient(180deg, #a90c17 0%, #8a0610 100%) padding-box, var(--gold-line) border-box; }
+.hud .cell.rank { border: 4px solid transparent; background: linear-gradient(180deg, #fff6dc 0%, #f6dfa6 55%, #e9c56e 100%) padding-box, var(--gold-line) border-box !important; }
+.kbd .key { border-width: 4px; }
+
+/* richer gold ramp for card rims so the gradient reads against cream */
+:root { --gold-rim: linear-gradient(180deg, #f7dc92 0%, #d9a63a 28%, #f6e3a8 50%, #c6902a 72%, #9e6c18 100%); }
+.res .res-stats div { background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, var(--gold-rim) border-box !important; box-shadow: inset 0 0 0 1px rgba(150,100,20,.35), inset 0 3px 0 rgba(255,255,255,.95), 0 7px 0 #a8781f, 0 9px 0 rgba(120,60,10,.55), 0 22px 34px rgba(50,0,0,.42) !important; }
+.res .res-prize { background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 50%, #fbe7b0 100%) padding-box, var(--gold-rim) border-box !important; box-shadow: inset 0 0 0 1px rgba(150,100,20,.35), inset 0 3px 0 rgba(255,255,255,.95), 0 7px 0 #a8781f, 0 9px 0 rgba(120,60,10,.55), 0 22px 34px rgba(50,0,0,.42) !important; }
+.status-row, .cam-pick, .notice { background: linear-gradient(180deg, #fffaf0, #f8e4bd) padding-box, var(--gold-rim) border-box !important; box-shadow: inset 0 0 0 1px rgba(150,100,20,.35), inset 0 3px 0 rgba(255,255,255,.95), 0 7px 0 #a8781f, 0 9px 0 rgba(120,60,10,.55), 0 22px 34px rgba(50,0,0,.42) !important; }
+.res .res-prize .t code { background: linear-gradient(180deg, #a90c17 0%, #8a0610 100%) padding-box, var(--gold-rim) border-box; }
+.hud .cell.rank { background: linear-gradient(180deg, #fff6dc 0%, #f6dfa6 55%, #e9c56e 100%) padding-box, var(--gold-rim) border-box !important; }
+.field input, .otp span { background-image: linear-gradient(180deg, #fffaf0 0%, #fdf1d8 40%, #f8e4bd 100%), var(--gold-rim) !important; background-origin: padding-box, border-box !important; background-clip: padding-box, border-box !important; }
+.field input.filled { background-image: linear-gradient(180deg, #fffdf6 0%, #fff4dc 40%, #ffe9c2 100%), var(--gold-rim) !important; }
+.kbd .key { background-image: linear-gradient(180deg, #fffaf0 0%, #fdf1d8 45%, #f6e2b8 100%), var(--gold-rim) !important; background-origin: padding-box, border-box !important; background-clip: padding-box, border-box !important; }
+.kbd .key.done { background-image: var(--gold-grad), var(--gold-rim) !important; }
+
+/* black depth on red headline text inside cards */
+.res .res-prize .t b, .res .none-wrap > b, .res .tiers b, .res .res-stats b {
+  text-shadow: 0 1px 0 #7a0a14, 0 2px 0 #5c0810, 0 3px 0 #44060c, 0 4px 0 #2e0408, 0 5px 0 #1c0205, 0 9px 12px rgba(0,0,0,.35) !important;
+}
+.res .none-wrap > span { text-shadow: 0 1px 0 #7a0a14, 0 2px 0 #44060c, 0 5px 8px rgba(0,0,0,.3); }

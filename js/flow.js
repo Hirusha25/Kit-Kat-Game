@@ -218,13 +218,13 @@
     // warm glow behind the whole number
     ctx.save(); ctx.shadowColor = 'rgba(255,180,60,.5)'; ctx.shadowBlur = 90; ctx.fillStyle = 'rgba(255,190,80,.35)'; ctx.fillText(text, cx + dx * depth * .5, baseY + dy * depth * .5); ctx.restore();
     // soft drop shadow
-    ctx.save(); ctx.shadowColor = 'rgba(40,0,0,.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 30; ctx.fillStyle = '#7a3a00'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
+    ctx.save(); ctx.shadowColor = 'rgba(40,0,0,.6)'; ctx.shadowBlur = 44; ctx.shadowOffsetY = 34; ctx.shadowOffsetX = -10; ctx.fillStyle = '#7a3a00'; ctx.fillText(text, cx + dx * depth, baseY + dy * depth); ctx.restore();
     // far-edge glint (bright rim visible beyond the extrusion)
     for (let i = depth + 3; i > depth; i--) { ctx.fillStyle = i === depth + 3 ? '#ffe9a6' : '#fff3c8'; ctx.fillText(text, cx + dx * i, baseY + dy * i); }
     // extrusion: saturated amber, darker away from the face, warm highlight just behind the face
     for (let i = depth; i >= 1; i--) {
       const t = i / depth; // 1 = far
-      const r = Math.round(0xf0 - (0xf0 - 0xb8) * t), g = Math.round(0xa8 - (0xa8 - 0x6e) * t), b = Math.round(0x2a - (0x2a - 0x0c) * t);
+      const r = Math.round(0xf4 - (0xf4 - 0xc2) * t), g = Math.round(0xb0 - (0xb0 - 0x78) * t), b = Math.round(0x2e - (0x2e - 0x10) * t);
       ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillText(text, cx + dx * i, baseY + dy * i);
     }
     // thin dark seam where the side meets the face
@@ -232,7 +232,7 @@
     // face: vertical gold gradient
     const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent;
     const g1 = ctx.createLinearGradient(0, top, 0, bot);
-    g1.addColorStop(0, '#fffdf4'); g1.addColorStop(.18, '#fff4cf'); g1.addColorStop(.42, '#ffe28c'); g1.addColorStop(.68, '#f8c94a'); g1.addColorStop(.88, '#eeb033'); g1.addColorStop(1, '#e6a428');
+    g1.addColorStop(0, '#fff9e6'); g1.addColorStop(.14, '#ffefbf'); g1.addColorStop(.36, '#ffdc78'); g1.addColorStop(.6, '#fbc63e'); g1.addColorStop(.82, '#f1b02c'); g1.addColorStop(1, '#e9a324');
     ctx.fillStyle = g1; ctx.fillText(text, cx, baseY);
     // sharp highlight band across the upper face
     ctx.save(); ctx.globalCompositeOperation = 'source-atop';

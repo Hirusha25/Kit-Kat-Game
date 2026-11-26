@@ -180,30 +180,23 @@
   // ---------- countdown ----------
   function startCountdown() {
     phase = 'countdown'; show('count');
-    const el = $('count-num'), arc = $('cd-arc'), dot = $('cd-dot'), halo = $('cd-halo'), trail = $('cd-trail'), ticks = $('cd-ticks');
+    const el = $('count-num'), cd = el.parentElement, ticks = $('cd-ticks');
     if (!ticks.childElementCount) {
       let t = '';
       for (let i = 0; i < 72; i++) { const a = i / 72 * Math.PI * 2, long = i % 6 === 0; const r1 = 318, r2 = long ? 342 : 332; t += `<line x1="${350 + Math.cos(a) * r1}" y1="${350 + Math.sin(a) * r1}" x2="${350 + Math.cos(a) * r2}" y2="${350 + Math.sin(a) * r2}"/>`; }
       ticks.innerHTML = t;
     }
-    const C = 2 * Math.PI * 290; arc.style.strokeDasharray = C + ' ' + C;
-    const TRAIL = 64; trail.style.strokeDasharray = TRAIL + ' ' + C; // short bright segment just behind the tip
     const STEP = 1000; let n = 3, t0 = performance.now(), raf = 0;
     const setNum = txt => { el.querySelectorAll('span').forEach(sp => { sp.textContent = txt; }); el.classList.toggle('go', txt === 'GO!'); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; };
     setNum('3'); KKAudio.tick();
     const frame = now => {
-      const k = Math.min(1, (now - t0) / STEP);           // arc empties clockwise over the second
-      const remain = 1 - k;
-      arc.style.strokeDashoffset = String(C * (1 - remain));
-      const a = -Math.PI / 2 + remain * Math.PI * 2;      // leading tip of the arc
-      const px = (350 + Math.cos(a) * 290).toFixed(1), py = (350 + Math.sin(a) * 290).toFixed(1);
-      dot.setAttribute('cx', px); dot.setAttribute('cy', py); halo.setAttribute('cx', px); halo.setAttribute('cy', py);
-      const pulse = 1 + 0.12 * Math.sin(now / 90); halo.setAttribute('r', (84 * pulse).toFixed(1));
-      trail.style.strokeDashoffset = String(-(C * remain - TRAIL)); // trail ends at the tip
+      const k = Math.min(1, (now - t0) / STEP);
+      const remain = 1 - k;                                  // the ring empties clockwise over each second
+      cd.style.setProperty('--sweep', (remain * 360).toFixed(2) + 'deg');
       if (k >= 1) {
         n--; t0 = now;
         if (n > 0) { setNum(String(n)); KKAudio.tick(); }
-        else if (n === 0) { setNum('GO!'); KKAudio.go(); arc.style.strokeDashoffset = '0'; }
+        else if (n === 0) { setNum('GO!'); KKAudio.go(); cd.style.setProperty('--sweep', '360deg'); }
         else { cancelAnimationFrame(raf); hideAll(); startPlay(); return; }
       }
       raf = requestAnimationFrame(frame);

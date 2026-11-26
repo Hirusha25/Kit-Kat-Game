@@ -139,13 +139,21 @@
   .prize.none { background: rgba(255,250,235,.92); }
   .prize.none .ic { background: #8c5a2e; }
 
-  /* countdown: gold ring with ticks and a sweeping arc, numeral in cream-gold with a burnt-gold bevel */
-  .cd { position: relative; width: 700px; height: 700px; display: grid; place-items: center; }
-  .cd-ring { position: absolute; inset: 0; width: 700px; height: 700px; overflow: visible; }
-  .count { position: relative; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: normal; font-size: 400px; line-height: 1; letter-spacing: -.02em; filter: drop-shadow(0 18px 30px rgba(60,0,0,.55)); animation: cdPop .8s cubic-bezier(.2,1.5,.4,1) both; }
-  .count .face { position: relative; z-index: 2; background: linear-gradient(180deg, #fffbf5 0%, #fdf1d9 35%, #fce9bf 60%, #fbdca0 85%, #f9cf7e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
-  .count .bev { position: absolute; left: 0; top: 0; z-index: 1; color: #d2730d;
-    text-shadow: -1px 1px 0 #f59236, -2px 2px 0 #ee8a2a, -3px 3px 0 #e8821f, -4px 4px 0 #e27b16, -5px 5px 0 #dc750f, -6px 6px 0 #d66f09, -7px 7px 0 #d06a05, -8px 8px 0 #cc6702, -9px 9px 0 #c66302, -10px 10px 0 #bf5e01, -11px 11px 0 #b85a00, -12px 12px 0 #b05500; }
+  /* countdown: thick glossy gold ring, sunburst, bevelled cream numeral (matched to the supplied reference) */
+  .cd { position: relative; width: 700px; height: 700px; display: grid; place-items: center; --sweep: 360deg; --r: 284px; }
+  .cd > * { position: absolute; }
+  .cd-rays { inset: 60px; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(255,120,110,.18) 0deg 1.2deg, rgba(255,120,110,0) 1.2deg 6deg); -webkit-mask: radial-gradient(circle, #000 0, rgba(0,0,0,.9) 55%, transparent 100%); mask: radial-gradient(circle, #000 0, rgba(0,0,0,.9) 55%, transparent 100%); }
+  .cd-ticks-svg { inset: 0; width: 700px; height: 700px; overflow: visible; }
+  .cd-track, .cd-arc { inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent calc(var(--r) - 15px), #000 calc(var(--r) - 13px), #000 calc(var(--r) + 13px), transparent calc(var(--r) + 15px)); mask: radial-gradient(circle, transparent calc(var(--r) - 15px), #000 calc(var(--r) - 13px), #000 calc(var(--r) + 13px), transparent calc(var(--r) + 15px)); }
+  .cd-track { background: rgba(255,160,60,.14); }
+  .cd-arc { background: conic-gradient(from 0deg, rgba(255,190,90,0) 0deg, rgba(255,175,70,.45) calc(var(--sweep) * .28), #f0a224 calc(var(--sweep) * .55), #ffcf4a calc(var(--sweep) * .8), #ffe68a calc(var(--sweep) * .97), #fff6cf var(--sweep), transparent var(--sweep)); filter: drop-shadow(0 0 10px rgba(255,180,60,.6)); }
+  .cd-tip { left: 50%; top: 50%; width: 0; height: 0; transform: rotate(var(--sweep)) translateY(calc(var(--r) * -1)); }
+  .cd-tip i { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle, #fffdf3 0 28%, #ffe79a 45%, rgba(255,170,60,.6) 62%, rgba(255,140,30,0) 100%); box-shadow: 0 0 26px 10px rgba(255,190,80,.75), 0 0 70px 30px rgba(255,130,30,.35); animation: tipPulse .5s ease-in-out infinite alternate; }
+  @keyframes tipPulse { from { transform: scale(1); } to { transform: scale(1.18); } }
+  .count { position: relative; font-family: "Poppins", var(--font-display); font-weight: 800; font-style: normal; font-size: 420px; line-height: 1; letter-spacing: -.02em; filter: drop-shadow(0 22px 34px rgba(60,0,0,.5)); animation: cdPop .8s cubic-bezier(.2,1.5,.4,1) both; }
+  .count .face { position: relative; z-index: 2; background: linear-gradient(180deg, #fffdf8 0%, #fff3dc 30%, #fde8c2 55%, #f9d99a 80%, #f3c870 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+  .count .bev { position: absolute; left: 0; top: 0; z-index: 1; color: #f2b23e;
+    text-shadow: -1px 1px 0 #f5be4c, -2px 2px 0 #f0b23c, -3px 3px 0 #eba82f, -4px 4px 0 #e69e24, -5px 5px 0 #e1951b, -6px 6px 0 #dc8c14, -7px 7px 0 #d7840e, -8px 8px 0 #d27c0a, -9px 9px 0 #cd7507, -10px 10px 0 #c86e05, -11px 11px 0 #c36803, -12px 12px 0 #bd6202, -13px 13px 0 #b75c01, -14px 14px 0 #b05600, -15px 15px 0 #a95100, -16px 16px 0 #a24c00; }
   .count.go { font-size: 250px; letter-spacing: 0; }
   @keyframes cdPop { 0% { transform: scale(.4); opacity: 0; } 55% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 
@@ -245,20 +253,11 @@
     <!-- Countdown -->
     <section class="ov" id="ov-count" style="background:rgba(40,0,4,.35)">
       <div class="cd">
-        <svg class="cd-ring" viewBox="0 0 700 700" aria-hidden="true">
-          <defs>
-            <linearGradient id="cdGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd25a"/><stop offset=".5" stop-color="#fabf24"/><stop offset="1" stop-color="#ec8d0e"/></linearGradient>
-            <filter id="cdGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            <filter id="cdDot" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <g id="cd-ticks" stroke="rgba(255,205,120,.45)" stroke-width="2.5" stroke-linecap="round"></g>
-          <circle cx="350" cy="350" r="290" fill="none" stroke="rgba(255,170,60,.22)" stroke-width="16"/>
-          <circle id="cd-arc" cx="350" cy="350" r="290" fill="none" stroke="url(#cdGold)" stroke-width="16" stroke-linecap="round" transform="rotate(-90 350 350)" filter="url(#cdGlow)"/>
-          <radialGradient id="cdHalo"><stop offset="0" stop-color="#fff6d6" stop-opacity="1"/><stop offset=".25" stop-color="#ffcf5a" stop-opacity=".95"/><stop offset=".55" stop-color="#ff8a1e" stop-opacity=".55"/><stop offset="1" stop-color="#ff6a00" stop-opacity="0"/></radialGradient>
-          <circle id="cd-trail" cx="350" cy="350" r="290" fill="none" stroke="#fff1c4" stroke-width="16" stroke-linecap="round" transform="rotate(-90 350 350)" opacity=".9" filter="url(#cdGlow)"/>
-          <circle id="cd-halo" cx="350" cy="60" r="70" fill="url(#cdHalo)"/>
-          <circle id="cd-dot" cx="350" cy="60" r="12" fill="#fffdf5" filter="url(#cdDot)"/>
-        </svg>
+        <div class="cd-rays"></div>
+        <svg class="cd-ticks-svg" viewBox="0 0 700 700" aria-hidden="true"><g id="cd-ticks" stroke="rgba(255,205,120,.5)" stroke-width="2.5" stroke-linecap="round"></g></svg>
+        <div class="cd-track"></div>
+        <div class="cd-arc" id="cd-arc"></div>
+        <div class="cd-tip" id="cd-tip"><i></i></div>
         <div class="count" id="count-num"><span class="bev">3</span><span class="face">3</span></div>
       </div>
     </section>

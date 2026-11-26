@@ -3,7 +3,8 @@
 (function () {
   const $ = id => document.getElementById(id);
   const stageW = 1080;
-  const DURATION = 45;
+  const qs = new URLSearchParams(location.search);
+  const DURATION = Math.max(5, Math.min(120, parseInt(qs.get('duration') || '45', 10) || 45));
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
@@ -71,21 +72,22 @@
 
   // ---------- calibration ----------
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
-  let calStable = 0, calDone = false, calibrated = false, calTimer = null;
+  let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 };
   function calTick(s) {
     tracker.debugDraw(calCtx, calCv.width, calCv.height);
     $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug detected' : 'Looking for mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
-    const inBox = s.found && Math.abs(s.x - 0.5) < 0.22 && Math.abs(s.y - 0.5) < 0.3;
-    calStable = inBox ? Math.min(1, calStable + 1 / 45) : Math.max(0, calStable - 1 / 20);
+    calStable = s.found ? Math.min(1, calStable + 1 / 40) : Math.max(0, calStable - 1 / 30);
+    if (s.found) calSpot = { x: s.x, y: s.y };
     $('cal-ring').style.setProperty('--p', Math.round(calStable * 100) + '%');
     if (calStable >= 1 && !calDone) { calDone = true; finishCalibration(); }
   }
   async function finishCalibration() {
     $('cal-msg').textContent = 'Hold still…';
-    try { const r = await tracker.calibrate({ x: 0.33, y: 0.2, w: 0.34, h: 0.6 }); calibrated = !!(r && r.ok); } catch (_) {}
+    const roi = { x: Math.max(0, calSpot.x - 0.2), y: Math.max(0, calSpot.y - 0.3), w: 0.4, h: 0.6 };
+    try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) {}
     KKAudio.detected();
     $('cal-msg').textContent = calibrated ? 'Locked on. Get ready!' : 'Ready!';
     setTimeout(startCountdown, 700);
@@ -192,7 +194,7 @@
 
   // ---------- boot ----------
   async function boot() {
-    KKAudio.setMuted(!settings.sound); setPip(settings.pip);
+    KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     await loadSprites();
     beginCalibration();
@@ -202,5 +204,6 @@
       $('cal-msg').textContent = msg; $('cal-skip').style.display = 'block';
     }
   }
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get result() { return endResult; } };
   boot();
 })();

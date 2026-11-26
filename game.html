@@ -27,8 +27,8 @@
     background: repeating-conic-gradient(from 0deg at 50% 60%, rgba(255,170,90,.0) 0deg, rgba(255,170,90,.0) 9deg, rgba(255,170,90,.10) 10deg, rgba(255,170,90,.0) 12deg);
     -webkit-mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); }
 
-  .logo-top { position: absolute; left: 50%; top: 10px; width: 250px; transform: translateX(-50%); pointer-events: none; }
-  .title-top { position: absolute; left: 50%; top: 150px; width: 300px; transform: translateX(-50%); pointer-events: none; filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
+  .logo-top { position: absolute; left: 50%; top: 6px; width: 190px; transform: translateX(-50%); pointer-events: none; z-index: 2; }
+  .title-top { position: absolute; left: 50%; top: 134px; width: 215px; transform: translateX(-50%); pointer-events: none; z-index: 2; filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
   .wave { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: auto; pointer-events: none; }
 
   /* HUD pill */
@@ -152,7 +152,7 @@
     <!-- Calibration: show your mug -->
     <section class="ov dim" id="ov-cal">
       <h1>Show your mug</h1>
-      <p id="cal-msg">Hold the KitKat mug inside the box, logo facing the camera.</p>
+      <p id="cal-msg">Hold the KitKat mug up, logo facing the camera.</p>
       <div class="cam-card"><canvas id="cal-cv" width="880" height="560"></canvas><div class="guide" id="cal-guide"></div><div class="ring" id="cal-ring"></div></div>
       <div class="status-row">
         <div class="mug"><i class="dot" id="cal-dot"></i><span id="cal-st">Looking for mug</span></div>
@@ -163,7 +163,7 @@
     </section>
 
     <!-- Countdown -->
-    <section class="ov" id="ov-count"><div class="count" id="count-num">3</div></section>
+    <section class="ov" id="ov-count" style="background:rgba(40,0,4,.35)"><div class="count" id="count-num">3</div></section>
 
     <!-- Lost tracking -->
     <section class="ov dim" id="ov-lost"><h1>Show the mug</h1><p>Hold the KitKat mug up to the camera to continue.</p></section>

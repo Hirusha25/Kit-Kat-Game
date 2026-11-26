@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MugTracker harness</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 14px/1.4 monospace; }
+  canvas { display: block; width: 640px; height: 360px; background: #000; }
+  pre { margin: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<canvas id="dbg" width="640" height="360"></canvas>
+<pre id="out">starting...</pre>
+<script src="../../js/tracker.js"></script>
+<script>
+  // Test harness used by tests/tracker/e2e.js (and handy for manual checks with a real camera):
+  //   harness.html?worker=0|1&w=160&h=90&mirror=0|1&draw=0|1
+  // Every processed frame's state is pushed to window.__track; window.__status is 'running' once
+  // the camera is up or {error} when start() failed. window.__tracker is the tracker instance.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var num = function (k, d) { var v = parseFloat(q.get(k)); return isFinite(v) ? v : d; };
+    var video = document.createElement('video');
+    var canvas = document.getElementById('dbg'), ctx = canvas.getContext('2d');
+    var out = document.getElementById('out');
+    var tracker = MugTracker.create({
+      video: video, width: num('w', 160), height: num('h', 90),
+      mirror: q.get('mirror') !== '0', useWorker: q.get('worker') !== '0', smoothing: num('smoothing', 0.35)
+    });
+    window.__track = [];
+    window.__tracker = tracker;
+    window.__status = 'starting';
+    var draw = q.get('draw') !== '0', last = null;
+    tracker.onUpdate = function (s) { window.__track.push(s); last = s; };
+    function paint() {
+      if (draw) tracker.debugDraw(ctx, canvas.width, canvas.height);
+      if (last) out.textContent = JSON.stringify({ found: last.found, x: +last.x.toFixed(3), y: +last.y.toFixed(3), conf: +last.confidence.toFixed(2),
+        fps: Math.round(last.fps), opts: tracker.getOptions() });
+      requestAnimationFrame(paint);
+    }
+    tracker.start({ facingMode: 'user' }).then(function () {
+      window.__status = 'running';
+      paint();
+    }, function (err) {
+      window.__status = { error: err && err.code ? { code: err.code, message: err.message } : String(err) };
+      out.textContent = 'start failed: ' + JSON.stringify(window.__status.error);
+    });
+  })();
+</script>
+</body>
+</html>

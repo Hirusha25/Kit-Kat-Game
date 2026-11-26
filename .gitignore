@@ -3,3 +3,6 @@ Thumbs.db
 node_modules/
 *.log
 .env
+tests/tracker/fake-mug.y4m
+tests/tracker/fake-mug.json
+tests/e2e/out/

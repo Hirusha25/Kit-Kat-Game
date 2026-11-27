@@ -216,15 +216,15 @@ test('round ends exactly at the duration with a single onEnd', () => {
   assert.strictEqual(perfect.endResult.dodged, perfect.state.dodged);
 });
 
-test('perfect player score is within the expected band (40-seed sweep on normal: 40..66, median 54)', () => {
+test('perfect player score is within the expected band (harder tuning: faster ramp, mixed from 1.5 s)', () => {
   const s = perfect.state;
   const spawned = spawnsOf(perfect);
   const good = spawned.filter(e => isGood(e.kind)).length;
   console.log(`       score=${s.score} caught=${s.caught} gold=${s.gold} missed=${s.missed} hits=${s.hits} dodged=${s.dodged} best=${s.bestStreak} spawned=${spawned.length} (good ${good}, hazards ${spawned.length - good})`);
-  assert.ok(s.score >= 38 && s.score <= 70, 'score ' + s.score);
+  assert.ok(s.score >= 55 && s.score <= 100, 'score ' + s.score);
   assert.ok(s.caught >= 0.8 * (good - 3), 'caught most wafers: ' + s.caught + '/' + good);
   assert.ok(s.missed <= 6, 'misses ' + s.missed);
-  assert.ok(s.hits <= 8, 'hits ' + s.hits);   // 40-seed sweep: 1..7 with the simple dodge heuristic
+  assert.ok(s.hits <= 12, 'hits ' + s.hits);  // hazards now aim at the mug's lane; the simple dodge heuristic takes more
   assert.ok(s.caught + s.missed + s.hits + s.dodged <= spawned.length);
 });
 
@@ -353,7 +353,8 @@ test('gold catch scores +3 (seed with at least one gold catch)', () => {
   const g = r.events.find(e => e.type === 'catch' && e.kind === 'gold');
   const before = r.events.slice(0, r.events.indexOf(g)).reverse().find(e => e.type === 'catch' || e.type === 'streak' || e.type === 'hit');
   const prev = before ? before.score : 0;
-  assert.strictEqual(g.score, prev + T.GOLD_SCORE, `gold catch ${prev} -> ${g.score}`);
+  const gain = g.score - prev; // +3, or +3 plus the streak bonus when the gold completes a streak
+  assert.ok(gain === T.GOLD_SCORE || gain === T.GOLD_SCORE + T.STREAK_BONUS, `gold catch ${prev} -> ${g.score}`);
 });
 
 test('same seed reproduces the round; different seed differs; reducedEffects never changes gameplay', () => {

@@ -16,7 +16,7 @@ const CORE = ['./', './index.html', './register.html', './game.html', './manifes
   // Gameplay artwork: fetched while the player is still on the cover/register, so the game never has to wait for it.
   './assets/img/game/mug.png', './assets/img/game/mug-splash.png', './assets/img/game/wafer.png', './assets/img/game/wafer-gold.png',
   './assets/img/game/wafer-piece.png', './assets/img/game/splash-drop.png', './assets/img/game/sparkle.png', './assets/img/game/alarm.png',
-  './assets/img/game/deadline.png', './assets/img/game/phone.png', './assets/img/game/inbox.png', './assets/img/game/backdrop.webp', './assets/img/game/backdrop-4k.webp',
+  './assets/img/game/deadline.png', './assets/img/game/phone.png', './assets/img/game/inbox.png',
   './assets/img/game/header-dunk.png', './assets/img/game/prize-cap.png', './assets/img/game/prize-tee.png', './assets/img/game/wave-pre.webp'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting())); });

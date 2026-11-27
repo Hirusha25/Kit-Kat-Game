@@ -40,6 +40,8 @@
     // white mask
     whiteMin: 140,      // min(R,G,B) must exceed this
     whiteSpread: 70,    // max(R,G,B) - min(R,G,B) must be below this
+    whiteWarmMax: 22,   // R - G must be below this: ceramic white is neutral even under warm light, skin is not
+                        // (a reddish nose or lips on a bright face otherwise reads as "red on white")
     // component size, as a fraction of frame pixels
     minAreaFrac: 0.0004,   // ~6 px at 160x90, ~23 px at 320x180
     maxAreaFrac: 0.06,     // ~430 px at 160x90: a logo 30x14 px, i.e. the player at arm's length
@@ -128,7 +130,7 @@
     var area = b.area, minX = b.minX, minY = b.minY, maxX = b.maxX, maxY = b.maxY, integ = b.integ, integR = b.integR;
 
     var redMin = p.redMin, redDelta = p.redDelta, redRatio = p.redRatio;
-    var whiteMin = p.whiteMin, whiteSpread = p.whiteSpread;
+    var whiteMin = p.whiteMin, whiteSpread = p.whiteSpread, whiteWarm = p.whiteWarmMax;
 
     // ---- pass 1: masks, white integral image, provisional labels -------------------------------
     var next = 1;
@@ -140,7 +142,7 @@
         r = data[d]; g = data[d + 1]; bl = data[d + 2];
         mx = g > bl ? g : bl; mn = g < bl ? g : bl;
         lo = r < mn ? r : mn; hi = r > mx ? r : mx;
-        isW = (lo > whiteMin && (hi - lo) < whiteSpread) ? 1 : 0;
+        isW = (lo > whiteMin && (hi - lo) < whiteSpread && (r - g) < whiteWarm) ? 1 : 0;
         integ[ii + x] = isW + integ[ia + x] + integ[ii + x - 1] - integ[ia + x - 1];
 
         if (!(r > redMin && (r - mx) > redDelta && r > redRatio * mx)) {

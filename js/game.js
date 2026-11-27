@@ -82,9 +82,10 @@
     MUG_SHADOW_W: 440,      // shadow ellipse size at rest (px)
     MUG_SHADOW_H: 78,
     MUG_SHADOW_ALPHA: 0.9,
-    ITEM_SHADOW_DX: 14,     // falling-item drop shadow offset (px, down-left)
-    ITEM_SHADOW_DY: 18,
-    ITEM_SHADOW_ALPHA: 0.28,
+    ITEM_SHADOW_DX: 22,     // falling-item drop shadow offset (px, down-left)
+    ITEM_SHADOW_DY: 34,
+    ITEM_SHADOW_ALPHA: 0.42,
+    ITEM_SHADOW_BLUR: 7,    // px; soft edge so the shadow reads as depth, not a copy
     SPLASH_FRAME_SECONDS: 0.4, // mug-splash sprite shown this long after a catch
     SPLASH_SQUASH: 0.06,    // 1.0 -> 1.06 -> 1.0 width squash at the start of the splash
 
@@ -100,30 +101,30 @@
     LANE_JITTER: 0.25,      // +/- fraction of lane width
     SPAWN_PAD: 150,         // widen the spawn range beyond the mug range by this many px per side (lanes 180 px apart)
                             // (keep < MUG_HALF_WIDTH*CATCH_HALF_FRAC so edge items stay catchable)
-    SPEED_START: 540,       // fall speed ramps linearly over the round
-    SPEED_END: 1080,
+    SPEED_START: 560,       // fall speed ramps linearly over the round
+    SPEED_END: 1120,
     SPAWN_START: 0.85,      // spawn interval ramps linearly over the round
     SPAWN_END: 0.38,
     SPAWN_JITTER: 0.15,     // +/- fraction of the interval
-    WAFERS_ONLY_SECONDS: 4, // warm-up: only wafers
-    MIX: { wafer: 0.52, hazard: 0.48 }, // after warm-up (hazard weight x DIFFICULTY.bad)
-    HAZARD_AT_MUG: 0.55,    // share of hazards aimed at the lane the mug is in right now (forces a dodge)
+    WAFERS_ONLY_SECONDS: 1.5, // warm-up: only wafers (just the first couple of items)
+    MIX: { wafer: 0.48, hazard: 0.52 }, // after warm-up (hazard weight x DIFFICULTY.bad)
+    HAZARD_AT_MUG: 0.6,    // share of hazards aimed at the lane the mug is in right now (forces a dodge)
     WAFER_AWAY: 0.70,       // share of wafers sent to a lane other than the mug's (forces a move)
     GOLD_SHARE: 0.088,      // per regular spawn; with doubles and crossfires this lands near 6 % of all spawns ...
-    GOLD_AFTER_SECONDS: 10, // ... after this many seconds
+    GOLD_AFTER_SECONDS: 5,  // ... after this many seconds
     GOLD_SCORE: 3,
     HAZARDS: ['alarm', 'deadline', 'phone', 'inbox'], // rotated, no immediate repeat (reference set)
     HAZARD_FALLBACK: ['alarm', 'deadline'], // used when none of HAZARDS loaded (vector fallbacks exist)
-    BAD_LANE_COOLDOWN: 0.8, // no hazard in a lane within this of the previous hazard there
-    MAX_CONSECUTIVE_BADS: 2,// global: never more than N hazards in a row
+    BAD_LANE_COOLDOWN: 0.6, // no hazard in a lane within this of the previous hazard there
+    MAX_CONSECUTIVE_BADS: 3,// global: never more than N hazards in a row
     SPAWN_ONLY_IF_REACHABLE: true, // stop spawning once an item could not reach the rim
 
     // --- Patterns
-    CROSSFIRE_AFTER: 15,    // from this time: a hazard + a wafer CROSSFIRE_GAP apart in adjacent lanes
+    CROSSFIRE_AFTER: 6,     // from this time: a hazard + a wafer CROSSFIRE_GAP apart in adjacent lanes
     CROSSFIRE_EVERY: 4.5,   // seconds between crossfires (+/- CROSSFIRE_JITTER)
     CROSSFIRE_JITTER: 0.2,
     CROSSFIRE_GAP: 0.25,
-    DOUBLE_AFTER: 4,        // from this time: occasional two wafers DOUBLE_GAP apart in adjacent lanes
+    DOUBLE_AFTER: 2,        // from this time: occasional two wafers DOUBLE_GAP apart in adjacent lanes
     DOUBLE_CHANCE: 0.16,    // per regular spawn
     DOUBLE_GAP: 0.2,
 
@@ -197,7 +198,7 @@
     TRAIL_SPACING: 0.03,    // s of travel between ghosts
     TRAIL_ALPHA: 0.34,      // first ghost alpha at full speed
     TRAIL_MIN_SPEED: 300,   // trails fade in from this fall speed to SPEED_END
-    ITEM_GLOW_ALPHA: 0.6,
+    ITEM_GLOW_ALPHA: 0,     // no halo under items (3D shadow instead)
     RAYS_MIN_STREAK: 3,     // rays brighten from this streak ...
     RAYS_FULL_STREAK: 7,    // ... and reach RAYS_MAX_ALPHA here
     RAYS_IDLE_ALPHA: 0.2,
@@ -403,10 +404,14 @@
   /** Dark silhouette of a sprite view, cached on the view, for a cheap drop shadow under falling items. */
   function silhouette(v) {
     if (v.shadow) return v.shadow;
-    var c = makeCanvas(v.canvas.width, v.canvas.height), ctx = c.getContext('2d');
-    ctx.drawImage(v.canvas, 0, 0);
-    ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = 'rgba(40,0,6,1)'; ctx.fillRect(0, 0, c.width, c.height);
-    v.shadow = { canvas: c, w: v.w, h: v.h, ox: v.ox, oy: v.oy };
+    // dark copy of the sprite, softened by stacking it at small offsets (no ctx.filter: Safari lacks it)
+    var res = v.canvas.width / v.w, b = TUNING.ITEM_SHADOW_BLUR, pad = Math.ceil(b * 2 * res);
+    var c = makeCanvas(v.canvas.width + pad * 2, v.canvas.height + pad * 2), ctx = c.getContext('2d');
+    var taps = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+    ctx.globalAlpha = 1 / taps.length;
+    for (var i = 0; i < taps.length; i++) ctx.drawImage(v.canvas, pad + taps[i][0] * b * res, pad + taps[i][1] * b * res);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = 'rgba(40,0,6,1)'; ctx.fillRect(0, 0, c.width, c.height);
+    v.shadow = { canvas: c, w: v.w + 2 * pad / res, h: v.h + 2 * pad / res, ox: v.ox + pad / res, oy: v.oy + pad / res };
     return v.shadow;
   }
 

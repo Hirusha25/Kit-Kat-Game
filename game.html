@@ -21,15 +21,13 @@
   body { font-family: var(--font-display); }
   .stage { background: #8a0610; }
   .layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-  /* Play backdrop (reference look: red burst with warm falling light streaks baked in); the ribbon shows at the top edge */
-  .backdrop { object-fit: cover; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 240px); mask-image: linear-gradient(to bottom, transparent 0, #000 240px); }
   /* darker arena than the cover: static overlays only, nothing animated per frame */
   .shade { position: absolute; inset: 0; pointer-events: none;
     background:
       radial-gradient(ellipse 70% 45% at 50% 62%, rgba(255,120,60,.22) 0%, rgba(255,120,60,0) 60%),
-      radial-gradient(ellipse 120% 80% at 50% 50%, rgba(0,0,0,0) 55%, rgba(40,0,0,.35) 100%),
-      linear-gradient(180deg, rgba(60,0,0,.22) 0%, rgba(60,0,0,.04) 25%, rgba(60,0,0,.04) 75%, rgba(40,0,0,.3) 100%); }
-  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .35;
+      radial-gradient(ellipse 120% 80% at 50% 50%, rgba(0,0,0,0) 45%, rgba(40,0,0,.55) 100%),
+      linear-gradient(180deg, rgba(60,0,0,.35) 0%, rgba(60,0,0,.1) 25%, rgba(60,0,0,.1) 75%, rgba(40,0,0,.45) 100%); }
+  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .55;
     background: repeating-conic-gradient(from 0deg at 50% 60%, rgba(255,170,90,.0) 0deg, rgba(255,170,90,.0) 9deg, rgba(255,170,90,.10) 10deg, rgba(255,170,90,.0) 12deg);
     -webkit-mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); }
 
@@ -57,6 +55,13 @@
   .hud .cell.rank .val { background: none; color: var(--ink); filter: drop-shadow(0 2px 0 rgba(255,255,255,.6)); }
   .hud.final5 .cell.time .val { animation: pulse .5s ease-in-out infinite alternate; }
   .hud .val.bump { animation: bump .35s cubic-bezier(.2,1.6,.4,1); }
+  /* score going down: red digits and a sideways shake; going up: the gold bump plus a floating +N */
+  .hud .val.down { background-image: linear-gradient(180deg, #ffb4ae 0%, #ff5a4e 55%, #ff8a7a 100%); animation: shakeX .5s ease; }
+  @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+  .hud .cell { position: relative; }
+  .hud .delta { position: absolute; left: 50%; top: 4px; margin: 0; font: 900 italic 46px/1 var(--font-display); color: #ffe08a; text-shadow: 0 2px 0 #9a5a00, 0 6px 14px rgba(60,0,0,.5); pointer-events: none; animation: deltaUp .9s ease-out forwards; z-index: 3; }
+  .hud .delta.neg { color: #ff6b5e; text-shadow: 0 2px 0 #7a0000, 0 6px 14px rgba(60,0,0,.5); }
+  @keyframes deltaUp { 0% { transform: translate(-50%, 0) scale(.7); opacity: 0; } 15% { transform: translate(-50%, -22px) scale(1.15); opacity: 1; } 100% { transform: translate(-50%, -92px) scale(1); opacity: 0; } }
   @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
   .hud .cell.rank .val.bump { animation: bumpRank .5s cubic-bezier(.2,1.6,.4,1); }
   @keyframes bumpRank { 0% { transform: scale(1) rotate(0); } 40% { transform: scale(1.25) rotate(-6deg); } 100% { transform: scale(1) rotate(0); } }
@@ -119,7 +124,7 @@
   /* Pre-game full screens (camera check, show your mug): plain red page, no game behind */
   .ov.pre { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; display: none; }
   .ov.pre.show { display: block; }
-  body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .backdrop, body.pre .wave, body.pre .pip { display: none !important; }
+  body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .wave, body.pre .pip { display: none !important; }
   .pre-wave { position: absolute; left: -6px; bottom: -4px; width: 1092px; height: auto; pointer-events: none; }
   .pre-logo { position: absolute; left: 50%; top: 14px; width: 345px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
   .pre-title { position: absolute; left: 50%; top: 262px; width: 410px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
@@ -197,9 +202,9 @@
   .res .res-sub { position: absolute; left: 0; right: 0; top: 506px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
   .res .res-score { position: absolute; left: 0; right: 0; top: 536px; height: 320px; text-align: center; }
   .res .res-score canvas { width: 800px; height: 320px; display: inline-block; }
-  .res .res-final { position: absolute; left: 0; right: 0; top: 846px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
+  .res .res-final { position: absolute; left: 0; right: 0; top: 858px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
   .res .res-final i { width: 96px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
-  .res .res-stats { position: absolute; left: 112px; top: 896px; display: flex; gap: 13px; }
+  .res .res-stats { position: absolute; left: 112px; top: 908px; display: flex; gap: 13px; }
   .res .res-stats div { width: 284px; height: 140px; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 4px solid transparent; background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, linear-gradient(180deg, #fff2c6 0%, #e2b14c 45%, #f8e2a3 65%, #b8862a 100%) border-box; box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 12px 24px rgba(50,0,0,.4); animation: fadeIn .5s ease both; }
   .res .res-stats div:nth-child(2) { animation-delay: .1s; } .res .res-stats div:nth-child(3) { animation-delay: .2s; }
   .res .res-stats b { font: 900 italic 54px/1 var(--font-display); color: #bd0c18; } .res .res-stats span { font: 800 26px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: #3a1a06; }
@@ -220,7 +225,7 @@
   .res .tiers img { height: 215px; width: auto; object-fit: contain; filter: drop-shadow(0 18px 22px rgba(90,20,0,.35)); }
   .res .tiers > i { width: 2px; align-self: stretch; background: linear-gradient(180deg, transparent, #d8a640 25%, #d8a640 75%, transparent); }
   .res .tiers b { font: 900 italic 42px/1 var(--font-display); text-transform: uppercase; color: #c8102e; }
-  .res.lost .res-sub { top: 484px; } .res.lost .res-score { top: 520px; } .res.lost .res-final { top: 786px; } .res.lost .res-stats { top: 840px; } .res.lost .res-stats div { height: 122px; }
+  .res.lost .res-sub { top: 484px; } .res.lost .res-score { top: 520px; } .res.lost .res-final { top: 822px; } .res.lost .res-stats { top: 852px; } .res.lost .res-stats div { height: 122px; }
   .res.lost .res-prize { top: 986px; height: 454px; padding: 18px 40px; } .res.lost .tiers img { height: 200px; } .res.lost .none-wrap > b { font-size: 60px; }
   .res.lost .res-btn { top: 1468px; height: 240px; font-size: 82px; } .res.lost .res-back { top: 1720px; font-size: 32px; }
   .res.lost .res-legal { bottom: 8px; font-size: 17px; }
@@ -271,7 +276,6 @@
 <div class="viewport">
   <main class="stage" id="stage">
     <img class="layer" src="assets/img/cover/bg-red-ribbon.webp" alt="" fetchpriority="high">
-    <img class="layer backdrop" src="assets/img/game/backdrop.webp" srcset="assets/img/game/backdrop.webp 1080w, assets/img/game/backdrop-4k.webp 2160w" sizes="100vw" alt="">
     <div class="shade"></div>
     <div class="rays"></div>
     <div class="bg-extra"></div>
@@ -382,7 +386,7 @@
 
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/ambient.js?v=20261126e"></script>
-<script src="js/audio.js?v=20261127d" data-preload="manual"></script>
+<script src="js/audio.js?v=20261127e" data-preload="manual"></script>
 <script src="js/tracker.js?v=20261127f"></script>
 <script src="js/sprites.js?v=20261126e"></script>
 <script src="js/game.js?v=20261126e"></script>

@@ -129,23 +129,38 @@
   A.countup = () => playSfx('countup'); A.prize = () => playSfx('prize'); A.confetti = () => playSfx('confetti');
 
   // ---- music: one loop at a time, crossfaded; stings play once over the bus
-  let current = null; // { name, src, gain }
+  let current = null; // { name, src, gain, startedAt, offset }
+  // The screens are separate pages, so the loop's position is handed to the next page through
+  // sessionStorage: a page that starts the same track picks it up where the previous page left it.
+  const POS_KEY = 'kk_music_pos';
+  function loopPos() { if (!current || !ctx) return null; const d = current.src.buffer.duration; return { name: current.name, pos: (current.offset + (ctx.currentTime - current.startedAt)) % d, at: Date.now() }; }
+  function savePos() { try { const p = loopPos(); if (p) sessionStorage.setItem(POS_KEY, JSON.stringify(p)); } catch (_) {} }
+  function handoff(name, dur) {
+    try {
+      const p = JSON.parse(sessionStorage.getItem(POS_KEY) || 'null');
+      if (p && p.name === name && Date.now() - p.at < 90000) return (p.pos + (Date.now() - p.at) / 1000) % dur;
+    } catch (_) {}
+    return -1;
+  }
+  window.addEventListener('pagehide', savePos); document.addEventListener('visibilitychange', () => { if (document.hidden) savePos(); }); setInterval(savePos, 1000);
   function startLoop(name, fadeMs) {
     const c = ensure(); const buf = buffers[name]; if (!c || !buf) return null;
     const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
-    const g = c.createGain(); g.gain.value = 0; src.connect(g); g.connect(musicBus); src.start();
-    g.gain.linearRampToValueAtTime(1, c.currentTime + fadeMs / 1000);
-    return { name, src, gain: g };
+    const g = c.createGain(); g.gain.value = 0; src.connect(g); g.connect(musicBus);
+    let offset = handoff(name, buf.duration); const continued = offset >= 0; if (!continued) offset = 0;
+    src.start(0, offset);
+    g.gain.linearRampToValueAtTime(1, c.currentTime + (continued ? 120 : fadeMs) / 1000); // a continued track comes straight back in
+    return { name, src, gain: g, startedAt: c.currentTime, offset };
   }
   async function music(key, { fade = 600 } = {}) {
     const name = MUSIC[key]; if (!name) return;
     await load(name);
     if (muted || !buffers[name]) { if (!buffers[name]) stopMusic(fade); return; }
     if (current && current.name === name) return;
-    const c = ensure(); const old = current; current = startLoop(name, fade);
+    const c = ensure(); const old = current; current = startLoop(name, fade); savePos();
     if (old) { old.gain.gain.linearRampToValueAtTime(0, c.currentTime + fade / 1000); setTimeout(() => { try { old.src.stop(); } catch (_) {} }, fade + 50); }
   }
-  function stopMusic(fade = 400) { if (!current) return; const c = ensure(); const old = current; current = null; old.gain.gain.linearRampToValueAtTime(0, c.currentTime + fade / 1000); setTimeout(() => { try { old.src.stop(); } catch (_) {} }, fade + 50); }
+  function stopMusic(fade = 400) { if (!current) return; try { sessionStorage.removeItem(POS_KEY); } catch (_) {} const c = ensure(); const old = current; current = null; old.gain.gain.linearRampToValueAtTime(0, c.currentTime + fade / 1000); setTimeout(() => { try { old.src.stop(); } catch (_) {} }, fade + 50); }
   async function sting(key) { const name = MUSIC[key]; await load(name); if (muted || !buffers[name]) return; const c = ensure(); const s = c.createBufferSource(); s.buffer = buffers[name]; s.connect(musicBus); s.start(); }
 
   A.music = music; A.stopMusic = stopMusic; A.sting = sting;

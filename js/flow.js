@@ -64,6 +64,23 @@
   // ---------- HUD ----------
   const hud = { time: $('hud-time'), score: $('hud-score'), rank: $('hud-rank'), el: $('hud') };
   const last = { time: '', score: '', rank: '' };
+  // Score display: climbs one digit at a time toward the real score (so a +3 visibly rises), and when a hazard
+  // takes a point it steps down in red with a shake. A floating +N / -N chip marks each change.
+  let scoreShown = 0, scoreTarget = 0, scoreNextAt = 0;
+  function resetScore() { scoreShown = scoreTarget = 0; scoreNextAt = 0; hud.score.textContent = '00'; hud.score.classList.remove('down'); }
+  function scoreChip(delta) {
+    const el = document.createElement('span'); el.className = 'delta' + (delta < 0 ? ' neg' : ''); el.textContent = (delta > 0 ? '+' : '') + delta;
+    hud.score.parentElement.appendChild(el); el.addEventListener('animationend', () => el.remove(), { once: true });
+  }
+  function tickScore(target) {
+    if (target !== scoreTarget) { scoreChip(target - scoreTarget); scoreTarget = target; }
+    if (scoreShown === scoreTarget) return;
+    const now = performance.now(); if (now < scoreNextAt) return;
+    scoreNextAt = now + 70;
+    const dir = scoreTarget > scoreShown ? 1 : -1; scoreShown += dir;
+    hud.score.textContent = String(scoreShown).padStart(2, '0'); last.score = hud.score.textContent;
+    hud.score.classList.remove('bump', 'down'); void hud.score.offsetWidth; hud.score.classList.add(dir > 0 ? 'bump' : 'down');
+  }
   function setText(key, v) {
     if (last[key] === v) return;
     last[key] = v; hud[key].textContent = v;
@@ -183,7 +200,7 @@
     setTimeout(startCountdown, 700);
   }
   function beginCalibration() {
-    KKAudio.music('register');
+    KKAudio.music('attract'); // same track as the cover and register pages, continued from where it was
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
     if (tracker && tracker.setAcquire) tracker.setAcquire(true);
     clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 3 feet from the screen and hold the mug up, logo facing the camera.';
@@ -230,7 +247,7 @@
     // If the designer supplies digit artwork (assets/img/game/digits/0.png … 9.png), it is used instead of this renderer.
     const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; const ps = W / 800;
     ctx.setTransform(ps, 0, 0, ps, 0, 0); ctx.clearRect(0, 0, 800, 360);
-    const size = 330, cx = 400, baseY = 286;
+    const size = 300, cx = 400, baseY = 262;
     ctx.font = `italic 900 ${size}px Montserrat, Poppins, Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     const m = ctx.measureText(text); const top = baseY - m.actualBoundingBoxAscent, bot = baseY + m.actualBoundingBoxDescent, gh = bot - top;
     const depth = Math.round(gh * 0.11), dx = -0.48, dy = 1.0;
@@ -284,12 +301,12 @@
   function startPlay() {
     KKAudio.music('play');
     if (game) { game.destroy(); game = null; }
-    hud.el.classList.remove('final5');
+    hud.el.classList.remove('final5'); resetScore();
     game = DunkGame.create({
       canvas: gameCanvas, sprites, duration: DURATION,
       onTick: st => {
         setText('time', fmtTime(st.timeLeft));
-        setText('score', String(st.score).padStart(2, '0'));
+        tickScore(st.score);
         setText('rank', '#' + liveRank(st.score));
       },
       onEvent: onGameEvent,

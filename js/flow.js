@@ -142,11 +142,7 @@
     // Detector frame: 320x180 ('high', the mug is only a few pixels at 160x90 from where players stand) or 160x90.
     // rotate 'auto' turns a portrait camera picture upright on the kiosk (never on a phone, which holds its camera upright).
     const hi = settings.detail !== 'normal', phone = document.documentElement.classList.contains('is-phone');
-<<<<<<< Updated upstream
-    tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127j' });
-=======
     tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127m' });
->>>>>>> Stashed changes
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });

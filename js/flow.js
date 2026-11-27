@@ -8,7 +8,7 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, control: 'hand', range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'score' = by score (teeMin or more: T-shirt, capMin or more: cap); 'nth' = every Nth round wins whatever the score
     rewardMode: 'score', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
@@ -236,7 +236,7 @@
     if (st !== cueState || !!s.byHand !== cueHand) {
       cueState = st; cueHand = !!s.byHand;
       cueEls.forEach(el => { if (el) { el.classList.toggle('weak', st === 'weak'); el.classList.toggle('lost', st === 'lost'); } });
-      $('pip-dot').classList.toggle('on', st === 'ok'); $('pip-txt').textContent = st === 'ok' ? (s.byHand ? 'Hand Tracked' : 'Mug Tracked') : st === 'weak' ? 'Hold It Steady' : 'Mug Lost';
+      $('pip-dot').classList.toggle('on', st === 'ok'); $('pip-txt').textContent = st === 'ok' ? (s.byHand ? 'Hand Tracked' : 'Mug Tracked') : st === 'weak' ? 'Hold It Steady' : handMode() ? 'Hand Lost' : 'Mug Lost';
     }
     // edge arrows during a round: near an edge, and still showing the way back once the mug has gone off that side
     const on = phase === 'playing';
@@ -247,6 +247,13 @@
   // in the middle = the logo is hidden or turned away (the mug has its logo on one face only).
   function lostReason() {
     const M = 0.16, x = lastRaw.x, y = lastRaw.y;
+    if (handMode()) {
+      if (x < M) return { title: 'Bring It Back', msg: 'Your hand went off the side. Move it back this way.', arrow: '»' };
+      if (x > 1 - M) return { title: 'Bring It Back', msg: 'Your hand went off the side. Move it back this way.', arrow: '«' };
+      if (y < M) return { title: 'Lower Your Hand', msg: 'Your hand went above the camera view. Bring it down a little.', arrow: '' };
+      if (y > 1 - M) return { title: 'Raise Your Hand', msg: 'Your hand dropped below the camera view. Lift it up a little.', arrow: '' };
+      return { title: 'Show Your Hand', msg: 'Hold one open hand up to the camera.', arrow: '' };
+    }
     if (x < M) return { title: 'Bring It Back', msg: 'The mug went off the side. Move it back this way.', arrow: '»' };
     if (x > 1 - M) return { title: 'Bring It Back', msg: 'The mug went off the side. Move it back this way.', arrow: '«' };
     if (y < M) return { title: 'Lower The Mug', msg: 'The mug went above the camera view. Bring it down a little.', arrow: '' };
@@ -254,9 +261,27 @@
     return { title: 'Show The Logo', msg: 'Turn the red KitKat logo to the camera and keep your fingers off it.', arrow: '' };
   }
   function showLost() { const r = lostReason(); $('lost-title').textContent = r.title; $('lost-msg').textContent = r.msg; $('lost-arrow').textContent = r.arrow; show('lost'); }
-  const handOnly = qs.get('hand') === 'only';   // test aid (game.html?hand=only): ignore the logo, so the hand alone drives
+  // 27 Nov, owner's decision: the game is played with the HAND, no mug. settings.control 'hand' (default) ignores the
+  // logo altogether; 'mug' is the earlier way (logo first, hand as backup), kept behind the staff setup switch.
+  // If the hand detector cannot run on a device, the game falls back to the mug so it is never left with no control.
+  function handMode() {
+    if (qs.get('hand') === 'only') return true;
+    if (settings.control === 'mug' || settings.hand === false || !window.KKHand || !KKHand.supported()) return false;
+    return !(hand && /failed|unsupported/.test(hand.stats().state));
+  }
+  const CAL_MSG = () => handMode() ? 'Stand about 3 feet from the screen and hold one open hand up to the camera.' : 'Stand about 3 feet from the screen and hold the mug up, logo facing the camera.';
+  let wordMode = null;
+  function applyWording() {
+    const h = handMode(); if (h === wordMode) return; wordMode = h;
+    const set = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+    const calH = $('cal-h'); if (calH) calH.textContent = h ? 'Show Your Hand' : 'Show Your Mug';
+    if (!calDone) set('cal-msg', CAL_MSG());
+    set('lost-title', h ? 'Show Your Hand' : 'Show The Mug'); set('lost-msg', h ? 'Hold your hand up to the camera to continue.' : 'Hold the KitKat mug up to the camera to continue.');
+    cueState = '';   // redraw the tracking label in the new wording
+  }
   function onTrack(s) {
-    if (handOnly) s = Object.assign({}, s, { found: false, lastSeenMs: -1e9 });
+    applyWording();
+    if (handMode()) s = Object.assign({}, s, { found: false, lastSeenMs: -1e9 });
     s = withHand(s);
     trackState = s;
     if (s.found) lastFoundAt = performance.now();
@@ -300,7 +325,7 @@
     [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]].forEach(([x, y, sx2, sy2]) => { ctx.moveTo(x + sx2 * L, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy2 * L); });
     ctx.stroke(); ctx.restore();
     // small tag above the box
-    ctx.save(); ctx.font = '800 italic 20px Figtree, Arial'; const label = 'MUG'; const tw = ctx.measureText(label).width + 28; const tx = bx + bw / 2 - tw / 2, ty = Math.max(6, by - 36);
+    ctx.save(); ctx.font = '800 italic 20px Figtree, Arial'; const label = s.byHand ? 'HAND' : 'MUG'; const tw = ctx.measureText(label).width + 28; const tx = bx + bw / 2 - tw / 2, ty = Math.max(6, by - 36);
     roundRect(ctx, tx, ty, tw, 30, 15); ctx.fillStyle = '#27d35b'; ctx.fill(); ctx.fillStyle = '#062'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.fillText(label, tx + tw / 2, ty + 16); ctx.restore();
   }
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -349,7 +374,7 @@
   function calTick(s) {
     if (phase !== 'calibrating') return;
     drawPrivacy(calCtx, calCv.width, calCv.height, s);
-    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? (s.byHand ? 'Hand Detected' : 'Mug Detected') : 'Looking For Mug';
+    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? (s.byHand ? 'Hand Detected' : 'Mug Detected') : handMode() ? 'Looking For Hand' : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
     // Only something that has MOVED can be the mug. On the venue recording the game locked onto a red-and-white
@@ -365,7 +390,7 @@
     } else calLast = null;
     while (calPath.length && nowMs - calPath[0].t > 4000) calPath.shift();
     const moved = calPath.reduce((sum, p) => sum + p.d, 0) >= 10;
-    if (s.found && !moved && !calDone) $('cal-msg').textContent = 'Move the mug a little so the camera can pick it up.';
+    if (s.found && !moved && !calDone) $('cal-msg').textContent = handMode() ? 'Move your hand a little so the camera can pick it up.' : 'Move the mug a little so the camera can pick it up.';
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
     // 2 s of steady detection, by the clock: counted per frame it took 5 to 7 s on the kiosk (9 to 13 frames a second)
     const cdt = Math.min(0.25, calTickAt ? (nowMs - calTickAt) / 1000 : 0); calTickAt = nowMs;
@@ -382,7 +407,7 @@
     else try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) { calibrated = false; }
     if (!calibrated || !trackState.found) {
       // Not a real lock (a red-and-white object passed by, or the mug moved away): stay on this screen.
-      $('cal-msg').textContent = 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
+      $('cal-msg').textContent = handMode() ? 'Hold your hand steady in front of the camera.' : 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
     }
     playCenter = Math.min(0.8, Math.max(0.2, calSpot.x)); // where the player naturally holds the mug = the middle of the track
     playLogoW = trackState && trackState.found && trackState.w > 0 ? trackState.w : 0;   // logo width at lock-on = how far away the player is
@@ -412,7 +437,7 @@
     KKAudio.music('attract'); // same track as the cover and register pages, continued from where it was
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
     if (tracker && tracker.setAcquire) tracker.setAcquire(true);
-    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = 'Stand about 3 feet from the screen and hold the mug up, logo facing the camera.';
+    clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = CAL_MSG();
   }
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
 
@@ -647,6 +672,7 @@
   su.pip.addEventListener('change', () => { settings.tile = su.pip.checked; setPip(settings.tile); save(LS.settings, settings); });
   if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
   if ($('su-rotate')) { $('su-rotate').value = String(settings.rotate == null ? 'auto' : settings.rotate); $('su-rotate').addEventListener('change', () => { const v = $('su-rotate').value; settings.rotate = v === 'auto' ? 'auto' : +v; save(LS.settings, settings); if (tracker) { tracker.setOptions({ rotate: settings.rotate }); tracker.forgetStatic && tracker.forgetStatic(); } toast('Camera rotation set. Calibrate on the mug again.'); }); }
+  if ($('su-control')) { $('su-control').value = settings.control === 'mug' ? 'mug' : 'hand'; $('su-control').addEventListener('change', () => { settings.control = $('su-control').value; save(LS.settings, settings); if (settings.control === 'hand') { settings.hand = true; if ($('su-hand')) $('su-hand').checked = true; startHand(); } handRef = null; handOff = { x: 0, y: 0, n: 0 }; applyWording(); toast(settings.control === 'hand' ? 'Players now use their hand, no mug.' : 'Players now use the mug (hand as backup).'); }); }
   if ($('su-hand')) { $('su-hand').checked = settings.hand !== false; $('su-hand').addEventListener('change', () => { settings.hand = $('su-hand').checked; save(LS.settings, settings); if (settings.hand) startHand(); else stopHand(); }); }
   if ($('su-static')) { $('su-static').checked = settings.staticRed === true; $('su-static').addEventListener('change', () => { settings.staticRed = $('su-static').checked; save(LS.settings, settings); tracker && tracker.setOptions({ staticMs: settings.staticRed ? 2500 : 0 }); }); }
   if ($('su-forget')) $('su-forget').addEventListener('click', () => { tracker && tracker.forgetStatic && tracker.forgetStatic(); toast('Background forgotten. It is learned again from the next camera picture.'); });

@@ -8,7 +8,9 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false }, load(LS.settings));
+  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+    // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
+    rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20 }, load(LS.settings));
   LS.stock = 'kk_stock';
   const DAILY_STOCK = 80;
   function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null') || {}; } catch (_) { return {}; } }
@@ -37,17 +39,41 @@
 
   // ---------- rewards: cap and T-shirt, 80 each per day ----------
   function stock() { const st = load(LS.stock); if (st.day !== todayKey()) return { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }; return st; }
+  // Rounds played today (one per finished round, retries included). Every Nth round is a winner.
+  LS.turns = 'kk_turns';
+  function turns() { const t = load(LS.turns); return t.day === todayKey() ? t : { day: todayKey(), n: 0 }; }
+  function nextTurn() { const t = turns(); t.n += 1; save(LS.turns, t); return t.n; }
+  // Pacing: prizes are released evenly across the activation hours, so a busy morning cannot empty the
+  // shelf by lunch and a quiet morning's share carries forward within the day. released(kind) = how many
+  // of today's stock may have been given out by now; what is not yet released is held back.
+  function released(kind) {
+    if (!settings.pacing) return DAILY_STOCK;
+    const now = new Date(), h = now.getHours() + now.getMinutes() / 60;
+    const span = Math.max(1, settings.closeHour - settings.openHour);
+    const frac = Math.min(1, Math.max(0.06, (h - settings.openHour) / span)); // a few are available before opening and for testing
+    return Math.min(DAILY_STOCK, Math.ceil(DAILY_STOCK * frac));
+  }
+  function available(kind) { const st = stock(); return Math.max(0, Math.min(st[kind], released(kind) - (DAILY_STOCK - st[kind]))); }
   function prizeCode(kind) { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const r = new Uint32Array(4); crypto.getRandomValues(r); return (kind === 'tee' ? 'TEE-' : 'CAP-') + Array.from(r, n => a[n % a.length]).join(''); }
   function awardPrize(result) {
-    const st = stock(); let kind = null;
-    if (result.score >= settings.teeMin && st.tee > 0) kind = 'tee';
-    else if (result.score >= settings.capMin && st.cap > 0) kind = 'cap';
-    else if (result.score >= settings.teeMin && st.cap > 0) kind = 'cap'; // tees gone, fall back to a cap
-    if (!kind) return { kind: null, soldOut: result.score >= settings.capMin };
+    const st = stock(); let kind = null, soldOut = false, turn = nextTurn();
+    if (settings.rewardMode === 'nth') {
+      const N = Math.max(1, settings.everyNth | 0), winner = turn % N === 0;
+      if (!winner) return { kind: null, soldOut: false, turn, nextIn: N - (turn % N) };
+      const want = result.score >= settings.teeMin ? 'tee' : 'cap', other = want === 'tee' ? 'cap' : 'tee';
+      if (available(want) > 0) kind = want; else if (available(other) > 0) kind = other;
+      soldOut = !kind; // a winner's turn, but nothing released right now: pacing holds the shelf, or the day's stock is gone
+    } else {
+      if (result.score >= settings.teeMin && st.tee > 0) kind = 'tee';
+      else if (result.score >= settings.capMin && st.cap > 0) kind = 'cap';
+      else if (result.score >= settings.teeMin && st.cap > 0) kind = 'cap'; // tees gone, fall back to a cap
+      soldOut = !kind && result.score >= settings.capMin;
+    }
+    if (!kind) return { kind: null, soldOut, turn };
     st[kind] -= 1; const code = prizeCode(kind);
-    st.awarded.push({ kind, code, name: firstName || 'Guest', mobile: player && player.mobile, score: result.score, ts: Date.now() });
+    st.awarded.push({ kind, code, name: firstName || 'Guest', mobile: player && player.mobile, score: result.score, ts: Date.now(), turn, mode: settings.rewardMode });
     save(LS.stock, st);
-    return { kind, code, left: st[kind] };
+    return { kind, code, left: st[kind], turn };
   }
   const prizeIcons = {
     cap: '<svg viewBox="0 0 24 24"><path d="M4 14c0-4.4 3.6-8 8-8s8 3.6 8 8v1H4v-1z"/><path d="M4 15h12c2.5 0 4.5 1 6 2.5"/><path d="M12 6V4"/></svg>',
@@ -336,19 +362,19 @@
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
     setScoreNumber(0);
     $('end-rank').textContent = '#' + rank; $('end-caught').textContent = String(result.caught); $('end-streak').textContent = String(result.bestStreak);
-    $('end-title').textContent = result.score >= settings.teeMin ? 'Legend!' : result.score >= settings.capMin ? 'Hot Break!' : "Time's Up!";
-    const pz = awardPrize(result); const pEl = $('prize');
+    const pz = awardPrize(result); const pEl = $('prize'); const nth = settings.rewardMode === 'nth';
+    $('end-title').textContent = pz.kind === 'tee' ? 'Legend!' : pz.kind ? (nth ? 'Lucky Break!' : 'Hot Break!') : result.score >= settings.teeMin ? 'Hot Break!' : "Time's Up!";
     const rec = recordPlay(player && player.mobile, !!pz.kind);
     const canRetry = !pz.kind && !retryUsed && rec && rec.plays < 2;
     ov.end.classList.toggle('lost', !pz.kind);
     $('again').textContent = canRetry ? 'Try Again' : 'Done';
     $('again').dataset.mode = canRetry ? 'retry' : 'done';
-    $('tier-cap').textContent = settings.capMin + ' Points'; $('tier-tee').textContent = settings.teeMin + ' Points';
-    $('none-title').textContent = pz.soldOut ? "Prizes Are Gone" : 'So Close!';
-    $('none-msg').textContent = pz.soldOut ? 'Great score. Thanks for playing today.' : canRetry ? 'Play again to unlock a prize.' : 'Thanks for playing. Enjoy your break!';
+    $('tier-cap').textContent = nth ? 'KitKat Cap' : settings.capMin + ' Points'; $('tier-tee').textContent = nth ? `T-shirt · ${settings.teeMin}+ pts` : settings.teeMin + ' Points';
+    $('none-title').textContent = pz.soldOut ? (nth ? 'Next Time!' : 'Prizes Are Gone') : nth ? 'Nice Break!' : 'So Close!';
+    $('none-msg').textContent = pz.soldOut ? (nth ? 'The shelf is being restocked. Thanks for playing today.' : 'Great score. Thanks for playing today.') : canRetry ? (nth ? 'Play again for another chance at a prize.' : 'Play again to unlock a prize.') : 'Thanks for playing. Enjoy your break!';
     pEl.classList.toggle('none', !pz.kind); if (pz.kind) $('prize-pic').src = pz.kind === 'tee' ? 'assets/img/game/prize-tee.png' : 'assets/img/game/prize-cap.png';
     if (pz.kind) { $('prize-name').textContent = pz.kind === 'tee' ? 'You won a KitKat T-shirt!' : 'You won a KitKat Cap!'; $('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; $('prize-code').textContent = pz.code; $('prize-code').style.display = ''; }
-    else { $('prize-name').textContent = pz.soldOut ? "Today's prizes are all gone" : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Great score. Come back tomorrow for another break.' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
+    else { $('prize-name').textContent = pz.soldOut ? (nth ? 'Next time!' : "Today's prizes are all gone") : nth ? 'Nice break!' : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Thanks for playing. Come back for another break.' : nth ? 'Prizes drop through the day. Keep an eye out!' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
     setTimeout(() => {
       show('end');
       KKAudio.sting(pz.kind ? 'win' : 'lose'); KKAudio.countup(); setTimeout(() => KKAudio.prize(), 1500);
@@ -417,9 +443,24 @@
   $('su-cal').addEventListener('click', async () => { try { const r = await tracker.calibrate({ x: 0.33, y: 0.2, w: 0.34, h: 0.6 }); calibrated = !!(r && r.ok); toast(calibrated ? 'Calibrated on the mug' : 'No mug seen in the box'); } catch (_) { toast('Calibration failed'); } });
   $('su-reset').addEventListener('click', () => { try { localStorage.removeItem('kk_tracker_params'); } catch (_) {} calibrated = false; toast('Calibration reset'); });
   $('su-clear').addEventListener('click', () => { save(LS.board, { rows: [] }); toast('Leaderboard cleared'); });
-  function refreshStock() { const st = stock(); $('su-stock').textContent = `Caps left: ${st.cap} / ${DAILY_STOCK}    T-shirts left: ${st.tee} / ${DAILY_STOCK}    awarded today: ${st.awarded.length}`; $('su-cap-min').value = settings.capMin; $('su-tee-min').value = settings.teeMin; }
+  function refreshStock() {
+    const st = stock(), t = turns(), N = Math.max(1, settings.everyNth | 0), nth = settings.rewardMode === 'nth';
+    const nextIn = N - (t.n % N);
+    $('su-stock').textContent = `Caps left: ${st.cap} / ${DAILY_STOCK}    T-shirts left: ${st.tee} / ${DAILY_STOCK}    awarded today: ${st.awarded.length}` +
+      `\nRounds today: ${t.n}` + (nth ? `    next winning round: #${t.n + nextIn} (in ${nextIn})` : '') +
+      (settings.pacing ? `    released so far: caps ${available('cap')}, T-shirts ${available('tee')}` : '');
+    $('su-cap-min').value = settings.capMin; $('su-tee-min').value = settings.teeMin;
+    $('su-mode').value = settings.rewardMode; $('su-nth').value = N; $('su-pacing').checked = !!settings.pacing; $('su-open').value = settings.openHour; $('su-close').value = settings.closeHour;
+    document.body.classList.toggle('reward-score', !nth);
+  }
   $('su-cap-min').addEventListener('change', () => { settings.capMin = Math.max(1, +$('su-cap-min').value || 12); save(LS.settings, settings); });
   $('su-tee-min').addEventListener('change', () => { settings.teeMin = Math.max(1, +$('su-tee-min').value || 25); save(LS.settings, settings); });
+  $('su-mode').addEventListener('change', () => { settings.rewardMode = $('su-mode').value === 'score' ? 'score' : 'nth'; save(LS.settings, settings); refreshStock(); });
+  $('su-nth').addEventListener('change', () => { settings.everyNth = Math.min(50, Math.max(1, +$('su-nth').value || 5)); save(LS.settings, settings); refreshStock(); });
+  $('su-pacing').addEventListener('change', () => { settings.pacing = $('su-pacing').checked; save(LS.settings, settings); refreshStock(); });
+  $('su-open').addEventListener('change', () => { settings.openHour = Math.min(23, Math.max(0, +$('su-open').value || 0)); save(LS.settings, settings); refreshStock(); });
+  $('su-close').addEventListener('change', () => { settings.closeHour = Math.min(24, Math.max(1, +$('su-close').value || 24)); save(LS.settings, settings); refreshStock(); });
+  $('su-turns-reset').addEventListener('click', () => { save(LS.turns, { day: todayKey(), n: 0 }); refreshStock(); toast('Round counter reset'); });
   $('su-stock-reset').addEventListener('click', () => { save(LS.stock, { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }); refreshStock(); toast('Stock reset'); });
   $('su-export').addEventListener('click', () => {
     const st = stock(); const rows = board();

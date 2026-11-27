@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS sync_prizes (
   name        VARCHAR(120) NOT NULL DEFAULT '',
   mobile      VARCHAR(20)  NOT NULL DEFAULT '',
   score       INT          NOT NULL DEFAULT 0,
+  turn        INT          NOT NULL DEFAULT 0,    -- round number of the day on that kiosk (every Nth wins)
+  mode        VARCHAR(8)   NOT NULL DEFAULT '',   -- nth | score: the rule in force when it was awarded
   client_time DATETIME     NULL,
   received_at DATETIME     NOT NULL,
   UNIQUE KEY uq_item (kiosk, client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Existing databases: ALTER TABLE sync_prizes ADD COLUMN turn INT NOT NULL DEFAULT 0, ADD COLUMN mode VARCHAR(8) NOT NULL DEFAULT '';

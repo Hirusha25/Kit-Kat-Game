@@ -31,7 +31,7 @@
     if (grew) { try { localStorage.setItem('kk_prize_log', JSON.stringify(log)); } catch (e) { /* ignore */ } }
     Object.keys(log).forEach(function (c) {
       var a = log[c], id = 'z-' + a.code;
-      if (!sent[id]) out.prizes.push({ id: id, kind: a.kind, code: a.code, name: a.name, mobile: a.mobile, score: a.score, ts: a.ts });
+      if (!sent[id]) out.prizes.push({ id: id, kind: a.kind, code: a.code, name: a.name, mobile: a.mobile, score: a.score, ts: a.ts, turn: a.turn || 0, mode: a.mode || '' });
     });
     return out;
   }

@@ -202,7 +202,7 @@
   .res .res-sub { position: absolute; left: 0; right: 0; top: 506px; margin: 0; text-align: center; font: 800 italic 50px/1 var(--font-display); color: #fff; text-shadow: 0 3px 8px rgba(60,0,0,.4); }
   .res .res-score { position: absolute; left: 0; right: 0; top: 536px; height: 320px; text-align: center; }
   .res .res-score canvas { width: 800px; height: 320px; display: inline-block; }
-  .res .res-final { position: absolute; left: 0; right: 0; top: 858px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
+  .res .res-final { position: absolute; left: 0; right: 0; top: 842px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 24px; font: 800 italic 32px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #f3cf7a; }
   .res .res-final i { width: 96px; height: 3px; background: linear-gradient(90deg, transparent, #f3cf7a); } .res .res-final i:last-child { background: linear-gradient(90deg, #f3cf7a, transparent); }
   .res .res-stats { position: absolute; left: 112px; top: 908px; display: flex; gap: 13px; }
   .res .res-stats div { width: 284px; height: 140px; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 4px solid transparent; background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, linear-gradient(180deg, #fff2c6 0%, #e2b14c 45%, #f8e2a3 65%, #b8862a 100%) border-box; box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 12px 24px rgba(50,0,0,.4); animation: fadeIn .5s ease both; }
@@ -243,6 +243,7 @@
   .setup label { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
   .setup select, .setup input[type=range] { flex: 1; max-width: 560px; height: 56px; font: inherit; border-radius: 12px; border: 2px solid var(--gold); background: #2a0206; color: #fff; padding: 0 12px; }
   .setup .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .setup .score-only { display: none; } body.reward-score .setup .score-only { display: flex; } body.reward-score .setup .nth-only { display: none; }
   .setup button { font: 700 26px/1 var(--font-body); padding: 18px 28px; border-radius: 999px; border: 0; background: var(--gold); color: #3a1a06; cursor: pointer; }
   .setup button.ghost { background: transparent; border: 2px solid var(--gold); color: var(--gold); }
   .setup canvas { width: 100%; height: 320px; border-radius: 16px; background: #000; }
@@ -375,10 +376,14 @@
       <div class="stat" id="su-stat">–</div>
       <div class="row"><button id="su-cal">Calibrate on mug</button><button class="ghost" id="su-reset">Reset calibration</button><button class="ghost" id="su-capture">Capture mug samples</button></div>
       <h2 style="margin-top:10px">Rewards today</h2>
-      <div class="stat" id="su-stock">–</div>
-      <label>Cap from score <input type="number" id="su-cap-min" min="1" max="200" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"></label>
+      <div class="stat" id="su-stock" style="white-space:pre-line">–</div>
+      <label>Prize rule <select id="su-mode" style="max-width:420px"><option value="nth">Every Nth round wins</option><option value="score">By score</option></select></label>
+      <label class="nth-only">Every <input type="number" id="su-nth" min="1" max="50" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"> th round wins a cap (T-shirt from the score below)</label>
+      <label>Release prizes evenly through the day <input type="checkbox" id="su-pacing" checked></label>
+      <label>Activation hours <span class="row" style="gap:10px;align-items:center"><input type="number" id="su-open" min="0" max="23" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"> to <input type="number" id="su-close" min="1" max="24" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"></span></label>
+      <label class="score-only">Cap from score <input type="number" id="su-cap-min" min="1" max="200" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"></label>
       <label>T-shirt from score <input type="number" id="su-tee-min" min="1" max="200" style="width:140px;height:56px;font:inherit;border-radius:12px;border:2px solid var(--gold);background:#2a0206;color:#fff;padding:0 12px"></label>
-      <div class="row"><button class="ghost" id="su-stock-reset">Reset today's stock to 80 / 80</button><button class="ghost" id="su-clear">Clear leaderboard</button><button class="ghost" id="su-export">Export today (CSV)</button><button class="ghost" id="su-close">Close</button></div>
+      <div class="row"><button class="ghost" id="su-stock-reset">Reset today's stock to 80 / 80</button><button class="ghost" id="su-turns-reset">Reset round counter</button><button class="ghost" id="su-clear">Clear leaderboard</button><button class="ghost" id="su-export">Export today (CSV)</button><button class="ghost" id="su-close">Close</button></div>
     </section>
 
     <video id="cam" playsinline muted autoplay style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none"></video>
@@ -387,7 +392,7 @@
 
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/ambient.js?v=20261126e"></script>
-<script src="js/audio.js?v=20261127e" data-preload="manual"></script>
+<script src="js/audio.js?v=20261127f" data-preload="manual"></script>
 <script src="js/tracker.js?v=20261127f"></script>
 <script src="js/sprites.js?v=20261126e"></script>
 <script src="js/game.js?v=20261126e"></script>

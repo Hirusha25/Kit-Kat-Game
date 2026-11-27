@@ -62,7 +62,8 @@
     detected: ['sfx-detect.wav'], tick: ['sfx-count.wav'], go: ['sfx-go.wav'],
     catch: ['sfx-catch.wav', 'sfx-catch-2.wav', 'sfx-catch-3.wav'], gold: ['sfx-gold.wav'], streak: ['sfx-streak.wav'],
     hit: ['sfx-hit.wav'], miss: ['sfx-miss.wav'], whoosh: ['sfx-whoosh.wav'], hurry: ['sfx-hurry.wav'],
-    end: ['sfx-timeup.wav'], countup: ['sfx-countup.wav'], prize: ['sfx-prize.wav'], confetti: ['sfx-confetti.wav']
+    end: ['sfx-timeup.wav'], countup: ['sfx-countup.wav'], prize: ['sfx-prize.wav'], confetti: ['sfx-confetti.wav'],
+    crunch: ['sfx-crunch.wav']
   };
   const MUSIC = { attract: 'music-attract.mp3', register: 'music-register.mp3', play: 'music-play.mp3', playFast: 'music-play-fast.mp3', win: 'music-win.mp3', lose: 'music-lose.mp3', steam: 'amb-steam.wav' };
 
@@ -119,8 +120,10 @@
 
   // Override the public effect calls so existing call sites get files automatically.
   let streak = 0;
-  A.catch = () => { streak++; playSfx('catch', { rate: 1 + Math.min(0.25, streak * 0.02) }); duckMusic(6, 300); };
-  A.gold = () => { playSfx('gold'); duckMusic(6, 400); };
+  // a wafer going in: the chocolate plop, then the wafer crunch a beat later
+  const crunch = (delay, gain) => setTimeout(() => { if (buffers['sfx-crunch.wav']) playSfx('crunch', { gain, rate: 0.95 + Math.random() * 0.1 }); }, delay);
+  A.catch = () => { streak++; playSfx('catch', { rate: 1 + Math.min(0.25, streak * 0.02) }); crunch(70, 0.8); duckMusic(6, 300); };
+  A.gold = () => { playSfx('gold'); crunch(90, 0.7); duckMusic(6, 400); };
   A.streak = () => { playSfx('streak'); duckMusic(6, 400); };
   A.hit = () => { streak = 0; playSfx('hit'); };
   A.miss = () => { streak = 0; playSfx('miss'); };

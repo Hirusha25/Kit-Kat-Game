@@ -29,6 +29,7 @@ The game crossfades between the loops in 0.6 s, so the loops must be in the same
 | `sfx-go.wav` | GO! | Short energetic brass hit with a cymbal splash, 600 ms. |
 | `sfx-catch.wav` | Wafer caught (+1) | Juicy chocolate plop: a soft liquid splash with a bright pop on top, satisfying, 250 ms. |
 | `sfx-catch-2.wav`, `sfx-catch-3.wav` | Alternates on consecutive catches | Two variations of the catch sound, same character, slightly higher in pitch each time. |
+| `sfx-crunch.wav` | Layered under every catch, 70 ms after the plop | Crisp wafer crunch: a dry snap into a burst of tiny crackles, bright, 220 ms. |
 | `sfx-gold.wav` | Gold wafer caught (+3) | Sparkling magical chime, rising arpeggio with shimmer, premium, 700 ms. |
 | `sfx-streak.wav` | 3 in a row | Quick ascending four-note fanfare, bright bells, 600 ms. |
 | `sfx-hit.wav` | Hazard caught (−1) | Dull thud with a short glass crack and a low buzz, comic not scary, 400 ms. |

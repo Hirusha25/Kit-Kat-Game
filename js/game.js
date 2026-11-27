@@ -61,6 +61,9 @@
     DRINK_RY: 42,
     DRINK_ROW: 2,           // row height for the liquid displacement (px)
     DRINK_SLOSH_PX: 34,     // max horizontal shear of the surface from a hard move
+    DRINK_TILT_PX: 14,      // the liquid level rises on one side and drops on the other by up to this (px at the rim)
+    DRINK_WAVE_PX: 2.6,     // travelling vertical ripple across the surface
+    DRINK_COL: 3,           // column width for the vertical displacement (px)
     DRINK_SLOSH_K: 55,      // slosh spring stiffness / damping (liquid swings then settles)
     DRINK_SLOSH_C: 6,
     DRINK_SLOSH_GAIN: 0.0075,// mug acceleration (px/s^2) -> slosh drive
@@ -1103,16 +1106,24 @@
     /** Live drink surface: the ellipse of liquid in the mug sprite is redrawn in thin rows with a horizontal
      *  shear that swings with the mug's acceleration (slosh) plus a soft ripple, so it reads as liquid. */
     function drawDrink(v, x, y, rot, sx, sy) {
-      var cs = v.canvas.width / v.w, rx = T.DRINK_RX, ry = T.DRINK_RY, st = T.DRINK_ROW;
-      var shear = sloshX * T.DRINK_SLOSH_PX, ph = clock * T.DRINK_RIPPLE_HZ * TWO_PI;
+      // Vertical displacement per column: the level tips with the slosh (one side up, the other down) and a
+      // ripple travels across. Columns are sourced taller than the drink so the mug's inner wall slides into
+      // view where the liquid drops, which is what makes the motion read.
+      var cs = v.canvas.width / v.w, rx = T.DRINK_RX, ry = T.DRINK_RY, cw = T.DRINK_COL, M = ry;
+      var tilt = sloshX * T.DRINK_TILT_PX, ph = clock * T.DRINK_RIPPLE_HZ * TWO_PI;
       ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
       ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TWO_PI); ctx.clip();
-      var sxPx = (v.ox - rx) * cs, swPx = 2 * rx * cs, shPx = st * cs;
-      for (var j = -ry; j < ry; j += st) {
-        var f = j / ry;
-        var off = shear * f + T.DRINK_RIPPLE_PX * Math.sin(ph + j * 0.16) + T.DRINK_TREMBLE_PX * Math.sin(ph * 4.3 + j * 0.45);
-        ctx.drawImage(v.canvas, sxPx, (v.oy + j) * cs, swPx, shPx, -rx + off, j, 2 * rx, st);
+      var syPx = (v.oy - ry - M) * cs, shPx = (2 * ry + 2 * M) * cs, swPx = cw * cs;
+      for (var j = -rx; j < rx; j += cw) {
+        var f = (j + cw / 2) / rx;
+        var dy = tilt * f + T.DRINK_WAVE_PX * Math.sin(ph * 1.4 - j * 0.045) + T.DRINK_TREMBLE_PX * 0.7 * Math.sin(ph * 4.3 + j * 0.07);
+        ctx.drawImage(v.canvas, (v.ox + j) * cs, syPx, swPx, shPx, j, -ry - M + dy, cw, 2 * ry + 2 * M);
       }
+      // a soft sheen that slides against the tilt, like light catching the moving surface
+      var gx = -tilt * 4;
+      var g = ctx.createRadialGradient(gx, -ry * 0.25, 0, gx, -ry * 0.25, rx * 0.7);
+      g.addColorStop(0, 'rgba(255,235,210,0.22)'); g.addColorStop(1, 'rgba(255,235,210,0)');
+      ctx.fillStyle = g; ctx.fillRect(-rx, -ry, 2 * rx, 2 * ry);
       ctx.restore(); drawCalls++;
     }
     function blitT(v, x, y, rot, sx, sy, alpha) {

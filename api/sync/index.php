@@ -60,11 +60,11 @@ if ($a === 'push') {
         $q->execute([$kiosk, $id, s($r['name'] ?? '', 120), s($r['code'] ?? '', 16), (int)($r['score'] ?? 0), (int)($r['caught'] ?? 0), (int)($r['streak'] ?? 0), $ts($r['ts'] ?? null)]);
         $saved['scores'][] = $id;
     }
-    $q = $db->prepare('INSERT IGNORE INTO sync_prizes (kiosk, client_id, kind, prize_code, name, mobile, score, client_time, received_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())');
+    $q = $db->prepare('INSERT IGNORE INTO sync_prizes (kiosk, client_id, kind, prize_code, name, mobile, score, turn, mode, client_time, received_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
     foreach (array_slice((array)($in['prizes'] ?? []), 0, 300) as $r) {
         $id = s($r['id'] ?? '', 80); if ($id === '') continue;
-        $q->execute([$kiosk, $id, s($r['kind'] ?? '', 8), s($r['code'] ?? '', 16), s($r['name'] ?? '', 120), s($r['mobile'] ?? '', 20), (int)($r['score'] ?? 0), $ts($r['ts'] ?? null)]);
+        $q->execute([$kiosk, $id, s($r['kind'] ?? '', 8), s($r['code'] ?? '', 16), s($r['name'] ?? '', 120), s($r['mobile'] ?? '', 20), (int)($r['score'] ?? 0), (int)($r['turn'] ?? 0), s($r['mode'] ?? '', 8), $ts($r['ts'] ?? null)]);
         $saved['prizes'][] = $id;
     }
     out(200, ['ok' => true, 'saved' => $saved]);
@@ -88,7 +88,7 @@ if ($a === 'export') {
     $what = $_GET['what'] ?? '';
     $cols = ['players' => 'kiosk, name, dob, mobile, email, play_code, verified, uid, client_time, received_at',
              'scores'  => 'kiosk, name, play_code, score, caught, streak, client_time, received_at',
-             'prizes'  => 'kiosk, kind, prize_code, name, mobile, score, client_time, received_at'][$what] ?? null;
+             'prizes'  => 'kiosk, kind, prize_code, name, mobile, score, turn, mode, client_time, received_at'][$what] ?? null;
     if (!$cols) fail(422, 'bad_request');
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="kitkat-' . $what . '-' . gmdate('Ymd-Hi') . '.csv"');

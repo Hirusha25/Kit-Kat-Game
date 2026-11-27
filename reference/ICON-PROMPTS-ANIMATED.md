@@ -82,3 +82,21 @@ and the reference frame `reference/game-screen-reference.webp` for palette.
 - Missed wafers slow, blink twice and vanish.
 
 Send the two-frame pairs and I wire the cross-fade; send any bonus pair and I build its rule.
+
+---
+
+## How-to-play illustration (optional artwork for the instruction screen)
+
+The instruction screen is live and built from the game's own icons. If you want a single illustrated
+panel instead, generate this and I will drop it in behind the three rows.
+
+### `how-to-play.png`  [attach: mug.png + game-screen-reference.webp]  Output 1872 x 1160 (2x the 936 x 580 card)
+
+> A clean instructional illustration on a warm cream card (#FFF4DC) with a thin gold rim: in the
+> centre the attached cream KitKat Chocolate Drink mug seen from the front, slightly from above, with
+> two bold glossy red arrows (#C8102E) pointing left and right from it to show side-to-side movement.
+> Above the mug, three KitKat fingers falling with soft warm light streaks and a small gold "+1" next
+> to one, a gold-foil finger with a "+3". To the sides, a royal-blue alarm clock and a violet calendar
+> falling with a red "−1" and a thin red dashed ring around each. Glossy toy-like 3D for the objects,
+> flat clean vector for the arrows and numbers, lots of breathing room, no other text, no background
+> outside the card.

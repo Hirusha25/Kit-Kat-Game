@@ -45,3 +45,11 @@ CREATE TABLE IF NOT EXISTS sync_prizes (
   UNIQUE KEY uq_item (kiosk, client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Existing databases: ALTER TABLE sync_prizes ADD COLUMN turn INT NOT NULL DEFAULT 0, ADD COLUMN mode VARCHAR(8) NOT NULL DEFAULT '';
+
+-- Prize rule set by the team on the review page and pulled by each kiosk every minute.
+-- kiosk '*' applies to every kiosk; a row with a kiosk's name overrides it for that kiosk only.
+CREATE TABLE IF NOT EXISTS sync_config (
+  kiosk       VARCHAR(40) NOT NULL PRIMARY KEY,
+  settings    TEXT        NOT NULL,          -- JSON: rewardMode, everyNth, pacing, openHour, closeHour, capMin, teeMin
+  updated_at  DATETIME    NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

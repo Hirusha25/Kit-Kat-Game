@@ -6,6 +6,8 @@
 //        Each item carries a client "id". Sending the same item again is harmless (stored once per kiosk).
 //   GET  ?a=export&what=players|scores|prizes   (reviewer login from /debug/)  -> CSV download
 //   GET  ?a=summary                             (reviewer login)               -> counts per kiosk and day
+//   GET  ?a=config     header X-KK-Key          -> {"ok":true,"settings":{everyNth,...}}  prize rule for this kiosk
+//   GET  ?a=getconfig  / POST ?a=setconfig {kiosk:'*'|name, settings:{...}}   (reviewer login)
 //
 // Secrets (database login, kiosk keys) live in a server-only config file outside the web root.
 // Table definitions: api/sync/schema.sql.
@@ -71,6 +73,34 @@ if ($a === 'push') {
 }
 
 // ------------------------------------------------------------------------------------------------
+// Kiosk: prize rule saved by the team ('*' = every kiosk, overridden by a row for this kiosk's name)
+// ------------------------------------------------------------------------------------------------
+$ALLOWED = ['rewardMode' => 'str', 'everyNth' => 'int', 'pacing' => 'bool', 'openHour' => 'int', 'closeHour' => 'int', 'capMin' => 'int', 'teeMin' => 'int'];
+function cleanSettings(array $in, array $allowed): array {
+    $o = [];
+    foreach ($allowed as $k => $t) {
+        if (!array_key_exists($k, $in)) continue;
+        $v = $in[$k];
+        if ($t === 'int') { $v = (int)$v; if ($k === 'everyNth') $v = max(1, min(50, $v)); if ($k === 'openHour') $v = max(0, min(23, $v)); if ($k === 'closeHour') $v = max(1, min(24, $v)); if ($k === 'capMin' || $k === 'teeMin') $v = max(1, min(200, $v)); }
+        elseif ($t === 'bool') $v = !empty($v) && $v !== 'false';
+        else $v = in_array($v, ['nth', 'score'], true) ? $v : 'nth';
+        $o[$k] = $v;
+    }
+    return $o;
+}
+if ($a === 'config') {
+    $key = (string)($_SERVER['HTTP_X_KK_KEY'] ?? ''); $kiosk = null;
+    foreach (($cfg['kiosk_keys'] ?? []) as $name => $k) if ($key !== '' && hash_equals((string)$k, $key)) $kiosk = (string)$name;
+    if ($kiosk === null) fail(401, 'bad_key');
+    $merged = [];
+    foreach (['*', $kiosk] as $who) {
+        $q = $db->prepare('SELECT settings FROM sync_config WHERE kiosk = ?'); $q->execute([$who]);
+        if ($row = $q->fetch()) $merged = array_merge($merged, cleanSettings((array)json_decode((string)$row['settings'], true), $ALLOWED));
+    }
+    out(200, ['ok' => true, 'kiosk' => $kiosk, 'settings' => $merged]);
+}
+
+// ------------------------------------------------------------------------------------------------
 // Team: export (same sign-in as the review page /debug/)
 // ------------------------------------------------------------------------------------------------
 session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
@@ -78,6 +108,21 @@ session_name('kkdebug'); session_start();
 if (empty($_SESSION['reviewer'])) fail(401, 'login_required');
 session_write_close();
 
+if ($a === 'getconfig') {
+    $rows = [];
+    foreach ($db->query('SELECT kiosk, settings, updated_at FROM sync_config ORDER BY kiosk') as $r) $rows[$r['kiosk']] = ['settings' => json_decode((string)$r['settings'], true), 'updated_at' => $r['updated_at']];
+    out(200, ['ok' => true, 'config' => $rows, 'kiosks' => array_keys((array)($cfg['kiosk_keys'] ?? []))]);
+}
+if ($a === 'setconfig') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'bad_request');
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    $who = s($in['kiosk'] ?? '*', 40); if ($who === '') $who = '*';
+    $set = cleanSettings((array)($in['settings'] ?? []), $ALLOWED);
+    if (!$set) fail(422, 'bad_request');
+    $q = $db->prepare('INSERT INTO sync_config (kiosk, settings, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE settings = VALUES(settings), updated_at = NOW()');
+    $q->execute([$who, json_encode($set)]);
+    out(200, ['ok' => true, 'kiosk' => $who, 'settings' => $set]);
+}
 if ($a === 'summary') {
     $rows = [];
     foreach (['players', 'scores', 'prizes'] as $t)

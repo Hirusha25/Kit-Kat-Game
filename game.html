@@ -125,6 +125,7 @@
   .ov.pre { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; display: none; }
   .ov.pre.show { display: block; }
   body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .wave, body.pre .pip { display: none !important; }
+  #ov-how { cursor: pointer; }
   .pre-wave { position: absolute; left: -6px; bottom: -4px; width: 1092px; height: auto; pointer-events: none; }
   .pre-logo { position: absolute; left: 50%; top: 14px; width: 345px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
   .pre-title { position: absolute; left: 50%; top: 262px; width: 410px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
@@ -136,6 +137,24 @@
   .pre-pick select { flex: 1; min-width: 0; height: 74px; border: 0 !important; background: transparent !important; box-shadow: none; font: 600 38px/1 var(--font-body); color: #3a1a06; padding: 0 60px 0 10px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; appearance: none; -webkit-appearance: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a1a06' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 10px center / 40px no-repeat !important; }
   .ov.pre .pre-btn { position: absolute; left: 190px; top: 1392px; width: 700px; height: 240px; font-size: 80px; margin: 0; z-index: 2; }
   .pre-status { position: absolute; left: 50%; top: 1360px; transform: translateX(-50%); margin: 0; white-space: nowrap; }
+  /* how-to-play card: three rows, gold rim, same card footprint as the camera card */
+  .how-card { height: auto; padding: 26px 40px; box-sizing: border-box; border-radius: 34px; border: 5px solid transparent;
+    background: linear-gradient(180deg, #fff8e8 0%, #fdf0cf 55%, #fbe7b0 100%) padding-box, var(--gold-line) border-box;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.9), 0 24px 60px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 10px; }
+  .how-row { display: flex; align-items: center; gap: 26px; padding: 14px 10px; border-bottom: 2px solid rgba(201,150,46,.28); }
+  .how-row:last-child { border-bottom: 0; }
+  .how-icons { flex: 0 0 320px; height: 150px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .how-icons img { height: 150px; width: auto; filter: drop-shadow(0 10px 14px rgba(90,20,0,.35)); }
+  .how-icons.four { gap: 8px; } .how-icons.four img { height: 86px; }
+  .how-t { flex: 1 1 auto; text-align: left; min-width: 0; }
+  .how-t b { display: block; font: 900 italic 44px/1.05 var(--font-display); text-transform: uppercase; color: #c8102e; }
+  .how-t span { display: block; margin-top: 8px; font: 600 28px/1.2 var(--font-body); color: #3a1a06; }
+  .how-pts { flex: 0 0 130px; text-align: center; font: 900 italic 76px/1 var(--font-display); }
+  .how-pts.good { color: #c8102e; } .how-pts.gold { background: linear-gradient(180deg, #ffe49a, #c98a1e); -webkit-background-clip: text; background-clip: text; color: transparent; } .how-pts.bad { color: #7a0a14; }
+  .how-foot { position: absolute; left: 0; right: 0; top: 1436px; display: flex; align-items: center; justify-content: center; gap: 26px; font: 700 34px/1 var(--font-body); color: #fff; }
+  .how-foot u { text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  .how-ring { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#f3cf7a var(--p, 100%), rgba(255,255,255,.18) 0); }
+  .how-ring b { width: 76px; height: 76px; border-radius: 50%; background: #8a0610; display: grid; place-items: center; font: 900 italic 42px/1 var(--font-display); color: #fff3d8; }
   #ov-cal .pre-card .ring { right: 22px; top: 22px; }
 
   /* calibration card */
@@ -318,6 +337,22 @@
         <label for="cam-sel">Camera</label><span class="vsep"></span>
         <select id="cam-sel"></select>
       </div>
+    </section>
+
+    <!-- How to play: shown once per player after the mug is locked on, auto-advances -->
+    <section class="ov pre how" id="ov-how">
+      <img class="layer" src="assets/img/register/wafer-top.webp" alt="">
+      <img class="pre-wave" src="assets/img/game/wave-pre.webp" alt="">
+      <img class="pre-logo" src="assets/img/register/logo-top.webp" alt="KitKat Chocolate Drink">
+      <img class="pre-title" src="assets/img/cover/title-white.svg" alt="Dunk the Break">
+      <h1 class="pre-h">How To Play</h1>
+      <p class="pre-p">Move your mug left and right.</p>
+      <div class="how-card pre-card">
+        <div class="how-row"><div class="how-icons"><img src="assets/img/game/wafer.png" alt=""></div><div class="how-t"><b>Catch the wafers</b><span>Let them drop into your mug</span></div><div class="how-pts good">+1</div></div>
+        <div class="how-row"><div class="how-icons"><img src="assets/img/game/wafer-gold.png" alt=""></div><div class="how-t"><b>Gold wafer</b><span>Rare. Worth three.</span></div><div class="how-pts gold">+3</div></div>
+        <div class="how-row"><div class="how-icons four"><img src="assets/img/game/alarm.png" alt=""><img src="assets/img/game/phone.png" alt=""><img src="assets/img/game/deadline.png" alt=""><img src="assets/img/game/inbox.png" alt=""></div><div class="how-t"><b>Dodge these</b><span>Alarms, calls, deadlines, mail</span></div><div class="how-pts bad">−1</div></div>
+      </div>
+      <div class="how-foot"><div class="how-ring" id="how-ring"><b id="how-n">5</b></div><span>Starting in a moment · <u>tap to start now</u></span></div>
     </section>
 
     <!-- Countdown -->

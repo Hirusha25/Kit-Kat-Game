@@ -44,6 +44,17 @@
   <div class="hide" id="list">
     <div class="card"><span id="summary" class="dim"></span></div>
     <div class="card">Kiosk data synced to the server (CSV): <a href="../api/sync/?a=export&what=players">registrations</a> · <a href="../api/sync/?a=export&what=scores">scores</a> · <a href="../api/sync/?a=export&what=prizes">prize codes</a></div>
+    <div class="card" id="prize-rule">
+      <b>Prize rule</b> <span class="dim">— every kiosk pulls this within a minute</span><br>
+      <label>Kiosk <select id="pr-kiosk"><option value="*">all kiosks</option></select></label>
+      <label>Rule <select id="pr-mode"><option value="nth">every Nth round wins</option><option value="score">by score</option></select></label>
+      <label>Every <input id="pr-nth" type="number" min="1" max="50" value="5" style="width:70px"> th round</label>
+      <label><input id="pr-pacing" type="checkbox" checked> release prizes evenly through the day</label>
+      <label>Hours <input id="pr-open" type="number" min="0" max="23" value="10" style="width:60px"> to <input id="pr-close" type="number" min="1" max="24" value="20" style="width:60px"></label>
+      <label>T-shirt from score <input id="pr-tee" type="number" min="1" max="200" value="25" style="width:70px"></label>
+      <label>Cap from score (by-score rule only) <input id="pr-cap" type="number" min="1" max="200" value="12" style="width:70px"></label>
+      <button id="pr-save">Save</button> <span id="pr-msg" class="dim"></span>
+    </div>
     <div class="card" style="overflow:auto"><table><thead><tr id="heads"></tr></thead><tbody id="rows"></tbody></table></div>
   </div>
 
@@ -96,6 +107,24 @@
   function pct(v) { return v == null ? '–' : (v * 100).toFixed(1) + '%'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
+  // ---------- prize rule (api/sync) ----------
+  var SYNC = '../api/sync/';
+  function prFill(s) { s = s || {}; if ('rewardMode' in s) $('pr-mode').value = s.rewardMode; if ('everyNth' in s) $('pr-nth').value = s.everyNth; if ('pacing' in s) $('pr-pacing').checked = !!s.pacing; if ('openHour' in s) $('pr-open').value = s.openHour; if ('closeHour' in s) $('pr-close').value = s.closeHour; if ('teeMin' in s) $('pr-tee').value = s.teeMin; if ('capMin' in s) $('pr-cap').value = s.capMin; }
+  var prAll = {};
+  function prLoad() {
+    fetch(SYNC + '?a=getconfig').then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) return;
+      prAll = j.config || {}; var sel = $('pr-kiosk'); sel.innerHTML = '<option value="*">all kiosks</option>' + (j.kiosks || []).map(function (k) { return '<option value="' + esc(k) + '">' + esc(k) + '</option>'; }).join('');
+      prFill(prAll['*'] && prAll['*'].settings); $('pr-msg').textContent = prAll['*'] ? 'saved ' + prAll['*'].updated_at : 'not set yet (kiosks use their own panel settings)';
+    }).catch(function () {});
+  }
+  $('pr-kiosk').addEventListener('change', function () { var k = $('pr-kiosk').value, row = prAll[k] || prAll['*']; prFill(row && row.settings); $('pr-msg').textContent = prAll[k] ? 'saved ' + prAll[k].updated_at : 'using the all-kiosks rule'; });
+  $('pr-save').addEventListener('click', function () {
+    var body = { kiosk: $('pr-kiosk').value, settings: { rewardMode: $('pr-mode').value, everyNth: +$('pr-nth').value || 5, pacing: $('pr-pacing').checked, openHour: +$('pr-open').value || 0, closeHour: +$('pr-close').value || 24, teeMin: +$('pr-tee').value || 25, capMin: +$('pr-cap').value || 12 } };
+    fetch(SYNC + '?a=setconfig', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); })
+      .then(function (j) { $('pr-msg').textContent = j && j.ok ? 'Saved. Kiosks pick it up within a minute.' : 'Could not save: ' + (j && j.error); if (j && j.ok) prLoad(); }, function () { $('pr-msg').textContent = 'Could not save.'; });
+  });
+
   // ---------- sign in ----------
   $('l-go').addEventListener('click', function () {
     $('l-err').textContent = '';
@@ -110,6 +139,7 @@
   var sessions = [], sortKey = 'created_at', sortDir = -1;
   var HEADS = [['created_at', 'Recorded'], ['kiosk', 'Kiosk'], ['ended_reason', 'Ended'], ['found_share', 'Mug tracked'], ['lost_events', 'Lost events'], ['longest_lost_ms', 'Longest loss'], ['avg_fps', 'Frame rate'], ['score', 'Score'], ['duration_ms', 'Length'], ['camera', 'Camera'], ['has_video', 'Video'], ['bytes', 'Size'], ['build_rev', 'Build'], ['keep', 'Keep'], ['notes', 'Notes']];
   function loadList() {
+    prLoad();
     return api('a=list').then(function (j) {
       sessions = j.sessions; show('list');
       var done = sessions.filter(function (s) { return s.found_share != null; });

@@ -36,6 +36,23 @@
     return out;
   }
 
+  // Prize rule from the server: GET api/sync/?a=config returns the settings the team saved on the review
+  // page (every Nth winner, pacing, hours, score thresholds). Applied to kk_settings; the game page is told.
+  var lastCfg = '';
+  async function pullConfig() {
+    if (!key() || !navigator.onLine) return;
+    try {
+      var res = await fetch(API + '?a=config', { headers: { 'X-KK-Key': key() }, cache: 'no-store' }); var j = await res.json();
+      if (!j || !j.ok || !j.settings) return;
+      var txt = JSON.stringify(j.settings); if (txt === lastCfg) return; lastCfg = txt;
+      var s = read('kk_settings', {}); Object.keys(j.settings).forEach(function (k) { s[k] = j.settings[k]; });
+      localStorage.setItem('kk_settings', JSON.stringify(s)); localStorage.setItem('kk_remote_settings', JSON.stringify({ at: Date.now(), settings: j.settings }));
+      window.dispatchEvent(new CustomEvent('kk:remote-settings', { detail: j.settings }));
+      state.config = new Date().toISOString();
+    } catch (e) { /* offline or not configured: the kiosk keeps its own settings */ }
+  }
+  setTimeout(pullConfig, 2000); setInterval(pullConfig, 60000);
+
   async function sync() {
     var p = pending();   // always runs: it also copies today's prize codes into the log, online or not
     if (busy || !key() || !navigator.onLine) return;

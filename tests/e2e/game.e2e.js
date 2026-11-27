@@ -38,12 +38,12 @@ function fail(msg) { console.error('FAIL: ' + msg); process.exitCode = 1; }
   await page.screenshot({ path: path.join(OUT, '1-calibration.png') });
 
   // Calibration should lock within ~6 s of the mug being visible
-  const locked = await page.waitForFunction(() => window.__kk && (window.__kk.phase === 'countdown' || window.__kk.phase === 'playing'), null, { timeout: 15000 }).then(() => true).catch(() => false);
+  const locked = await page.waitForFunction(() => window.__kk && (window.__kk.phase === 'how' || window.__kk.phase === 'countdown' || window.__kk.phase === 'playing'), null, { timeout: 15000 }).then(() => true).catch(() => false);
   if (!locked) fail('calibration never locked on the mug');
   console.log(`calibration locked after ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   await page.screenshot({ path: path.join(OUT, '2-countdown.png') });
 
-  await page.waitForFunction(() => window.__kk.phase === 'playing', null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__kk.phase === 'playing', null, { timeout: 20000 }); // how-to-play (6 s) + countdown
   // Sample tracking + mug position for 4 s
   const samples = [];
   for (let i = 0; i < 40; i++) {

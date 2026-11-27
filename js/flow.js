@@ -82,8 +82,8 @@
   };
 
   // ---------- overlays & toast ----------
-  const ov = { cal: $('ov-cal'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
-  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal' || name === 'end'); }
+  const ov = { cal: $('ov-cal'), how: $('ov-how'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
+  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal' || name === 'how' || name === 'end'); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 
@@ -223,8 +223,25 @@
     }
     KKAudio.detected();
     $('cal-msg').textContent = 'Locked on. Get ready!';
-    setTimeout(startCountdown, 700);
+    setTimeout(howToPlay, 700);
   }
+
+  // ---------- how to play: once per player, HOW_SECONDS or a tap ----------
+  const HOW_SECONDS = +qs.get('how') || 6;
+  let howTimer = 0, howDone = false;
+  function howToPlay() {
+    if (howDone || HOW_SECONDS <= 0) return startCountdown();
+    howDone = true; phase = 'how'; show('how');
+    const ring = $('how-ring'), n = $('how-n'), t0 = performance.now(); let raf = 0;
+    const go = () => { cancelAnimationFrame(raf); clearTimeout(howTimer); ov.how.removeEventListener('pointerdown', go); KKAudio.tap(); startCountdown(); };
+    const tick = now => { const k = Math.min(1, (now - t0) / (HOW_SECONDS * 1000)); ring.style.setProperty('--p', ((1 - k) * 100).toFixed(1) + '%'); n.textContent = String(Math.max(1, Math.ceil(HOW_SECONDS - k * HOW_SECONDS))); if (k < 1) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    howTimer = setTimeout(go, HOW_SECONDS * 1000);
+    setTimeout(() => ov.how.addEventListener('pointerdown', go, { once: true }), 400);
+  }
+  // Prize rule pushed from the server (review page): merge into the live settings when the sync script sees a change.
+  const REMOTE_KEYS = ['rewardMode', 'everyNth', 'pacing', 'openHour', 'closeHour', 'capMin', 'teeMin'];
+  window.addEventListener('kk:remote-settings', e => { const r = e.detail || {}; REMOTE_KEYS.forEach(k => { if (k in r) settings[k] = r[k]; }); save(LS.settings, settings); if (setupOpen) refreshStock(); });
   function beginCalibration() {
     KKAudio.music('attract'); // same track as the cover and register pages, continued from where it was
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');

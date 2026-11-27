@@ -142,7 +142,11 @@
     // Detector frame: 320x180 ('high', the mug is only a few pixels at 160x90 from where players stand) or 160x90.
     // rotate 'auto' turns a portrait camera picture upright on the kiosk (never on a phone, which holds its camera upright).
     const hi = settings.detail !== 'normal', phone = document.documentElement.classList.contains('is-phone');
+<<<<<<< Updated upstream
     tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127j' });
+=======
+    tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127m' });
+>>>>>>> Stashed changes
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
@@ -154,10 +158,15 @@
   // The range is centred on where the mug was when it locked on (playCenter), not on the middle of the camera
   // picture: the webcam sits beside the kiosk, so the player's natural position is off-centre in the frame and a
   // fixed centre left one direction with far less room than the other.
-  let playCenter = 0.5;
+  // The reach scales with how far away the player stands. Close to the camera a small hand movement crosses the
+  // whole picture; at a metre the same movement covers half as much of it. The logo's width in the picture at
+  // lock-on (playLogoW) tells the distance, and the track is set to about 6 logo widths either way (the logo is
+  // about 5 cm wide, so roughly 30 cm of real movement each way) wherever the player stands.
+  let playCenter = 0.5, playLogoW = 0;
   function playX(x) {
     const r = Math.min(1, Math.max(0.5, +settings.range || 0.7));
-    const half = Math.max(0.2, Math.min(r / 2, playCenter - 0.04, 0.96 - playCenter)); // same reach both ways, inside the picture
+    const reach = playLogoW > 0 ? 6 * playLogoW : r / 2;
+    const half = Math.max(0.12, Math.min(r / 2, reach, playCenter - 0.04, 0.96 - playCenter)); // same reach both ways, inside the picture
     return Math.min(1, Math.max(0, ((+x || 0) - (playCenter - half)) / (2 * half)));
   }
   // Tracking state shown to the player: 'ok' (green), 'weak' (amber: not seen in the last few frames, the
@@ -293,8 +302,10 @@
     // (more than 20 px in one frame) do not count as travel.
     const nowMs = performance.now(), opt = tracker && tracker.getOptions ? tracker.getOptions() : { width: 160, height: 90 };
     if (s.found) {
-      if (calLast) { const dpx = Math.hypot((s.rawX - calLast.x) * opt.width, (s.rawY - calLast.y) * opt.height); if (dpx > 1.6 && dpx < 20) calPath.push({ t: nowMs, d: dpx }); }
-      calLast = { x: s.rawX, y: s.rawY };
+      // a jump = faster than 1.2 picture widths a second (at least 20 px). Time-based: the venue kiosk ran this screen
+      // at 9 frames a second, where an ordinary hand movement is already 15 px or more from one frame to the next.
+      if (calLast) { const dpx = Math.hypot((s.rawX - calLast.x) * opt.width, (s.rawY - calLast.y) * opt.height), jump = Math.max(20, 1.2 * opt.width * (nowMs - calLast.t) / 1000); if (dpx > 1.6 && dpx < jump) calPath.push({ t: nowMs, d: dpx }); }
+      calLast = { x: s.rawX, y: s.rawY, t: nowMs };
     } else calLast = null;
     while (calPath.length && nowMs - calPath[0].t > 4000) calPath.shift();
     const moved = calPath.reduce((sum, p) => sum + p.d, 0) >= 10;
@@ -314,6 +325,7 @@
       $('cal-msg').textContent = 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
     }
     playCenter = Math.min(0.8, Math.max(0.2, calSpot.x)); // where the player naturally holds the mug = the middle of the track
+    playLogoW = trackState && trackState.found && trackState.w > 0 ? trackState.w : 0;   // logo width at lock-on = how far away the player is
     KKAudio.detected();
     $('cal-msg').textContent = 'Locked on. Get ready!';
     setTimeout(startCountdown, 700);   // locked on: straight into 3-2-1 (the instructions came before the camera)

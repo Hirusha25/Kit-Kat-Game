@@ -37,7 +37,7 @@ function png(file) {   // 8-bit RGBA, not interlaced (what make-frames.py writes
 }
 
 var frames = JSON.parse(fs.readFileSync(path.join(DIR, 'frames.json'), 'utf8')), names = Object.keys(frames).sort();
-var THRESHOLD = 0.56;   // the game's default sensitivity (0.42)
+var THRESHOLD = T.thresholdFor(0.42);   // the game's default sensitivity
 var acquire = T.acquireParams(T.defaultParams); acquire.threshold = THRESHOLD;
 var plain = Object.assign({}, T.defaultParams, { threshold: THRESHOLD });
 var fails = [], stat = { pos: 0, neg: 0, plainFound: 0 };

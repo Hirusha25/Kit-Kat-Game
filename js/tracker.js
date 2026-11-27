@@ -37,6 +37,7 @@
     redMin: 90,         // R must exceed this (0..255)
     redDelta: 45,       // R - max(G,B) must exceed this
     redRatio: 2.2,      // R must exceed redRatio * max(G,B) (rejects skin, wood, orange, magenta)
+    skinGap: 255,       // G - B must be below this. The logo's red has G about equal to B; skin always has G well above B
     // white mask
     whiteMin: 140,      // min(R,G,B) must exceed this
     whiteSpread: 70,    // max(R,G,B) - min(R,G,B) must be below this
@@ -62,7 +63,10 @@
     temporalRange: 0.25,
     prevX: -1,             // previous raw position (unmirrored, normalised) or -1 for none
     prevY: -1,
+    // search window (normalised, whole frame by default): red outside it is ignored
+    roiX0: 0, roiY0: 0, roiX1: 1, roiY1: 1,
     // decision
+    edgeScore: 0,          // > 0: a candidate whose box touches the frame edge needs at least this score
     threshold: 0.55
   };
 
@@ -129,11 +133,12 @@
     var labels = b.labels, parent = b.parent;
     var area = b.area, minX = b.minX, minY = b.minY, maxX = b.maxX, maxY = b.maxY, integ = b.integ, integR = b.integR;
 
-    var redMin = p.redMin, redDelta = p.redDelta, redRatio = p.redRatio;
+    var redMin = p.redMin, redDelta = p.redDelta, redRatio = p.redRatio, skinGap = p.skinGap === undefined ? 255 : p.skinGap;
     var whiteMin = p.whiteMin, whiteSpread = p.whiteSpread, whiteWarm = p.whiteWarmMax;
 
     // ---- pass 1: masks, white integral image, provisional labels -------------------------------
     var next = 1;
+    var rx0 = Math.floor(p.roiX0 * W), rx1 = Math.ceil(p.roiX1 * W) - 1, ry0 = Math.floor(p.roiY0 * H), ry1 = Math.ceil(p.roiY1 * H) - 1;
     var i = 0, d = 0, x, y, lab, u, r, g, bl, mx, mn, lo, hi, isW, ii, ia;
     for (y = 0; y < H; y++) {
       ii = (y + 1) * IW + 1;   // integral cell of (x, y)
@@ -145,7 +150,7 @@
         isW = (lo > whiteMin && (hi - lo) < whiteSpread && (r - g) < whiteWarm) ? 1 : 0;
         integ[ii + x] = isW + integ[ia + x] + integ[ii + x - 1] - integ[ia + x - 1];
 
-        if (!(r > redMin && (r - mx) > redDelta && r > redRatio * mx)) {
+        if (!(r > redMin && (r - mx) > redDelta && r > redRatio * mx && (g - bl) < skinGap) || x < rx0 || x > rx1 || y < ry0 || y > ry1) {
           labels[i] = 0;
           integR[ii + x] = integR[ia + x] + integR[ii + x - 1] - integR[ia + x - 1];
           continue;
@@ -242,6 +247,7 @@
     var refArea = p.refAreaFrac > 0 ? p.refAreaFrac * n : 0;
     var prevX = p.prevX, prevY = p.prevY, tRange = p.temporalRange;
     var best = -1, bestScore = 0, bestWR = 0, evaluated = 0, sub = result.sub;
+    var edgePx = Math.max(1, Math.round(W * 0.01));   // "touches the edge" = within 1% of the frame width of it
     sub[0] = sub[1] = sub[2] = sub[3] = sub[4] = sub[5] = 0;
     var w, h, ex, ey, x0, y0, x1, y1, bx0, by0, bx1, by1, rL, rR, rT, rB, redRing, wr, sWhite, aspect, sAspect, fill, sFill, inner, sInner, sArea, sTemp, cx, cy, dist, score;
     for (k = 0; k < cTotal; k++) {
@@ -321,6 +327,9 @@
       else sTemp = 0.5;
 
       score = 0.55 * sWhite + 0.12 * sAspect + 0.08 * sArea + 0.08 * sFill + 0.08 * sInner + 0.09 * sTemp;
+      // Cut off by the frame edge: only half of it can be judged, so it has to be convincing. (On the venue
+      // recording a pink fold of clothing at the top edge scored 0.65 to 0.74; the real logo at the edge 0.86.)
+      if (p.edgeScore > 0 && score < p.edgeScore && (bx0 <= edgePx || by0 <= edgePx || bx1 >= W - 1 - edgePx || by1 >= H - 1 - edgePx)) continue;
       if (score > bestScore) { bestScore = score; best = k; bestWR = wr; sub[0] = sWhite; sub[1] = sAspect; sub[2] = sArea; sub[3] = sFill; sub[4] = sInner; sub[5] = sTemp; }
     }
 
@@ -362,11 +371,21 @@
   // cream body in cool or dim light sits just under the default whiteMin and scores zero, while with
   // these values the logo is found down to a mug of about a tenth of the frame height. Used on the
   // "show your mug" screen and as the starting point of calibrate(); calibration then narrows them.
+  //
+  // The red values come from a round recorded on the venue kiosk (27 Nov), measured on the logo itself:
+  //   sharp logo    R about 205, G and B about 110 to 125: R is only 1.6 to 1.8 times max(G,B)
+  //   blurred logo  (mug moving) R about 215, G and B about 160: 1.35 times, R - max(G,B) about 56
+  //   the hand      R about 130, G about 87, B about 75: G is 8 to 14 above B; on the logo G - B is about 0
+  // The old "R at least 1.8 to 2.2 times" missed the logo in 45% of the labelled frames. R >= 1.3 times
+  // with the skin guard (G - B < 6) found it in the right place in 97% of them, and 91% with every frame
+  // shrunk to half size (the player twice as far away).
   function acquireParams(p) {
     var a = mergeParams(defaultParams, p);
-    a.redMin = Math.min(a.redMin, 70); a.redDelta = Math.min(a.redDelta, 30); a.redRatio = Math.min(a.redRatio, 1.8);
+    a.redMin = Math.min(a.redMin, 70); a.redDelta = Math.min(a.redDelta, 35); a.redRatio = Math.min(a.redRatio, 1.3);
+    a.skinGap = Math.min(a.skinGap, 6);
     a.whiteMin = Math.min(a.whiteMin, 110); a.whiteSpread = Math.max(a.whiteSpread, 90);
     a.minAreaFrac = Math.min(a.minAreaFrac, 0.0003); a.maxAreaFrac = Math.max(a.maxAreaFrac, 0.08);
+    a.edgeScore = Math.max(a.edgeScore, 0.8);
     a.refAreaFrac = 0;
     return a;
   }
@@ -421,8 +440,8 @@
   function loadParams() {
     try {
       var raw = root.localStorage && root.localStorage.getItem(STORAGE_KEY);
-      return raw ? mergeParams(defaultParams, JSON.parse(raw)) : mergeParams(defaultParams, null);
-    } catch (e) { return mergeParams(defaultParams, null); }
+      return raw ? mergeParams(defaultParams, JSON.parse(raw)) : acquireParams(defaultParams);
+    } catch (e) { return acquireParams(defaultParams); }
   }
   function saveParams(p) {
     try {
@@ -430,7 +449,9 @@
       root.localStorage && root.localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
     } catch (e) { /* storage unavailable: calibration still applies to this session */ }
   }
-  function thresholdFor(sensitivity) { return 0.47 + 0.16 * (1 - clamp01(sensitivity)); }
+  // Pass mark from the Sensitivity setting: 0.80 (least sensitive) to 0.62; 0.72 at the default 0.42. On the venue
+  // recording the logo scored 0.83 or more in 9 of 10 right detections and the hand at the frame edge at most 0.70.
+  function thresholdFor(sensitivity) { return 0.62 + 0.18 * (1 - clamp01(sensitivity)); }
   function cameraError(err) {
     var name = (err && err.name) || '', code = 'error';
     if (/NotFound|DevicesNotFound|OverconstrainedError|TypeError/.test(name)) code = 'no-camera';
@@ -504,7 +525,7 @@
     // and drawUpright() draws the upright picture, cropped (never squashed) to the detector's shape, into any
     // 2D context. crop = {x, y, w, h} (0..1 of that upright picture) draws only a part of it.
     function rotation() { if (o.rotate === 'auto') return video.videoHeight > video.videoWidth ? 90 : 0; return ((Math.round(numberOr(+o.rotate, 0) / 90) % 4) + 4) % 4 * 90; }
-    function geometry() { return o.width + 'x' + o.height + 'r' + rotation(); }
+    function geometry() { return o.width + 'x' + o.height + 'r' + rotation() + 'c2'; }   // c2: colour rules of 27 Nov; older saved calibrations are dropped
     function drawUpright(c, dx, dy, dw, dh, crop) {
       var vw = video.videoWidth, vh = video.videoHeight;
       if (video.readyState < 2 || !vw) return false;
@@ -653,7 +674,7 @@
             d = (y * W + x) * 4; r = data[d]; g = data[d + 1]; bl = data[d + 2];
             mx = g > bl ? g : bl; mn = g < bl ? g : bl; lo = r < mn ? r : mn; hi = r > mx ? r : mx;
             inBox = x >= x0 && x <= x1 && y >= y0 && y <= y1;
-            if (inBox && r > c.loose.redMin && (r - mx) > c.loose.redDelta && r > c.loose.redRatio * mx) {
+            if (inBox && r > c.loose.redMin && (r - mx) > c.loose.redDelta && r > c.loose.redRatio * mx && (g - bl) < c.loose.skinGap) {
               c.hR[r]++; c.hDelta[r - mx]++; c.hRatio[Math.min(255, Math.round(10 * r / (mx + 1)))]++; c.nRed++;
             } else if (!inBox && lo > 100 && (hi - lo) < 75) {   // mug body only: skin has a spread of 80+
               c.hLo[lo]++; c.hSpread[hi - lo]++; c.nWhite++;
@@ -673,19 +694,17 @@
                     reason: c.frames === 0 ? 'no-frames' : 'logo-not-found' });
         return;
       }
-      var np = mergeParams(defaultParams, params);
-      // Thresholds sit well below the logo's own percentiles so that auto-exposure drift and the
-      // player moving around keep the logo inside the masks; the white ring does the discriminating.
-      np.redMin = Math.min(200, Math.max(60, Math.round(percentile(c.hR, c.nRed, 0.15) * 0.7)));
-      np.redDelta = Math.min(120, Math.max(25, Math.round(percentile(c.hDelta, c.nRed, 0.15) * 0.5)));
-      np.redRatio = Math.min(4, Math.max(1.8, Math.round(percentile(c.hRatio, c.nRed, 0.15) * 0.6) / 10));
-      np.whiteMin = Math.min(220, Math.max(90, Math.round(percentile(c.hLo, c.nWhite, 0.15) * 0.85)));
-      np.whiteSpread = Math.min(90, Math.max(40, Math.round(percentile(c.hSpread, c.nWhite, 0.85) * 1.3 + 12)));
+      // Calibration learns the logo's SIZE only. It used to narrow the colours to the logo as it looked
+      // during the hold (sharp, still, one exposure); on the venue recording that left R >= 1.8 x and
+      // R > 146, and the logo then failed the mask whenever the mug moved (blur) or the camera re-exposed:
+      // found in 55% of the round's frames, against 97% with the colours left as they are.
+      var np = acquireParams(defaultParams);
       c.areas.sort(function (p, q) { return p - q; });
       var ref = c.areas[c.areas.length >> 1];
       np.refAreaFrac = ref;
       np.minAreaFrac = Math.max(0.00025, ref * 0.2);
-      np.maxAreaFrac = Math.min(0.12, Math.max(ref * 6, 0.01));
+      // players step closer after the hold: the logo was 4 to 5 times its calibrated area later in the round
+      np.maxAreaFrac = Math.min(0.2, Math.max(ref * 12, 0.02));
       np.threshold = thresholdFor(o.sensitivity);
       np.prevX = params.prevX; np.prevY = params.prevY;
       params = np;
@@ -743,7 +762,7 @@
           running = true; busy = false; haveSmoothed = false; lastFrameMs = 0; fpsEma = 0;
           // A calibration belongs to one picture geometry: drop one saved for another size or rotation
           // (kiosks hold values learned on the squashed, sideways picture).
-          try { if (root.localStorage.getItem(STORAGE_KEY + '_geom') !== geometry()) { root.localStorage.removeItem(STORAGE_KEY); var th = params.threshold; params = mergeParams(defaultParams, null); params.threshold = th; } } catch (e) { /* ignore */ }
+          try { if (root.localStorage.getItem(STORAGE_KEY + '_geom') !== geometry()) { root.localStorage.removeItem(STORAGE_KEY); var th = params.threshold; params = acquireParams(defaultParams); params.threshold = th; } } catch (e) { /* ignore */ }
           state.found = false; state.lastSeenMs = -Infinity; params.prevX = -1; params.prevY = -1;
           var track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
           var st = track && track.getSettings ? track.getSettings() : {};
@@ -784,7 +803,7 @@
     };
     tracker.getParams = function () { return mergeParams(defaultParams, params); };
     tracker.setParams = function (extra) { params = mergeParams(params, extra); params.threshold = thresholdFor(o.sensitivity); saveParams(params); return tracker.getParams(); };
-    tracker.resetParams = function () { params = mergeParams(defaultParams, null); params.threshold = thresholdFor(o.sensitivity); try { root.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ } return tracker.getParams(); };
+    tracker.resetParams = function () { params = acquireParams(defaultParams); params.threshold = thresholdFor(o.sensitivity); try { root.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ } return tracker.getParams(); };
     /** Lock-on mode for the "show your mug" screen: on = find the mug with the opened-up colour masks. */
     tracker.setAcquire = function (on) { acquiring = !!on; acq = acquiring ? acquireParams(params) : null; return acquiring; };
     tracker.getState = function () { return state; };
@@ -823,7 +842,7 @@
     return tracker;
   }
 
-  var MugTracker = { detect: detect, acquireParams: acquireParams, newStaticState: newStaticState, suppressStatic: suppressStatic, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
+  var MugTracker = { detect: detect, acquireParams: acquireParams, thresholdFor: thresholdFor, newStaticState: newStaticState, suppressStatic: suppressStatic, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
   root.MugTracker = MugTracker;
   if (typeof module !== 'undefined' && module.exports) module.exports = MugTracker;
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this));

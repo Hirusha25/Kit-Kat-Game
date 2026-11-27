@@ -45,7 +45,7 @@ const DURATION = 40;
 const RANGE = T.MUG_MAX_X - T.MUG_MIN_X;
 const CATCH_HALF = T.MUG_HALF_WIDTH * T.CATCH_HALF_FRAC;
 const toX01 = x => Math.min(1, Math.max(0, (x - T.MUG_MIN_X) / RANGE));
-const isGood = k => k === 'wafer' || k === 'gold';
+const isGood = k => k === 'wafer' || k === 'gold' || k === 'bonus-time';
 
 /* ---------------------------------------------------------------- runner */
 const results = [];

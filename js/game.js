@@ -116,6 +116,14 @@
     GOLD_SHARE: 0.088,      // per regular spawn; with doubles and crossfires this lands near 6 % of all spawns ...
     GOLD_AFTER_SECONDS: 5,  // ... after this many seconds
     GOLD_SCORE: 3,
+    // --- Bonus pick-ups (good items that are not wafers). The gold stopwatch adds seconds to the clock.
+    BONUS_TIME_SECONDS: 5,
+    BONUS_AFTER_SECONDS: 8, // first one no earlier than this ...
+    BONUS_LAST_SECONDS: 8,  // ... and none inside the final N seconds
+    BONUS_SHARE: 0.035,     // per regular spawn
+    BONUS_MAX_PER_ROUND: 2,
+    FRAME_FLIP_HZ: 2.6,     // two-frame icons ("<kind>-on" sprite present) cross-fade at this rate
+    BONUS_FLIP_HZ: 1.4,
     HAZARDS: ['alarm', 'deadline', 'phone', 'inbox'], // rotated, no immediate repeat (reference set)
     HAZARD_FALLBACK: ['alarm', 'deadline'], // used when none of HAZARDS loaded (vector fallbacks exist)
     BAD_LANE_COOLDOWN: 0.6, // no hazard in a lane within this of the previous hazard there
@@ -235,9 +243,9 @@
   };
 
   // Sprite names. 'alarm'/'deadline' kept as named constants for backwards compatibility.
-  var KIND = { WAFER: 'wafer', GOLD: 'gold', ALARM: 'alarm', DEADLINE: 'deadline', PHONE: 'phone', INBOX: 'inbox' };
+  var KIND = { WAFER: 'wafer', GOLD: 'gold', ALARM: 'alarm', DEADLINE: 'deadline', PHONE: 'phone', INBOX: 'inbox', BONUS_TIME: 'bonus-time' };
   // Item classes (what the rules care about). Hazard items carry their sprite name in `kind`.
-  var CLS = { WAFER: 'wafer', GOLD: 'gold', HAZARD: 'hazard' };
+  var CLS = { WAFER: 'wafer', GOLD: 'gold', HAZARD: 'hazard', BONUS: 'bonus' };
   var BAD_KINDS = TUNING.HAZARDS.slice();
   var TWO_PI = Math.PI * 2, DEG = Math.PI / 180;
 
@@ -352,6 +360,10 @@
     var s4 = makeCanvas(220 * scale, 150 * scale), c4 = s4.getContext('2d');
     c4.scale(scale, scale); fillGoldText(c4, '+3', 110, 75, 108, true);
     out.plus3 = { canvas: s4, w: 220, h: 150, ox: 110, oy: 75 };
+    // "+5s" (time bonus)
+    var s5 = makeCanvas(260 * scale, 150 * scale), c5 = s5.getContext('2d');
+    c5.scale(scale, scale); fillGoldText(c5, '+' + TUNING.BONUS_TIME_SECONDS + 's', 130, 75, 96, true);
+    out.time = { canvas: s5, w: 260, h: 150, ox: 130, oy: 75 };
     // big "+1 / N IN A ROW"
     var s2 = makeCanvas(440 * scale, 320 * scale), c2 = s2.getContext('2d');
     c2.scale(scale, scale); fillGoldText(c2, '+1', 220, 120, 190, true);
@@ -610,6 +622,7 @@
     var splashT = 0, shakeT = 0, recoilT = 0, recoilDir = 1, tilt = 0, comboPulse = 0, comboN = 0;
     var sloshX = 0, sloshV = 0, prevMugV = 0; // drink surface slosh (damped oscillator driven by mug acceleration)
     var wobbleT = 0;                             // post-hit rocking
+    var bonusSpawned = 0;                        // bonus pick-ups spawned this round
     var raysX = T.STAGE_W / 2; // rays are pinned to the stage centre and only rotate
 
     var lanes = [];
@@ -723,15 +736,16 @@
         if (consecutiveBads >= T.MAX_CONSECUTIVE_BADS || simTime - L.lastBadAt < T.BAD_LANE_COOLDOWN) cls = CLS.WAFER;
       }
       var bad = cls === CLS.HAZARD;
-      var kind = bad ? pickHazard(rng, hazards, lastHazard) : (cls === CLS.GOLD ? KIND.GOLD : KIND.WAFER);
+      var kind = bad ? pickHazard(rng, hazards, lastHazard) : (cls === CLS.GOLD ? KIND.GOLD : cls === CLS.BONUS ? KIND.BONUS_TIME : KIND.WAFER);
+      if (cls === CLS.BONUS) bonusSpawned++;
       if (bad) lastHazard = kind;
       L.lastAt = simTime; L.lastKind = kind;
       if (bad) { L.lastBadAt = simTime; consecutiveBads++; } else consecutiveBads = 0;
 
-      it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
+      it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.bonus = cls === CLS.BONUS; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
       it.baseX = spawnMinX + laneW * (lane + 0.5) + rng.range(-1, 1) * laneW * T.LANE_JITTER;
       it.swayAmp = rng.pick(T.SWAY_AMP); it.swayW = rng.pick(T.SWAY_HZ) * TWO_PI; it.swayPh = rng() * TWO_PI;
-      if (bad) { it.rotBase = rng.pick(T.ROT_BASE) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; }
+      if (bad || cls === CLS.BONUS) { it.rotBase = rng.pick(T.ROT_BASE) * (bad ? 1 : 0.4) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; }
       else { it.rotBase = rng.range(-T.WAFER_ROT_BASE, T.WAFER_ROT_BASE); it.rotAmp = rng.pick(T.WAFER_ROT_AMP); it.rotW = rng.pick(T.WAFER_ROT_HZ) * TWO_PI; } // swings, broken end down
       it.rotPh = rng() * TWO_PI;
       it.vy = speed; it.t = 0; it.ft = 0; it.trailT = 0; it.alpha = 1; it.size = 1; it.resolved = false;
@@ -789,6 +803,7 @@
         return T.DOUBLE_GAP;
       }
       var cls = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
+      if (cls !== CLS.HAZARD && bonusSpawned < T.BONUS_MAX_PER_ROUND && simTime >= T.BONUS_AFTER_SECONDS && duration - simTime > T.BONUS_LAST_SECONDS && sprites && sprites[KIND.BONUS_TIME] && sprites[KIND.BONUS_TIME].fromImage && rng() < T.BONUS_SHARE) cls = CLS.BONUS;
       // Make the player move: most hazards drop into the mug's own lane, most wafers land a lane or two away.
       var mugLane = clamp(Math.floor((mug.x - spawnMinX) / laneW), 0, T.LANES - 1);
       if (cls === CLS.HAZARD && rng() < T.HAZARD_AT_MUG && simTime - lanes[mugLane].lastBadAt >= T.BAD_LANE_COOLDOWN) lane = mugLane;
@@ -881,6 +896,15 @@
     // ---- Resolution ---------------------------------------------------------
     function resolveCatch(it) {
       it.resolved = true; it.state = 'dunk'; it.ft = 0;
+      if (it.bonus) {
+        // gold stopwatch: more time on the clock, no score, streak untouched
+        duration += T.BONUS_TIME_SECONDS; state.bonusTime = (state.bonusTime || 0) + T.BONUS_TIME_SECONDS;
+        splash(T.MUG_RIM_Y); addGlow(); addFlash(true); splashT = T.SPLASH_FRAME_SECONDS;
+        sparkleBurst(mug.x, T.MUG_RIM_Y, reduced ? 4 : T.GOLD_BURST);
+        addPopup('time', it.x, T.MUG_RIM_Y - 120);
+        emit({ type: 'catch', kind: it.kind, points: 0, bonus: 'time', seconds: T.BONUS_TIME_SECONDS, score: state.score, streak: state.streak, x: it.x });
+        return;
+      }
       var points = it.gold ? T.GOLD_SCORE : 1;
       state.caught++; if (it.gold) state.gold++;
       state.score += points; state.streak++;
@@ -958,7 +982,7 @@
           it.y += it.vy * (it.state === 'fade' ? T.MISS_FADE_SPEED : 1) * dt;
           it.x = it.baseX + Math.sin(it.swayPh + it.t * it.swayW) * it.swayAmp;
           it.rot = it.rotBase + Math.sin(it.rotPh + it.t * it.rotW) * it.rotAmp;
-          if (!it.bad) { var ak = clamp((it.y - (T.MUG_RIM_Y - T.WAFER_ALIGN_PX)) / T.WAFER_ALIGN_PX, 0, 1); ak = ak * ak * (3 - 2 * ak); it.rot *= 1 - T.WAFER_ALIGN * ak; }
+          if (!it.bad && !it.bonus) { var ak = clamp((it.y - (T.MUG_RIM_Y - T.WAFER_ALIGN_PX)) / T.WAFER_ALIGN_PX, 0, 1); ak = ak * ak * (3 - 2 * ak); it.rot *= 1 - T.WAFER_ALIGN * ak; }
           if (it.gold && ctx && !reduced) { it.trailT -= dt; if (it.trailT <= 0) { it.trailT = T.GOLD_TRAIL_EVERY; trailSparkle(it); } }
           if (!it.resolved) {
             if (catchTest(it.x, it.y, mug.x, T)) {
@@ -1187,6 +1211,13 @@
         }
       }
       blitT(v, x, y, rot, it.size, it.size, itemAlpha);
+      // two-frame icon: the "<kind>-on" frame fades in and out over the still one (bells ringing, glow pulsing)
+      var on = sprites[it.kind + '-on'];
+      if (on && on.fromImage && it.alpha > 0.05) {
+        var fk = it.bad ? hz : 0.5 + 0.5 * Math.sin(clock * T.BONUS_FLIP_HZ * TWO_PI + it.swayPh);
+        if (it.bad) fk = 0.5 + 0.5 * Math.sin(clock * T.FRAME_FLIP_HZ * TWO_PI + it.swayPh);
+        blitT(on.rotated(0), x, y, rot, it.size, it.size, itemAlpha * fk);
+      }
     }
 
     function render(a) {
@@ -1351,7 +1382,7 @@
           var rise = easeOutCubic(tt) * 120;
           var fd = tt > 0.55 ? 1 - (tt - 0.55) / 0.45 : 1;
           var scp = tt < 0.22 ? easeOutBack(tt / 0.22, 2.4) * T.POPUP_POP : T.POPUP_POP - (T.POPUP_POP - 1) * Math.min(1, (tt - 0.22) / 0.2);
-          blit(pp.kind === 'minus' ? text.minus : (pp.kind === 'plus3' ? text.plus3 : text.plus), pp.x, pp.y - rise, fd, scp);
+          blit(pp.kind === 'minus' ? text.minus : pp.kind === 'plus3' ? text.plus3 : pp.kind === 'time' ? text.time : text.plus, pp.x, pp.y - rise, fd, scp);
         }
       }
 

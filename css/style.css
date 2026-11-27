@@ -297,3 +297,12 @@ html.is-kiosk img { image-rendering: auto; }
 }
 .res .none-wrap > span { font: 800 italic 36px/1.2 "Poppins", var(--font-display) !important; color: #5a0d16 !important; -webkit-text-fill-color: #5a0d16; text-shadow: none !important; }
 .res .res-stats span { color: #5a0d16; }
+
+/* Sound on/off: one round gold-rimmed button, top-right of every stage (js/mute.js) */
+.mute-btn { position: absolute; right: 34px; top: 34px; width: 92px; height: 92px; border-radius: 50%; padding: 0; cursor: pointer; z-index: 60;
+  border: 4px solid transparent; background: linear-gradient(180deg, #a90c17, #7a0610) padding-box, var(--gold-line, linear-gradient(180deg, #fff2c6, #e2b14c 45%, #f8e2a3 65%, #b8862a)) border-box;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 8px 18px rgba(60,0,0,.45); color: #fff3d8; display: grid; place-items: center; -webkit-tap-highlight-color: transparent; }
+.mute-btn svg { width: 50px; height: 50px; grid-area: 1 / 1; }
+.mute-btn .i-off { display: none; } .mute-btn.muted .i-on { display: none; } .mute-btn.muted .i-off { display: block; }
+.mute-btn.muted { color: #f3cf7a; opacity: .92; }
+.mute-btn:active { transform: scale(.94); }

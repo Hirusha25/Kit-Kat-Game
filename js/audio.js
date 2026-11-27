@@ -155,8 +155,9 @@
     g.gain.linearRampToValueAtTime(1, c.currentTime + (continued ? 120 : fadeMs) / 1000); // a continued track comes straight back in
     return { name, src, gain: g, startedAt: c.currentTime, offset };
   }
+  let wantedKey = null; // the loop the page asked for, so unmuting can bring it back
   async function music(key, { fade = 600 } = {}) {
-    const name = MUSIC[key]; if (!name) return;
+    const name = MUSIC[key]; if (!name) return; wantedKey = key;
     await load(name);
     if (muted || !buffers[name]) { if (!buffers[name]) stopMusic(fade); return; }
     if (current && current.name === name) return;
@@ -169,7 +170,10 @@
   A.music = music; A.stopMusic = stopMusic; A.sting = sting;
   A.setVolumes = v => { Object.assign(vol, v); try { localStorage.setItem('kk_volume', JSON.stringify(vol)); } catch (_) {} if (ctx) { master.gain.value = vol.master; musicBus.gain.value = vol.music; sfxBus.gain.value = vol.sfx; } };
   A.getVolumes = () => Object.assign({}, vol);
-  const baseMute = A.setMuted; A.setMuted = m => { muted = !!m; baseMute(m); if (muted) stopMusic(200); };
+  const baseMute = A.setMuted; A.setMuted = m => { const was = muted; muted = !!m; baseMute(m); if (muted) stopMusic(200); else if (was && wantedKey) music(wantedKey, { fade: 300 }); try { window.dispatchEvent(new CustomEvent('kk:mute', { detail: muted })); } catch (_) {} };
+  A.isMuted = () => muted;
+  // remembered from the sound button on any page
+  try { if (localStorage.getItem('kk_mute') === '1') A.setMuted(true); } catch (_) {}
   A.hasFiles = () => Object.keys(buffers).length > 0;
   A.preload = preload;
 })();

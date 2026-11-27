@@ -66,8 +66,8 @@
     },
     "alarm": {
       "src": "assets/img/game/alarm.png",
-      "w": 180,
-      "h": 180,
+      "w": 200,
+      "h": 200,
       "anchor": {
         "x": 0.5,
         "y": 0.5
@@ -95,6 +95,33 @@
       "src": "assets/img/game/inbox.png",
       "w": 180,
       "h": 180,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "alarm-on": {
+      "src": "assets/img/game/alarm-on.png",
+      "w": 200,
+      "h": 200,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "bonus-time": {
+      "src": "assets/img/game/bonus-time.png",
+      "w": 190,
+      "h": 190,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "bonus-time-on": {
+      "src": "assets/img/game/bonus-time-on.png",
+      "w": 190,
+      "h": 190,
       "anchor": {
         "x": 0.5,
         "y": 0.5

@@ -362,7 +362,10 @@
   }
   function onGameEvent(e) {
     switch (e.type) {
-      case 'catch': e.kind === 'gold' ? KKAudio.gold() : KKAudio.catch(); break;
+      case 'catch':
+        if (e.bonus === 'time') { KKAudio.gold(); hud.time.classList.remove('bump'); void hud.time.offsetWidth; hud.time.classList.add('bump'); toast(`+${e.seconds} seconds!`); }
+        else e.kind === 'gold' ? KKAudio.gold() : KKAudio.catch();
+        break;
       case 'pattern': KKAudio.whoosh(); break;
       case 'final10': KKAudio.hurry(); KKAudio.music('playFast', { fade: 800 }); break;
       case 'streak': KKAudio.streak(); break;
@@ -501,7 +504,7 @@
 
   // ---------- boot ----------
   async function boot() {
-    KKAudio.setMuted(!settings.sound); setPip(settings.pip || qs.get('debug') === '1');
+    if (!settings.sound) KKAudio.setMuted(true); setPip(settings.pip || qs.get('debug') === '1');
     if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race

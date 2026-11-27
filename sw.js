@@ -89,6 +89,9 @@ self.addEventListener('fetch', e => {
   // Sound and video ask for byte ranges. Online they go straight to the network, untouched (a stored copy cut
   // into ranges did not load in audio players). Only with no connection is the stored copy tried.
   if (req.headers.has('range')) { if (navigator.onLine === false) e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }
+  // The hand detector (17 MB of library and model) sits in a folder named after its version and never changes:
+  // stored copy first and no background refresh, so the kiosk downloads it once.
+  if (url.pathname.indexOf('/vendor/') >= 0) { e.respondWith(cached(req).then(hit => hit || fetch(req).then(res => { store(req, res); return res; }))); return; }
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
   const isCode = /\.(js|css|json|svg)$/.test(url.pathname);
   const isArt = /^\/(Kit-Kat-Game\/)?assets\/img\//i.test(url.pathname);   // game artwork: a replaced image must show on the next load

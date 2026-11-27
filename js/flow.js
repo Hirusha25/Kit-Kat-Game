@@ -8,7 +8,7 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'score' = by score (teeMin or more: T-shirt, capMin or more: cap); 'nth' = every Nth round wins whatever the score
     rewardMode: 'score', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
@@ -156,6 +156,56 @@
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
     if (tracker.setAcquire) tracker.setAcquire(phase === 'calibrating');   // show-your-mug screen: opened-up colour masks, see tracker.js acquireParams
+    startHand();
+  }
+  // ---------- hand backup ----------
+  // The logo leads. When the logo has not been seen for a moment (glare, washed-out light, logo turned away or
+  // covered) the hand that holds the mug takes over until the logo is back: see js/hand.js. While both are seen,
+  // the game learns where the logo sits beside the hand (handOff), so the cup does not jump when the hand takes
+  // over. With no logo at all (a mug whose logo the camera cannot read, or an empty hand) the hand alone can lock
+  // on and play. Staff setup: "Follow the hand when the logo is lost".
+  let hand = null, handOff = { x: 0, y: 0, n: 0 }, handRef = null, handXY = null, handDriving = false, handSeenAt = 0, handUsedAt = 0, handLearnAt = 0, handLast = null;
+  function startHand() {
+    if (hand || settings.hand === false || !window.KKHand || !tracker || !tracker.drawUpright) return;
+    hand = KKHand.create({ draw: (c, w, h) => tracker.drawUpright(c, 0, 0, w, h) }); hand.start();
+  }
+  function stopHand() { if (hand) { hand.stop(); hand = null; } handDriving = false; handRef = null; handOff = { x: 0, y: 0, n: 0 }; }
+  function handDrive(on) { if (on === handDriving) return; handDriving = on; try { window.KKRecorder && KKRecorder.event && KKRecorder.event('hand', Object.assign({ on }, hand ? hand.stats() : {})); } catch (_) {} }
+  function withHand(s) {
+    if (!hand) return s;
+    const now = performance.now(), c01 = v => Math.min(1, Math.max(0, v));
+    const logoFresh = s.found && (s.ts - s.lastSeenMs) <= 130;
+    hand.setFast(!logoFresh);
+    const r = hand.latest();
+    const hs = r && now - r.at < 500 ? r.hands.map(k => ({ x: settings.mirror ? 1 - k.x : k.x, y: k.y, w: k.w, h: k.h })) : [];
+    if (logoFresh) {
+      handDrive(false); handXY = { x: s.x, y: s.y };
+      // the hand nearest the logo is the one holding the mug: remember it and where the logo sits beside it
+      let best = null, bd = 9;
+      for (const k of hs) { const dx = s.rawX - k.x, dy = s.rawY - k.y; if (Math.abs(dx) < 0.3 && Math.abs(dy) < 0.2 && Math.hypot(dx, dy) < bd) { bd = Math.hypot(dx, dy); best = k; } }
+      if (best && r.at !== handLearnAt) {
+        handLearnAt = r.at; const a = handOff.n ? 0.3 : 1;
+        handOff = { x: handOff.x + a * (s.rawX - best.x - handOff.x), y: handOff.y + a * (s.rawY - best.y - handOff.y), n: handOff.n + 1 };
+        handRef = { x: best.x, y: best.y, at: now };
+      }
+      return s;
+    }
+    // logo not seen: the hand that was holding the mug (nearest to where that hand last was), or with no logo so far the biggest hand
+    let pick = null;
+    if (hs.length) {
+      if (handRef && now - handRef.at < 3000) { let bd = 0.35; for (const k of hs) { const d = Math.hypot(k.x - handRef.x, k.y - handRef.y); if (d < bd) { bd = d; pick = k; } } }
+      else for (const k of hs) if (!pick || k.w * k.h > pick.w * pick.h) pick = k;
+    }
+    if (pick && r.at !== handUsedAt) {
+      handUsedAt = r.at; handSeenAt = now; handRef = { x: pick.x, y: pick.y, at: now };
+      const tx = c01(pick.x + handOff.x), ty = c01(pick.y + handOff.y);
+      handXY = handXY && handDriving ? { x: handXY.x + 0.65 * (tx - handXY.x), y: handXY.y + 0.65 * (ty - handXY.y) } : (handXY && s.found ? { x: handXY.x + 0.65 * (tx - handXY.x), y: handXY.y + 0.65 * (ty - handXY.y) } : { x: tx, y: ty });
+      handLast = { tx, ty, w: s.w > 0 ? s.w : pick.w * 0.5, h: s.h > 0 ? s.h : pick.h * 0.4 };
+    }
+    if (!handLast || now - handSeenAt > 700) { handDrive(false); return s; }   // no hand either: the tracker's own answer (coasting, then lost)
+    handDrive(true);
+    return Object.assign({}, s, { found: true, byHand: true, x: handXY.x, y: handXY.y, rawX: handLast.tx, rawY: handLast.ty, frameX: settings.mirror ? 1 - handLast.tx : handLast.tx, frameY: handLast.ty,
+      w: handLast.w, h: handLast.h, confidence: 0.6, lastSeenMs: now - handSeenAt < 250 ? s.ts : s.ts - 200 });
   }
   // ---------- play range and tracking cues ----------
   // Only the middle part of the camera's view is used for control (settings.range, default 70%), so the cup
@@ -178,15 +228,15 @@
   // game is coasting on the last position) and 'lost' (red). Shown on the camera tile, the cup glow and the knob.
   const cueEls = [$('pip'), $('cup-glow'), $('knob')], edgeEls = { l: $('edge-l'), r: $('edge-r'), t: $('edge-t'), b: $('edge-b') };
   const EDGE = 0.10;   // closer than this (share of the camera view) to an edge = warn
-  let cueState = '', cueEdges = '', lastRaw = { x: 0.5, y: 0.5 };
+  let cueState = '', cueHand = false, cueEdges = '', lastRaw = { x: 0.5, y: 0.5 };
   function trackCue(s) {
     const weak = s.found && (s.ts - s.lastSeenMs) > 90;
     const st = !s.found ? 'lost' : weak ? 'weak' : 'ok';
     if (s.found && !weak) lastRaw = { x: s.rawX, y: s.rawY };   // screen (mirrored) position of the last real sighting
-    if (st !== cueState) {
-      cueState = st;
+    if (st !== cueState || !!s.byHand !== cueHand) {
+      cueState = st; cueHand = !!s.byHand;
       cueEls.forEach(el => { if (el) { el.classList.toggle('weak', st === 'weak'); el.classList.toggle('lost', st === 'lost'); } });
-      $('pip-dot').classList.toggle('on', st === 'ok'); $('pip-txt').textContent = st === 'ok' ? 'Mug Tracked' : st === 'weak' ? 'Hold It Steady' : 'Mug Lost';
+      $('pip-dot').classList.toggle('on', st === 'ok'); $('pip-txt').textContent = st === 'ok' ? (s.byHand ? 'Hand Tracked' : 'Mug Tracked') : st === 'weak' ? 'Hold It Steady' : 'Mug Lost';
     }
     // edge arrows during a round: near an edge, and still showing the way back once the mug has gone off that side
     const on = phase === 'playing';
@@ -204,7 +254,10 @@
     return { title: 'Show The Logo', msg: 'Turn the red KitKat logo to the camera and keep your fingers off it.', arrow: '' };
   }
   function showLost() { const r = lostReason(); $('lost-title').textContent = r.title; $('lost-msg').textContent = r.msg; $('lost-arrow').textContent = r.arrow; show('lost'); }
+  const handOnly = qs.get('hand') === 'only';   // test aid (game.html?hand=only): ignore the logo, so the hand alone drives
   function onTrack(s) {
+    if (handOnly) s = Object.assign({}, s, { found: false, lastSeenMs: -1e9 });
+    s = withHand(s);
     trackState = s;
     if (s.found) lastFoundAt = performance.now();
     const gx = playX(s.x);
@@ -292,11 +345,11 @@
 
   // ---------- calibration ----------
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
-  let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 }, calPath = [], calLast = null;
+  let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 }, calPath = [], calLast = null, calTickAt = 0;
   function calTick(s) {
     if (phase !== 'calibrating') return;
     drawPrivacy(calCtx, calCv.width, calCv.height, s);
-    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
+    $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? (s.byHand ? 'Hand Detected' : 'Mug Detected') : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
     // Only something that has MOVED can be the mug. On the venue recording the game locked onto a red-and-white
@@ -314,7 +367,9 @@
     const moved = calPath.reduce((sum, p) => sum + p.d, 0) >= 10;
     if (s.found && !moved && !calDone) $('cal-msg').textContent = 'Move the mug a little so the camera can pick it up.';
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
-    calStable = s.found && moved && (s.confidence || 1) >= 0.5 ? Math.min(1, calStable + 1 / 60) : Math.max(0, calStable - 1 / 20); // ~2 s of steady detection
+    // 2 s of steady detection, by the clock: counted per frame it took 5 to 7 s on the kiosk (9 to 13 frames a second)
+    const cdt = Math.min(0.25, calTickAt ? (nowMs - calTickAt) / 1000 : 0); calTickAt = nowMs;
+    calStable = s.found && moved && (s.confidence || 1) >= 0.5 ? Math.min(1, calStable + cdt / 2) : Math.max(0, calStable - cdt / 1.2);
     if (s.found) calSpot = { x: s.x, y: s.y };
     $('cal-ring').style.setProperty('--p', Math.round(calStable * 100) + '%');
     if (calStable >= 1 && !calDone) { calDone = true; finishCalibration(); }
@@ -322,7 +377,9 @@
   async function finishCalibration() {
     $('cal-msg').textContent = 'Hold still…';
     const roi = { x: Math.max(0, calSpot.x - 0.2), y: Math.max(0, calSpot.y - 0.3), w: 0.4, h: 0.6 };
-    try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) { calibrated = false; }
+    // locked on by the hand (no logo in view): there is no logo to measure, the hand itself is the lock
+    if (trackState.byHand) calibrated = true;
+    else try { const r = await tracker.calibrate(roi); calibrated = !!(r && r.ok); } catch (_) { calibrated = false; }
     if (!calibrated || !trackState.found) {
       // Not a real lock (a red-and-white object passed by, or the mug moved away): stay on this screen.
       $('cal-msg').textContent = 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
@@ -579,7 +636,7 @@
       su.cam.innerHTML = cams.map(c => `<option value="${c.deviceId}" ${c.deviceId === settings.deviceId ? 'selected' : ''}>${c.label || 'Camera'}</option>`).join('') || '<option value="">Default camera</option>';
     } catch (_) {}
     const ctx = su.cv.getContext('2d');
-    const loop = () => { if (!setupOpen) return; if (tracker) { tracker.debugDraw(ctx, su.cv.width, su.cv.height); const s = trackState; su.stat.textContent = `found=${s.found}  x=${(s.x || 0).toFixed(3)}  conf=${(s.confidence || 0).toFixed(2)}  fps=${Math.round(s.fps || 0)}  calibrated=${calibrated}\nstage=${(window.KKStage||{}).mode} scale=${((window.KKStage||{}).scale||0).toFixed(2)} dpr=${(window.KKStage||{}).dpr} canvas=${gameCanvas.width}x${gameCanvas.height} screen=${screen.width}x${screen.height}`; } suRaf = requestAnimationFrame(loop); };
+    const loop = () => { if (!setupOpen) return; if (tracker) { tracker.debugDraw(ctx, su.cv.width, su.cv.height); const s = trackState; su.stat.textContent = `found=${s.found}  x=${(s.x || 0).toFixed(3)}  conf=${(s.confidence || 0).toFixed(2)}  fps=${Math.round(s.fps || 0)}  calibrated=${calibrated}\nhand=${hand ? JSON.stringify(hand.stats()).replace(/[{}"]/g, '') + ' driving=' + handDriving + ' learned=' + handOff.n : (settings.hand === false ? 'off' : 'not started')}\nstage=${(window.KKStage||{}).mode} scale=${((window.KKStage||{}).scale||0).toFixed(2)} dpr=${(window.KKStage||{}).dpr} canvas=${gameCanvas.width}x${gameCanvas.height} screen=${screen.width}x${screen.height}`; } suRaf = requestAnimationFrame(loop); };
     loop();
   }
   function closeSetup() { setupOpen = false; su.el.classList.remove('show'); cancelAnimationFrame(suRaf); if (game && phase === 'playing') game.resume(); }
@@ -590,6 +647,7 @@
   su.pip.addEventListener('change', () => { settings.tile = su.pip.checked; setPip(settings.tile); save(LS.settings, settings); });
   if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
   if ($('su-rotate')) { $('su-rotate').value = String(settings.rotate == null ? 'auto' : settings.rotate); $('su-rotate').addEventListener('change', () => { const v = $('su-rotate').value; settings.rotate = v === 'auto' ? 'auto' : +v; save(LS.settings, settings); if (tracker) { tracker.setOptions({ rotate: settings.rotate }); tracker.forgetStatic && tracker.forgetStatic(); } toast('Camera rotation set. Calibrate on the mug again.'); }); }
+  if ($('su-hand')) { $('su-hand').checked = settings.hand !== false; $('su-hand').addEventListener('change', () => { settings.hand = $('su-hand').checked; save(LS.settings, settings); if (settings.hand) startHand(); else stopHand(); }); }
   if ($('su-static')) { $('su-static').checked = settings.staticRed === true; $('su-static').addEventListener('change', () => { settings.staticRed = $('su-static').checked; save(LS.settings, settings); tracker && tracker.setOptions({ staticMs: settings.staticRed ? 2500 : 0 }); }); }
   if ($('su-forget')) $('su-forget').addEventListener('click', () => { tracker && tracker.forgetStatic && tracker.forgetStatic(); toast('Background forgotten. It is learned again from the next camera picture.'); });
   su.sound.addEventListener('change', () => { settings.sound = su.sound.checked; KKAudio.setMuted(!settings.sound); save(LS.settings, settings); });
@@ -658,6 +716,6 @@
       $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }
   }
-  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get game() { return game; }, get sprites() { return sprites; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber, confetti };
+  window.__kk = { get phase() { return phase; }, get track() { return trackState; }, get hand() { return hand ? Object.assign(hand.stats(), { driving: handDriving, learned: handOff.n, off: handOff }) : null; }, get game() { return game; }, get sprites() { return sprites; }, get result() { return endResult; }, show, settings, awardPrize, stock, setScore: setScoreNumber, confetti };
   boot();
 })();

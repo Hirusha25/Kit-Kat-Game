@@ -84,7 +84,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (FONT_HOSTS.indexOf(url.hostname) >= 0) { e.respondWith(fontFromCache(e, req)); return; }   // web fonts, kept for offline
   if (url.origin !== location.origin) return; // anything else from another site goes straight to the network
-  if (req.headers.has('range')) { e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }   // video: from the stored copy when there is one
+  // Sound and video ask for byte ranges. Online they go straight to the network, untouched (a stored copy cut
+  // into ranges did not load in audio players). Only with no connection is the stored copy tried.
+  if (req.headers.has('range')) { if (navigator.onLine === false) e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
   const isCode = /\.(js|css|json|svg)$/.test(url.pathname);
   const isArt = /^\/(Kit-Kat-Game\/)?assets\/img\//i.test(url.pathname);   // game artwork: a replaced image must show on the next load

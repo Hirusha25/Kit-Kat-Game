@@ -426,13 +426,13 @@ test('SPAWN_ONLY_IF_REACHABLE: the last item can still reach the rim before the 
 /* ----------------------------------------------------- pause / tracking */
 console.log('pause and tracking');
 
-test('tracking lost pauses after 2 s, regained resumes after 0.5 s, timer frozen meanwhile', () => {
+test(`tracking lost pauses after ${T.LOST_GRACE} s, regained resumes after ${T.REGAIN_DELAY} s, timer frozen meanwhile`, () => {
   const events = [];
   const game = DunkGame.create({ canvas: null, duration: DURATION, seed: 1, onEvent: e => events.push(e) });
   game.start();
   game.advance(3);
   game.setTracking(false);
-  game.advance(1.9);
+  game.advance(T.LOST_GRACE - 0.1);
   assert.strictEqual(game.getState().phase, 'playing');
   game.advance(0.2);
   assert.strictEqual(game.getState().phase, 'paused');

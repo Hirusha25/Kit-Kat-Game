@@ -140,6 +140,9 @@
     WAFER_ALIGN_PX: 420,    // over the last N px above the rim a wafer straightens so the broken end goes in first
     WAFER_ALIGN: 0.85,      // how fully it straightens (1 = perfectly vertical)
     DUNK_SECONDS: 0.35,     // caught wafer sinks behind the mug
+    MISS_FADE_SECONDS: 0.6, // a wafer that passes the mug slows, blinks and vanishes over this long
+    MISS_FADE_SPEED: 0.3,   // its fall speed during the fade (fraction of the fall speed)
+    MISS_BLINKS: 2,         // blink cycles during the fade
     POP_SECONDS: 0.12,      // hit hazard flashes out (its fragments carry on)
 
     // --- Scoring
@@ -905,7 +908,7 @@
     }
 
     function resolveMiss(it) {
-      it.resolved = true; it.state = 'fade';
+      it.resolved = true; it.state = 'fade'; it.ft = 0;
       if (it.bad) { state.dodged++; emit({ type: 'dodge', kind: it.kind }); }
       else { state.missed++; state.streak = 0; emit({ type: 'miss', kind: it.kind }); }
     }
@@ -945,7 +948,7 @@
         it.px = it.x; it.py = it.y; it.prot = it.rot;
         it.t += dt;
         if (it.state === 'fall' || it.state === 'fade') {
-          it.y += it.vy * dt;
+          it.y += it.vy * (it.state === 'fade' ? T.MISS_FADE_SPEED : 1) * dt;
           it.x = it.baseX + Math.sin(it.swayPh + it.t * it.swayW) * it.swayAmp;
           it.rot = it.rotBase + Math.sin(it.rotPh + it.t * it.rotW) * it.rotAmp;
           if (!it.bad) { var ak = clamp((it.y - (T.MUG_RIM_Y - T.WAFER_ALIGN_PX)) / T.WAFER_ALIGN_PX, 0, 1); ak = ak * ak * (3 - 2 * ak); it.rot *= 1 - T.WAFER_ALIGN * ak; }
@@ -958,8 +961,12 @@
             if (!it.resolved && it.y > T.MISS_Y) resolveMiss(it);
           }
           if (it.state === 'fade') {
-            it.alpha = clamp(1 - (it.y - T.MISS_Y) / (T.KILL_Y - T.MISS_Y), 0, 1);
-            if (it.y >= T.KILL_Y) it.active = false;
+            // slow, blink and vanish on the spot instead of sliding on past the mug
+            it.ft += dt;
+            var fk = clamp(it.ft / T.MISS_FADE_SECONDS, 0, 1);
+            it.alpha = (1 - fk) * (0.45 + 0.55 * Math.abs(Math.cos(fk * Math.PI * T.MISS_BLINKS)));
+            it.size = 1 - 0.25 * fk;
+            if (fk >= 1 || it.y >= T.KILL_Y) it.active = false;
           }
         } else if (it.state === 'dunk') {
           it.ft += dt;

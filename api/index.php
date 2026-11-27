@@ -198,15 +198,17 @@ case 'send':
     $db->exec("UPDATE otp_codes SET code_enc = NULL WHERE code_enc IS NOT NULL AND expires_at < NOW() LIMIT 200");
     $db->exec("DELETE FROM otp_codes WHERE created_at < NOW() - INTERVAL 30 DAY LIMIT 200");
 
-    // Limits: one code per 30 s and 3 per 15 min for a number, a daily total per number, an hourly total
-    // per network address (a kiosk shares one address, so this is generous; `ip_allowlist` lifts it), and
-    // a daily total for the whole site so a runaway script cannot run up a bill.
+    // Limits. The kiosk is a single device at one venue, so by the owner's decision registration is NOT
+    // limited by default: the per-number, per-address and whole-site totals below are all switched off
+    // (0 = no limit) unless the server config sets a number. Only the 30-second gap between two codes to
+    // the same number stays, which matches the Resend button's own 30-second wait.
+    $limit = fn(string $key): int => max(0, (int)($cfg[$key] ?? 0));
     if ($count('mobile = ? AND created_at > NOW() - INTERVAL 30 SECOND', [$mobile]) > 0) fail(429, 'rate');
-    if ($count('mobile = ? AND created_at > NOW() - INTERVAL 15 MINUTE', [$mobile]) >= 3) fail(429, 'rate');
-    if ($count('mobile = ? AND created_at > NOW() - INTERVAL 1 DAY', [$mobile]) >= (int)($cfg['max_per_number_per_day'] ?? 6)) fail(429, 'rate');
-    if ($ip !== '' && !in_array($ip, (array)($cfg['ip_allowlist'] ?? []), true)
-        && $count('ip = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$ip]) >= (int)($cfg['max_per_ip_per_hour'] ?? 60)) fail(429, 'rate');
-    if ($count('created_at > NOW() - INTERVAL 1 DAY', []) >= (int)($cfg['max_per_day'] ?? 1000)) fail(429, 'cap');
+    if ($limit('max_per_number_per_15min') && $count('mobile = ? AND created_at > NOW() - INTERVAL 15 MINUTE', [$mobile]) >= $limit('max_per_number_per_15min')) fail(429, 'rate');
+    if ($limit('max_per_number_per_day') && $count('mobile = ? AND created_at > NOW() - INTERVAL 1 DAY', [$mobile]) >= $limit('max_per_number_per_day')) fail(429, 'rate');
+    if ($limit('max_per_ip_per_hour') && $ip !== '' && !in_array($ip, (array)($cfg['ip_allowlist'] ?? []), true)
+        && $count('ip = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$ip]) >= $limit('max_per_ip_per_hour')) fail(429, 'rate');
+    if ($limit('max_per_day') && $count('created_at > NOW() - INTERVAL 1 DAY', []) >= $limit('max_per_day')) fail(429, 'cap');
 
     // A number whose last code only got through by SMS goes straight to SMS this time.
     $q = $db->prepare("SELECT sms_state, wa_status FROM otp_codes WHERE mobile = ? AND created_at > NOW() - INTERVAL 1 DAY ORDER BY id DESC LIMIT 1");

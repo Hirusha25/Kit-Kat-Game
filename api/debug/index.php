@@ -36,7 +36,11 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin !== '' && parse_url($origin, PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '')) fail(403, 'bad_origin');
 
-if ($a === 'config') out(200, ['ok' => true, 'mode' => $cfg['mode'] ?? 'off']);
+// open = recordings are accepted without a kiosk key. Only while testing (mode 'test' and open_upload set in the
+// server config): the kiosk was being used through an installed browser app that had never been given the key,
+// so nothing was recorded. Keyless rounds are filed under kiosk 'unkeyed' and limited per hour.
+$open = ($cfg['mode'] ?? 'off') === 'test' && !empty($cfg['open_upload']);
+if ($a === 'config') out(200, ['ok' => true, 'mode' => $cfg['mode'] ?? 'off', 'open' => $open]);
 
 function db(array $cfg): PDO {
     static $db = null;
@@ -75,6 +79,7 @@ if (in_array($a, ['begin', 'chunk', 'finish'], true)) {
     $key = (string)($_SERVER['HTTP_X_KK_KEY'] ?? '');
     $kiosk = null;
     foreach (($cfg['kiosk_keys'] ?? []) as $name => $k) if ($key !== '' && hash_equals((string)$k, $key)) $kiosk = (string)$name;
+    if ($kiosk === null && $key === '' && $open) $kiosk = 'unkeyed';
     if ($kiosk === null) fail(401, 'bad_key');
     $pdo = db($cfg);
 
@@ -84,7 +89,7 @@ if (in_array($a, ['begin', 'chunk', 'finish'], true)) {
         $q = $pdo->prepare('SELECT path FROM debug_sessions WHERE id = ?'); $q->execute([$id]); $path = $q->fetchColumn();
         if (!$path) {
             $q = $pdo->prepare('SELECT COUNT(*) FROM debug_sessions WHERE kiosk = ? AND created_at > NOW() - INTERVAL 1 HOUR'); $q->execute([$kiosk]);
-            if ((int)$q->fetchColumn() >= (int)($cfg['max_sessions_per_hour'] ?? 240)) fail(429, 'rate');
+            if ((int)$q->fetchColumn() >= ($kiosk === 'unkeyed' ? (int)($cfg['max_open_per_hour'] ?? 40) : (int)($cfg['max_sessions_per_hour'] ?? 240))) fail(429, 'rate');
             $path = date('Y-m-d') . '/' . $id;
             if (!is_dir("$store/$path") && !mkdir("$store/$path", 0700, true)) fail(500, 'store_failed');
             $rev = trim((string)@file_get_contents($home . '/.deployed_rev'));

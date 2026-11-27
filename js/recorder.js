@@ -24,7 +24,7 @@
   var CAL_TIMEOUT_MS = 90000, MAX_SESSION_MS = 300000, FRAME_BUDGET = 18 * 1048576, RING_MS = 1000, QUEUE_CAP = 300 * 1048576, CHUNK = 512 * 1024;   // small pieces: a slow venue link finishes each one quickly and an interrupted upload resumes where it stopped
   var qs = new URLSearchParams(location.search);
   var LS = root.localStorage;
-  var K = { key: 'kk_debug_key', mode: 'kk_debug_mode', local: 'kk_debug_local' };
+  var K = { key: 'kk_debug_key', mode: 'kk_debug_mode', local: 'kk_debug_local', open: 'kk_debug_open' };
 
   function get(k) { try { return LS.getItem(k); } catch (e) { return null; } }
   function set(k, v) { try { v == null ? LS.removeItem(k) : LS.setItem(k, v); } catch (e) { /* ignore */ } }
@@ -41,9 +41,10 @@
   var key = get(K.key) || '';
   var replayId = /^[0-9a-f-]{36}$/.test(qs.get('replay') || '') ? qs.get('replay') : '';
   var serverMode = get(K.mode) || 'off';
+  var openUpload = get(K.open) === '1';
   // Staff can lower the mode on this kiosk (setup panel); the server's "off" always wins.
   function effectiveMode() {
-    if (!key || serverMode === 'off') return 'off';
+    if ((!key && !openUpload) || serverMode === 'off') return 'off';   // openUpload: the server takes rounds without a key while testing
     if (replayId && qs.get('record') !== '1') return 'off';   // a replay is only recorded when asked (used to test the recorder itself)
     var local = get(K.local);
     if (local === 'off') return 'off';
@@ -52,7 +53,7 @@
   }
   try {
     fetch(API + '?a=config').then(function (r) { return r.json(); }).then(function (j) {
-      if (j && j.ok) { serverMode = j.mode; set(K.mode, j.mode); paintPanel(); }
+      if (j && j.ok) { serverMode = j.mode; set(K.mode, j.mode); openUpload = !!j.open; set(K.open, j.open ? '1' : null); paintPanel(); }
     }).catch(function () { /* offline: keep the last known mode */ });
   } catch (e) { /* ignore */ }
 
@@ -92,7 +93,7 @@
   // ---- upload (between rounds only) ---------------------------------------------------------------
   var uploading = false, lastUpload = '', busyPlaying = false;
   function post(url, body, json) {
-    var h = { 'X-KK-Key': key, 'Content-Type': json ? 'application/json' : 'application/octet-stream' };
+    var h = { 'Content-Type': json ? 'application/json' : 'application/octet-stream' }; if (key) h['X-KK-Key'] = key;
     return fetch(url, { method: 'POST', headers: h, body: json ? JSON.stringify(body) : body }).then(function (r) {
       return r.json().catch(function () { return null; }).then(function (j) {
         if (!j || !j.ok) { var e = new Error((j && j.error) || ('http ' + r.status)); e.fatal = r.status >= 400 && r.status < 500 && r.status !== 429; throw e; }
@@ -113,7 +114,7 @@
     await post(API + '?a=finish&id=' + rec.id, rec.meta, true);
   }
   async function pump() {
-    if (uploading || busyPlaying || !key || !navigator.onLine) return;
+    if (uploading || busyPlaying || (!key && !openUpload) || !navigator.onLine) return;
     uploading = true;
     try {
       var all = await queued(); all.sort(function (a, b) { return a.at - b.at; });
@@ -285,7 +286,7 @@
     if (!panel) return;
     queued().then(function (all) {
       var mb = all.reduce(function (n, r) { return n + sizeOf(r); }, 0) / 1048576;
-      panel.stat.textContent = 'recording: ' + (key ? effectiveMode() : 'off (no kiosk key)') + (S ? '  [recording now]' : '') + '   server: ' + serverMode +
+      panel.stat.textContent = 'recording: ' + (key || openUpload ? effectiveMode() + (key ? '' : ' (no kiosk key: open testing)') : 'off (no kiosk key)') + (S ? '  [recording now]' : '') + '   server: ' + serverMode +
         '\nwaiting to upload: ' + all.length + ' round(s), ' + mb.toFixed(1) + ' MB   last: ' + (lastUpload || 'none yet') + (replayId ? '\nREPLAY of ' + replayId : '');
     }).catch(function () { /* ignore */ });
   }

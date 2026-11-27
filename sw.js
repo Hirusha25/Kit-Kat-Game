@@ -7,7 +7,7 @@
 //  - Media (images, video, fonts): served from cache at once and refreshed in the background, so a
 //    replaced image shows on the next load without slowing this one.
 // VERSION only needs to change if this file's caching rules change and old entries must be dropped.
-const VERSION = 'kk-v5';
+const VERSION = 'kk-v6';
 const NET_TIMEOUT_MS = 4000;
 const CORE = ['./', './index.html', './register.html', './game.html', './manifest.json',
   './css/style.css', './js/stage.js', './js/ambient.js', './js/keyboard.js', './js/audio.js',
@@ -33,8 +33,10 @@ function store(req, res) {
 function cached(req) { return caches.match(req, { ignoreSearch: true }); }
 
 function networkFirst(req, isPage) {
-  // Code is revalidated with the server on every load ('no-cache' = conditional request, cheap 304s).
-  const net = (isPage ? fetch(req) : fetch(req, { cache: 'no-cache' })).then(res => { store(req, res); return res; });
+  // Pages, code and artwork are revalidated with the server on every load ('no-cache' = a conditional
+  // request; an unchanged file comes back as an empty 304, so this costs almost nothing). GitHub Pages
+  // otherwise lets the browser keep a file for 10 minutes, which is how a fresh deploy stayed invisible.
+  const net = fetch(req, { cache: 'no-cache' }).then(res => { store(req, res); return res; });
   const timeout = new Promise(resolve => setTimeout(resolve, NET_TIMEOUT_MS, null));
   return Promise.race([net.catch(() => null), timeout])
     .then(res => res || cached(req).then(hit => hit || net)) // slow or offline: cached copy, else keep waiting
@@ -84,7 +86,8 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return; // anything else from another site goes straight to the network
   if (req.headers.has('range')) { e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }   // video: from the stored copy when there is one
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
-  const isCode = /\.(js|css|json)$/.test(url.pathname);
-  if (isPage || isCode) e.respondWith(networkFirst(req, isPage));
-  else e.respondWith(staleWhileRevalidate(e, req));
+  const isCode = /\.(js|css|json|svg)$/.test(url.pathname);
+  const isArt = /^\/(Kit-Kat-Game\/)?assets\/img\//i.test(url.pathname);   // game artwork: a replaced image must show on the next load
+  if (isPage || isCode || isArt) e.respondWith(networkFirst(req, isPage));
+  else e.respondWith(staleWhileRevalidate(e, req));   // audio and video: cached copy first, refreshed behind
 });

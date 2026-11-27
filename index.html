@@ -112,6 +112,6 @@
 </script>
 <script src="js/offline-sync.js?v=20261127a"></script>
 <script src="js/data-sync.js?v=20261127a"></script>
-<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }</script>
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}); }); }</script>
 </body>
 </html>

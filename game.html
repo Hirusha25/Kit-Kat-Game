@@ -27,7 +27,7 @@
       radial-gradient(ellipse 70% 45% at 50% 62%, rgba(255,120,60,.22) 0%, rgba(255,120,60,0) 60%),
       radial-gradient(ellipse 120% 80% at 50% 50%, rgba(0,0,0,0) 45%, rgba(40,0,0,.55) 100%),
       linear-gradient(180deg, rgba(60,0,0,.35) 0%, rgba(60,0,0,.1) 25%, rgba(60,0,0,.1) 75%, rgba(40,0,0,.45) 100%); }
-  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .55;
+  .rays { position: absolute; inset: 0; pointer-events: none; opacity: .22;
     background: repeating-conic-gradient(from 0deg at 50% 60%, rgba(255,170,90,.0) 0deg, rgba(255,170,90,.0) 9deg, rgba(255,170,90,.10) 10deg, rgba(255,170,90,.0) 12deg);
     -webkit-mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); mask: radial-gradient(ellipse 80% 60% at 50% 60%, #000 20%, transparent 75%); }
 
@@ -222,11 +222,12 @@
   .res .none-wrap > span { margin-top: 10px; font: 800 italic 36px/1.2 var(--font-display); color: #c8102e; }
   .res .tiers { display: flex; align-items: stretch; justify-content: center; gap: 30px; margin-top: 18px; width: 100%; }
   .res .tiers > div { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; }
-  .res .tiers img { height: 215px; width: auto; object-fit: contain; filter: drop-shadow(0 18px 22px rgba(90,20,0,.35)); }
+  .res .tiers img { height: 230px; width: 300px; object-fit: contain; filter: drop-shadow(0 18px 22px rgba(90,20,0,.35)); }
+  .res .tiers img[alt*="shirt"] { transform: scale(1.22); transform-origin: 50% 55%; }
   .res .tiers > i { width: 2px; align-self: stretch; background: linear-gradient(180deg, transparent, #d8a640 25%, #d8a640 75%, transparent); }
   .res .tiers b { font: 900 italic 42px/1 var(--font-display); text-transform: uppercase; color: #c8102e; }
   .res.lost .res-sub { top: 484px; } .res.lost .res-score { top: 520px; } .res.lost .res-final { top: 822px; } .res.lost .res-stats { top: 852px; } .res.lost .res-stats div { height: 122px; }
-  .res.lost .res-prize { top: 986px; height: 454px; padding: 18px 40px; } .res.lost .tiers img { height: 200px; } .res.lost .none-wrap > b { font-size: 60px; }
+  .res.lost .res-prize { top: 986px; height: 454px; padding: 18px 40px; } .res.lost .tiers img { height: 215px; } .res.lost .none-wrap > b { font-size: 60px; }
   .res.lost .res-btn { top: 1468px; height: 240px; font-size: 82px; } .res.lost .res-back { top: 1720px; font-size: 32px; }
   .res.lost .res-legal { bottom: 8px; font-size: 17px; }
   .res .res-btn { position: absolute; left: 124px; top: 1436px; width: 831px; height: 285px; margin: 0; font-size: 90px; z-index: 2; }

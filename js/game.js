@@ -60,13 +60,13 @@
     DRINK_RX: 150,          // drink surface ellipse inside the mug sprite (logical px, centred on the rim anchor)
     DRINK_RY: 42,
     DRINK_ROW: 2,           // row height for the liquid displacement (px)
-    DRINK_SLOSH_PX: 22,     // max horizontal shear of the surface from a hard move
+    DRINK_SLOSH_PX: 34,     // max horizontal shear of the surface from a hard move
     DRINK_SLOSH_K: 55,      // slosh spring stiffness / damping (liquid swings then settles)
     DRINK_SLOSH_C: 6,
-    DRINK_SLOSH_GAIN: 0.004,// mug acceleration (px/s^2) -> slosh drive
-    DRINK_RIPPLE_PX: 2.6,   // always-on ripple so the drink never looks frozen
+    DRINK_SLOSH_GAIN: 0.0075,// mug acceleration (px/s^2) -> slosh drive
+    DRINK_RIPPLE_PX: 3.6,   // always-on ripple so the drink never looks frozen
     DRINK_RIPPLE_HZ: 0.9,
-    DRINK_TREMBLE_PX: 0.9,  // fine fast shimmer on top
+    DRINK_TREMBLE_PX: 1.5,  // fine fast shimmer on top
     MUG_BOB_HZ: 0.8,
     MUG_TILT_MAX: 6,        // deg; lean into the direction of motion
     MUG_TILT_SPEED: 900,    // mug velocity (px/s) that gives the full tilt
@@ -77,7 +77,7 @@
     MUG_WOBBLE_SECONDS: 0.8,// after a hit the mug rocks side to side, decaying
     MUG_WOBBLE_DEG: 9,
     MUG_WOBBLE_HZ: 2.8,
-    HIT_SLOSH_KICK: 14,     // drink slosh velocity kick on a hit
+    HIT_SLOSH_KICK: 24,     // drink slosh velocity kick on a hit
     MUG_SHADOW_DROP: 392,   // px below the rim where the shadow ellipse sits (just under the mug base)
     MUG_SHADOW_W: 440,      // shadow ellipse size at rest (px)
     MUG_SHADOW_H: 78,
@@ -143,6 +143,10 @@
     MISS_FADE_SECONDS: 0.6, // a wafer that passes the mug slows, blinks and vanishes over this long
     MISS_FADE_SPEED: 0.3,   // its fall speed during the fade (fraction of the fall speed)
     MISS_BLINKS: 2,         // blink cycles during the fade
+    HAZARD_PULSE_HZ: 2.6,   // warning ring + blink rate on hazards
+    HAZARD_RING_ALPHA: 0.85,
+    HAZARD_JITTER_PX: 3,    // nervous shake of a hazard as it falls
+    HAZARD_BLINK_MIN: 0.7,  // hazard alpha dips to this at the bottom of each blink
     POP_SECONDS: 0.12,      // hit hazard flashes out (its fragments carry on)
 
     // --- Scoring
@@ -204,8 +208,8 @@
     ITEM_GLOW_ALPHA: 0,     // no halo under items (3D shadow instead)
     RAYS_MIN_STREAK: 3,     // rays brighten from this streak ...
     RAYS_FULL_STREAK: 7,    // ... and reach RAYS_MAX_ALPHA here
-    RAYS_IDLE_ALPHA: 0.2,
-    RAYS_MAX_ALPHA: 0.62,
+    RAYS_IDLE_ALPHA: 0.07,  // kept faint: the gold rays sit outside the brand red
+    RAYS_MAX_ALPHA: 0.28,
     RAYS_ROT_SPEED: 0.12,   // rad/s
     RAYS_Y_OFFSET: 150,     // ray origin this far above the rim
     RAYS_RADIUS: 600,
@@ -1146,6 +1150,19 @@
         if (it.gold) ga *= 0.8 + 0.25 * Math.sin(clock * 9 + it.swayPh);
         blit(gl, x, y, ga, it.size);
       }
+      // hazards announce themselves: a pulsing warning ring, a slow blink and a nervous shake
+      var hz = 0, itemAlpha = it.alpha;
+      if (it.bad && falling && it.alpha > 0.05) {
+        hz = 0.5 + 0.5 * Math.sin(clock * T.HAZARD_PULSE_HZ * TWO_PI + it.swayPh);
+        x += Math.sin(clock * 47 + it.swayPh) * T.HAZARD_JITTER_PX; y += Math.cos(clock * 53 + it.swayPh) * T.HAZARD_JITTER_PX * 0.6;
+        itemAlpha = it.alpha * (T.HAZARD_BLINK_MIN + (1 - T.HAZARD_BLINK_MIN) * hz);
+        var rr = (sp.w > sp.h ? sp.w : sp.h) * 0.62 * it.size * (1 + 0.18 * hz);
+        ctx.save(); ctx.globalAlpha = T.HAZARD_RING_ALPHA * (0.35 + 0.65 * hz) * it.alpha; ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(255,120,70,1)'; ctx.lineWidth = 5; ctx.setLineDash([18, 12]); ctx.lineDashOffset = -clock * 90;
+        ctx.beginPath(); ctx.arc(x, y, rr, 0, TWO_PI); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineWidth = 2; ctx.globalAlpha *= 0.6; ctx.beginPath(); ctx.arc(x, y, rr * 1.18, 0, TWO_PI); ctx.stroke();
+        ctx.restore(); drawCalls += 2;
+      }
       // continuous rotation (the cached 15-degree variants stepped visibly on a slow tumble)
       var v = sp.rotated(0);
       // drop shadow: dark silhouette offset down-left, so items read as 3D objects over the backdrop
@@ -1158,7 +1175,7 @@
           blitT(v, x, y - it.vy * T.TRAIL_SPACING * k, rot, ts, ts, ta);
         }
       }
-      blitT(v, x, y, rot, it.size, it.size, it.alpha);
+      blitT(v, x, y, rot, it.size, it.size, itemAlpha);
     }
 
     function render(a) {

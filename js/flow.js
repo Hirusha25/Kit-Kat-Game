@@ -8,13 +8,18 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, control: 'hand', gameSpeed: 1.1, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, control: 'touch', gameSpeed: 1.1, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'score' = by score (teeMin or more: T-shirt, capMin or more: cap); 'nth' = every Nth round wins whatever the score
     rewardMode: 'score', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
   // 27 Nov: the prize rule is BY SCORE from now on. Under 'every Nth round' a low score could win a cap while a high
   // score won nothing. Kiosks that saved the old rule are moved over once; the dashboard can still change it later.
+  // 27 Nov, owner's decision: TOUCH ONLY. No camera, no camera tile, no lock-on screen: the player moves the cup with a
+  // finger. settings.control: 'touch' (default) | 'hand' (camera follows the open hand, touch also works) | 'mug' (logo,
+  // hand as backup). Kiosks that saved an earlier mode are moved to touch once; the staff setup select can change it back.
+  if (!settings.controlV3) { settings.control = 'touch'; settings.controlV3 = true; save(LS.settings, settings); }
+  const touchOnly = () => settings.control === 'touch' && qs.get('hand') !== 'only';
   if (!settings.ruleV2) { settings.rewardMode = 'score'; settings.ruleV2 = true; save(LS.settings, settings); }
   LS.stock = 'kk_stock';
   if (!settings.sensV2) { settings.sensitivity = Math.max(settings.sensitivity, 0.6); settings.sensV2 = true; save(LS.settings, settings); } // kiosks set up on the old default
@@ -266,6 +271,7 @@
   // If the hand detector cannot run on a device, the game falls back to the mug so it is never left with no control.
   function handMode() {
     if (qs.get('hand') === 'only') return true;
+    if (touchOnly()) return false;
     if (settings.control === 'mug' || settings.hand === false || !window.KKHand || !KKHand.supported()) return false;
     return !(hand && /failed|unsupported/.test(hand.stats().state));
   }
@@ -460,6 +466,7 @@
   const REMOTE_KEYS = ['rewardMode', 'everyNth', 'pacing', 'openHour', 'closeHour', 'capMin', 'teeMin', 'stockDays'];
   window.addEventListener('kk:remote-settings', e => { const r = e.detail || {}; REMOTE_KEYS.forEach(k => { if (k in r) settings[k] = r[k]; }); save(LS.settings, settings); if (setupOpen) refreshStock(); });
   function beginCalibration() {
+    if (touchOnly()) { calDone = true; touchStart = true; startCountdown(); return; }   // no camera: straight to 3-2-1
     KKAudio.music('attract'); // same track as the cover and register pages, continued from where it was
     phase = 'calibrating'; calStable = 0; calDone = false; show('cal');
     if (tracker && tracker.setAcquire) tracker.setAcquire(true);
@@ -702,7 +709,7 @@
   if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
   if ($('su-rotate')) { $('su-rotate').value = String(settings.rotate == null ? 'auto' : settings.rotate); $('su-rotate').addEventListener('change', () => { const v = $('su-rotate').value; settings.rotate = v === 'auto' ? 'auto' : +v; save(LS.settings, settings); if (tracker) { tracker.setOptions({ rotate: settings.rotate }); tracker.forgetStatic && tracker.forgetStatic(); } toast('Camera rotation set. Calibrate on the mug again.'); }); }
   if ($('su-speed')) { $('su-speed').value = Math.round((+settings.gameSpeed || 1) * 100); $('su-speed').addEventListener('change', () => { settings.gameSpeed = $('su-speed').value / 100; save(LS.settings, settings); toast('Game speed ' + $('su-speed').value + '%. Applies from the next round.'); }); }
-  if ($('su-control')) { $('su-control').value = settings.control === 'mug' ? 'mug' : 'hand'; $('su-control').addEventListener('change', () => { settings.control = $('su-control').value; save(LS.settings, settings); if (settings.control === 'hand') { settings.hand = true; if ($('su-hand')) $('su-hand').checked = true; startHand(); } handRef = null; handOff = { x: 0, y: 0, n: 0 }; applyWording(); toast(settings.control === 'hand' ? 'Players now use their hand, no mug.' : 'Players now use the mug (hand as backup).'); }); }
+  if ($('su-control')) { $('su-control').value = /^(touch|hand|mug)$/.test(settings.control) ? settings.control : 'touch'; $('su-control').addEventListener('change', () => { settings.control = $('su-control').value; if (settings.control !== 'touch') settings.hand = true; save(LS.settings, settings); toast('Control changed. Reloading…'); setTimeout(() => location.reload(), 900); }); }
   if ($('su-hand')) { $('su-hand').checked = settings.hand !== false; $('su-hand').addEventListener('change', () => { settings.hand = $('su-hand').checked; save(LS.settings, settings); if (settings.hand) startHand(); else stopHand(); }); }
   if ($('su-static')) { $('su-static').checked = settings.staticRed === true; $('su-static').addEventListener('change', () => { settings.staticRed = $('su-static').checked; save(LS.settings, settings); tracker && tracker.setOptions({ staticMs: settings.staticRed ? 2500 : 0 }); }); }
   if ($('su-forget')) $('su-forget').addEventListener('click', () => { tracker && tracker.forgetStatic && tracker.forgetStatic(); toast('Background forgotten. It is learned again from the next camera picture.'); });
@@ -764,6 +771,7 @@
     // Order after registration: How To Play -> Show Your Mug (camera lock-on) -> 3-2-1 -> play.
     // The camera starts while the instructions are up, so the lock-on screen is ready the moment they end.
     KKAudio.music('attract');
+    if (touchOnly()) { setPip(false); howToPlay(beginCalibration); return; }   // touch only: the camera is never opened
     let camReady = startTracker().then(() => fillCameraList($('cam-sel'))).catch(e => e);
     howToPlay(beginCalibration);
     const camErr = await camReady;

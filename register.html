@@ -194,7 +194,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/firebase-config.js?v=20261126f"></script>
-<script src="js/otp-config.js?v=20261127d"></script>
+<script src="js/otp-config.js?v=20261127e"></script>
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/audio.js?v=20261127f"></script>
 <script src="js/mute.js?v=20261127a"></script>
@@ -249,6 +249,7 @@
 
   form.addEventListener('submit', e => {
     e.preventDefault();
+    if (sending) return; // a code is being sent: ignore a second tap, or the screen could show one number and text another
     KioskKeyboard.hide();
     err.textContent = '';
     order.forEach(x => x.classList.remove('invalid'));
@@ -276,7 +277,9 @@
   const vPane = $('verify'), otpIn = $('otp-in'), boxes = [...document.querySelectorAll('#otp span')], vErr = $('v-err');
   const fbReady = !!(window.KK_FIREBASE && window.firebase);
   let auth = null, recaptcha = null;
-  const otpApi = (window.KK_OTP_API && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) ? window.KK_OTP_API : null;
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const otpApi = (window.KK_OTP_API && !isLocal) ? window.KK_OTP_API : null;
+  let otpSent = null, verifying = false; // otpSent: the number, time and ticket of the last code that went out
   async function otpCall(action, body) {
     let j = null;
     try { const r = await fetch(otpApi + '?a=' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); j = await r.json(); }
@@ -299,15 +302,18 @@
       : 'Check WhatsApp. <b>Nestlé Professional</b> sent your 6-digit code for <b>Dunk the Break</b> by KitKat® to <b id="v-phone"></b>';
     if (pending) $('v-phone').textContent = pretty(pending.mobile);
   }
-  function watchDelivery() {
+  function watchDelivery(mob, ticket) {
     clearInterval(deliveryTimer); const started = Date.now();
-    deliveryTimer = setInterval(async () => {
-      if (Date.now() - started > 90000 || vPane.style.display !== 'block' || !pending) { clearInterval(deliveryTimer); return; }
+    // "timer" is this watch's own id: a slow answer for an earlier code must not stop or relabel a newer one.
+    const timer = deliveryTimer = setInterval(async () => {
+      const current = () => deliveryTimer === timer && otpSent && otpSent.ticket === ticket;
+      if (!current() || Date.now() - started > 90000 || vPane.style.display !== 'block') { clearInterval(timer); return; }
       try {
-        const j = await otpCall('status', { mobile: e164(pending.mobile) });
+        const j = await otpCall('status', { mobile: mob, ticket });
+        if (!current()) return;
         if (j.channel !== otpChannel) setChannel(j.channel);
-        if (j.channel === 'sms' || j.wa === 'delivered' || j.wa === 'read') clearInterval(deliveryTimer);
-      } catch (e) { if (e.code !== 'api/network') { clearInterval(deliveryTimer); if (e.code === 'api/send_failed') vErr.textContent = otpError(e); } }
+        if (j.channel === 'sms' || j.wa === 'delivered' || j.wa === 'read') clearInterval(timer);
+      } catch (e) { if (e.code !== 'api/network') { clearInterval(timer); if (e.code === 'api/send_failed' && current()) vErr.textContent = otpError(e); } }
     }, 2500);
   }
   function showVerify() {
@@ -328,7 +334,7 @@
   function armResend() {
     resendAt = Date.now() + 30000; const r = $('v-resend'); r.classList.add('disabled');
     clearInterval(resendTimer);
-    resendTimer = setInterval(() => { const left = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)); $('v-timer').textContent = String(left); r.innerHTML = left > 0 ? `Resend code in <b id="v-timer">${left}</b>s` : 'Resend code'; if (left <= 0) { r.classList.remove('disabled'); clearInterval(resendTimer); } }, 250);
+    resendTimer = setInterval(() => { const left = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)); r.innerHTML = left > 0 ? `Resend code in <b id="v-timer">${left}</b>s` : 'Resend code'; if (left <= 0) { r.classList.remove('disabled'); clearInterval(resendTimer); } }, 250);
   }
   async function startOtp() {
     if (sending) return; sending = true; vErr.textContent = '';
@@ -336,21 +342,29 @@
     if (window.KK_OTP_SKIP) { confirmation = { confirm: async () => ({ user: { uid: 'skip-' + Date.now() } }) }; otpIn.value = '000000'; sending = false; return verify(); }
     if (otpApi) {
       const onVerify = vPane.style.display === 'block'; // resend from the code screen reports its error there
+      const mob = e164(pending.mobile);
+      // Same number again while its code is still good (the player tapped "Change number" and came back):
+      // show the code screen again without sending another message.
+      if (!onVerify && confirmation && otpSent && otpSent.mobile === mob && Date.now() - otpSent.at < 240000) { sending = false; showVerify(); return; }
       try {
-        const sent = await otpCall('send', { mobile: e164(pending.mobile) }); otpChannel = sent.channel === 'sms' ? 'sms' : 'whatsapp';
-        confirmation = { confirm: async c => { const j = await otpCall('verify', { mobile: e164(pending.mobile), code: c }); return { user: { uid: 'wa-' + j.id } }; } };
+        const sent = await otpCall('send', { mobile: mob }); otpChannel = sent.channel === 'sms' ? 'sms' : 'whatsapp';
+        const ticket = sent.ticket; otpSent = { mobile: mob, at: Date.now(), ticket };
+        confirmation = { confirm: async c => { const j = await otpCall('verify', { mobile: mob, ticket, code: c }); return { user: { uid: 'wa-' + j.id }, proof: j.proof }; } };
         if (onVerify) { setChannel(otpChannel); armResend(); } else showVerify();
-        if (otpChannel !== 'sms') watchDelivery();
-      } catch (e) { console.warn(e); (onVerify ? vErr : err).textContent = otpError(e); }
+        if (otpChannel !== 'sms') watchDelivery(mob, ticket);
+      } catch (e) { console.warn(e); (onVerify ? vErr : err).textContent = otpError(e); } // a failed resend keeps the earlier code usable
       sending = false; return;
     }
+    // Test mode (code 000000) exists for design review on a developer's own machine only. Anywhere else, a
+    // missing or unloaded configuration must stop registration, never wave players through.
+    if (!auth && !isLocal) { err.textContent = 'Verification is not available right now. Please tell a staff member.'; sending = false; return; }
     if (!auth) { confirmation = { confirm: async c => { if (c !== '000000') { const e = new Error('bad'); e.code = 'auth/invalid-verification-code'; throw e; } return { user: { uid: 'test-' + Date.now() } }; } }; sending = false; showVerify(); return; }
     try {
       if (!recaptcha) { recaptcha = new firebase.auth.RecaptchaVerifier('recaptcha-host', { size: 'invisible' }); await recaptcha.render(); }
       confirmation = await auth.signInWithPhoneNumber(e164(pending.mobile), recaptcha);
       showVerify();
     } catch (e) {
-      console.warn(e); err.textContent = otpError(e); try { recaptcha && recaptcha.clear(); } catch (_) {} recaptcha = null;
+      console.warn(e); (vPane.style.display === 'block' ? vErr : err).textContent = otpError(e); try { recaptcha && recaptcha.clear(); } catch (_) {} recaptcha = null;
     }
     sending = false;
   }
@@ -372,21 +386,22 @@
     return 'Could not send the code right now. Please try again.';
   }
   async function verify() {
-    const c = otpIn.value; if (c.length !== 6 || !confirmation) return;
+    const c = otpIn.value; if (c.length !== 6 || !confirmation || verifying) return;
+    verifying = true; // one check at a time: a second tap would use up another of the five tries
     vErr.textContent = ''; KioskKeyboard.hide();
     try {
       const res = await confirmation.confirm(c);
-      const player = Object.assign({}, pending, { verified: true, uid: res && res.user ? res.user.uid : null, verifiedAt: new Date().toISOString() });
+      const player = Object.assign({}, pending, { verified: true, uid: res && res.user ? res.user.uid : null, otpProof: (res && res.proof) || null, verifiedAt: new Date().toISOString() });
       try { const q = JSON.parse(localStorage.getItem('kk_players') || '[]'); q.push(player); localStorage.setItem('kk_players', JSON.stringify(q)); sessionStorage.setItem('kk_current', JSON.stringify(player)); } catch (_) {}
       if (auth) { try { await auth.signOut(); } catch (_) {} }
       document.body.style.transition = 'opacity .4s'; document.body.style.opacity = '0';
       setTimeout(() => { location.href = 'game.html'; }, 380);
     } catch (e) {
-      vErr.textContent = otpError(e); otpIn.value = ''; paint(); setTimeout(() => KioskKeyboard.show(otpIn), 200);
+      verifying = false; vErr.textContent = otpError(e); otpIn.value = ''; paint(); setTimeout(() => KioskKeyboard.show(otpIn), 200);
     }
   }
   $('v-go').addEventListener('click', verify);
-  $('v-resend').addEventListener('click', () => { if (Date.now() < resendAt) return; confirmation = null; startOtp(); });
+  $('v-resend').addEventListener('click', () => { if (Date.now() < resendAt) return; startOtp(); });
   $('v-change').addEventListener('click', () => { vPane.style.display = 'none'; form.style.display = 'block'; clearInterval(resendTimer); setTimeout(() => KioskKeyboard.show(mobile), 200); });
 
   document.getElementById('home').addEventListener('click', () => { location.href = 'index.html'; });

@@ -7,11 +7,12 @@
 //  - Media (images, video, fonts): served from cache at once and refreshed in the background, so a
 //    replaced image shows on the next load without slowing this one.
 // VERSION only needs to change if this file's caching rules change and old entries must be dropped.
-const VERSION = 'kk-v6';
+const VERSION = 'kk-v7';
 const NET_TIMEOUT_MS = 4000;
 const CORE = ['./', './index.html', './register.html', './game.html', './manifest.json',
   './css/style.css', './js/stage.js', './js/ambient.js', './js/keyboard.js', './js/audio.js',
   './js/tracker.js', './js/tracker-worker.js', './js/sprites.js', './js/game.js', './js/flow.js',
+  './js/otp-config.js', './js/firebase-config.js', './js/mute.js',   // registration settings: must be on the kiosk even if it goes offline right after the first visit
   './assets/img/game/manifest.json',
   // Gameplay artwork: fetched while the player is still on the cover/register, so the game never has to wait for it.
   './assets/img/game/mug.png', './assets/img/game/mug-splash.png', './assets/img/game/wafer.png', './assets/img/game/wafer-gold.png',
@@ -39,7 +40,7 @@ function networkFirst(req, isPage) {
   const net = fetch(req, { cache: 'no-cache' }).then(res => { store(req, res); return res; });
   const timeout = new Promise(resolve => setTimeout(resolve, NET_TIMEOUT_MS, null));
   return Promise.race([net.catch(() => null), timeout])
-    .then(res => res || cached(req).then(hit => hit || net)) // slow or offline: cached copy, else keep waiting
+    .then(res => (res && res.status < 500) ? res : cached(req).then(hit => hit || res || net)) // slow, offline or server error: cached copy, else what we have
     .catch(() => isPage ? caches.match('./index.html') : Response.error())
     .then(res => res || Response.error());
 }
@@ -84,6 +85,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (FONT_HOSTS.indexOf(url.hostname) >= 0) { e.respondWith(fontFromCache(e, req)); return; }   // web fonts, kept for offline
   if (url.origin !== location.origin) return; // anything else from another site goes straight to the network
+  if (url.pathname.indexOf('/api/') >= 0) return; // server calls are never answered from, or put into, the cache
   // Sound and video ask for byte ranges. Online they go straight to the network, untouched (a stored copy cut
   // into ranges did not load in audio players). Only with no connection is the stored copy tried.
   if (req.headers.has('range')) { if (navigator.onLine === false) e.respondWith(rangeFromCache(req).then(r => r || fetch(req))); return; }

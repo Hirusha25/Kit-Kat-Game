@@ -7,6 +7,9 @@
  *   L3 frames     the exact 160x90 images the detector worked on: 2 per second, 5 per second while
  *                 calibrating, and every frame for a second around each "mug lost" event
  *
+ * It is also loaded on the cover page (index.html), where it only uploads: the cover is where the kiosk
+ * sits idle, so queued rounds are sent there. On the game page uploads pause while a round is running.
+ *
  * It needs no changes in flow.js: it wraps MugTracker.create and DunkGame.create and reads the phase
  * from window.__kk. Load it after tracker.js and game.js and before flow.js.
  *
@@ -18,7 +21,7 @@
   'use strict';
   var API = 'api/debug/';
   var COLS = ['t', 'found', 'x', 'y', 'w', 'h', 'score', 'sWhite', 'sAspect', 'sArea', 'sFill', 'sInner', 'sTemp', 'cand', 'redArea', 'whiteRatio', 'tracking', 'sx', 'fps'];
-  var CAL_TIMEOUT_MS = 90000, MAX_SESSION_MS = 300000, MAX_FRAMES = 300, RING = 30, QUEUE_CAP = 300 * 1048576, CHUNK = 2 * 1048576;
+  var CAL_TIMEOUT_MS = 90000, MAX_SESSION_MS = 300000, MAX_FRAMES = 300, RING = 30, QUEUE_CAP = 300 * 1048576, CHUNK = 512 * 1024;   // small pieces: a slow venue link finishes each one quickly and an interrupted upload resumes where it stopped
   var qs = new URLSearchParams(location.search);
   var LS = root.localStorage;
   var K = { key: 'kk_debug_key', mode: 'kk_debug_mode', local: 'kk_debug_local' };

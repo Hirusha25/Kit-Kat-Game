@@ -126,6 +126,13 @@
   .ov.pre.show { display: block; }
   body.pre .hud, body.pre #game, body.pre .slider, body.pre .caption, body.pre .logo-top, body.pre .title-top, body.pre .rays, body.pre .shade, body.pre .wave, body.pre .pip { display: none !important; }
   #ov-how { cursor: pointer; }
+  /* How To Play: the supplied artwork fills the stage; only the button and the countdown line are live.
+     Button placed over the artwork's own button (stage box 141..937 x 1480..1698); the countdown sits where
+     the artwork's line was (painted out of the image). */
+  .how-art { object-fit: cover; }
+  #ov-how .how-btn { position: absolute; left: 130px; top: 1462px; width: 820px; height: 282px; margin: 0; font-size: 84px; z-index: 2; }  /* the artwork's own pill is painted out; this is the same button as the results screen */
+  .how-auto { position: absolute; left: 0; right: 0; top: 1706px; margin: 0; text-align: center; font: italic 800 36px/1 var(--font-display); color: #fff; text-shadow: 0 2px 4px rgba(90,0,0,.45); z-index: 2; pointer-events: none; }
+  body.how .mute-btn { right: 61px; top: 15px; width: 96px; height: 96px; }   /* sits exactly on the speaker drawn in the artwork */
   .pre-wave { position: absolute; left: -6px; bottom: -4px; width: 1092px; height: auto; pointer-events: none; }
   .pre-logo { position: absolute; left: 50%; top: 14px; width: 345px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
   .pre-title { position: absolute; left: 50%; top: 262px; width: 410px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(60,0,0,.5)); }
@@ -341,20 +348,10 @@
 
     <!-- How to play: shown once per player after the mug is locked on, auto-advances -->
     <section class="ov pre how" id="ov-how">
-      <img class="layer" src="assets/img/register/wafer-top.webp" alt="">
-      <img class="pre-wave" src="assets/img/game/wave-pre.webp" alt="">
-      <img class="pre-logo" src="assets/img/register/logo-top.webp" alt="KitKat Chocolate Drink">
-      <img class="pre-title" src="assets/img/cover/title-white.svg" alt="Dunk the Break">
-      <h1 class="pre-h">How To Play</h1>
-      <p class="pre-p">Move your mug left and right.</p>
-      <div class="how-card pre-card">
-        <div class="how-row"><div class="how-icons"><img src="assets/img/game/wafer.png" alt=""></div><div class="how-t"><b>Catch the wafers</b><span>Let them drop into your mug</span></div><div class="how-pts good">+1</div></div>
-        <div class="how-row"><div class="how-icons"><img src="assets/img/game/wafer-gold.png" alt=""></div><div class="how-t"><b>Gold wafer</b><span>Rare. Worth three.</span></div><div class="how-pts gold">+3</div></div>
-        <div class="how-row"><div class="how-icons"><img src="assets/img/game/bonus-time-on.png" alt=""></div><div class="how-t"><b>Gold stopwatch</b><span>Adds time to the clock</span></div><div class="how-pts gold">+5s</div></div>
-        <div class="how-row"><div class="how-icons four"><img src="assets/img/game/alarm.png" alt=""><img src="assets/img/game/phone.png" alt=""><img src="assets/img/game/deadline.png" alt=""><img src="assets/img/game/inbox.png" alt=""></div><div class="how-t"><b>Dodge these</b><span>Alarms, calls, deadlines, mail</span></div><div class="how-pts bad">−1</div></div>
-      </div>
-      <div class="how-foot"><div class="how-ring" id="how-ring"><b id="how-n">5</b></div><span>Starting in a moment · <u>tap to start now</u></span></div>
-    </section>
+      <img class="layer how-art" src="assets/img/game/how-to-play.webp" srcset="assets/img/game/how-to-play.webp 1080w, assets/img/game/how-to-play-4k.webp 2160w" sizes="100vw" alt="How to play: move your mug left and right; catch a wafer +1, a gold wafer +3, grab a stopwatch +5 seconds, dodge distractions −1">
+      <button class="btn-art how-btn" id="how-go" type="button">Tap to Start</button>
+      <p class="how-auto">Auto-start in <b id="how-n">6</b>s</p>
+</section>
 
     <!-- Countdown -->
     <section class="ov" id="ov-count" style="background:rgba(40,0,4,.35)">

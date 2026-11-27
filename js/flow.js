@@ -94,7 +94,7 @@
 
   // ---------- overlays & toast ----------
   const ov = { cal: $('ov-cal'), how: $('ov-how'), count: $('ov-count'), lost: $('ov-lost'), end: $('ov-end') };
-  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal' || name === 'how' || name === 'end'); }
+  function show(name) { Object.keys(ov).forEach(k => ov[k].classList.toggle('show', k === name)); document.body.classList.toggle('pre', name === 'cal' || name === 'how' || name === 'end'); document.body.classList.toggle('how', name === 'how'); }
   function hideAll() { show(null); }
   let toastT; function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 
@@ -243,12 +243,12 @@
   function howToPlay() {
     if (howDone || HOW_SECONDS <= 0) return startCountdown();
     howDone = true; phase = 'how'; show('how');
-    const ring = $('how-ring'), n = $('how-n'), t0 = performance.now(); let raf = 0;
+    const n = $('how-n'), t0 = performance.now(); let raf = 0;
     const go = () => { cancelAnimationFrame(raf); clearTimeout(howTimer); ov.how.removeEventListener('pointerdown', go); KKAudio.tap(); startCountdown(); };
-    const tick = now => { const k = Math.min(1, (now - t0) / (HOW_SECONDS * 1000)); ring.style.setProperty('--p', ((1 - k) * 100).toFixed(1) + '%'); n.textContent = String(Math.max(1, Math.ceil(HOW_SECONDS - k * HOW_SECONDS))); if (k < 1) raf = requestAnimationFrame(tick); };
+    const tick = now => { const k = Math.min(1, (now - t0) / (HOW_SECONDS * 1000)); n.textContent = String(Math.max(1, Math.ceil(HOW_SECONDS - k * HOW_SECONDS))); if (k < 1) raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     howTimer = setTimeout(go, HOW_SECONDS * 1000);
-    setTimeout(() => ov.how.addEventListener('pointerdown', go, { once: true }), 400);
+    setTimeout(() => ov.how.addEventListener('pointerdown', go, { once: true }), 400);   // the button, or anywhere on the screen
   }
   // Prize rule pushed from the server (review page): merge into the live settings when the sync script sees a change.
   const REMOTE_KEYS = ['rewardMode', 'everyNth', 'pacing', 'openHour', 'closeHour', 'capMin', 'teeMin', 'stockDays'];

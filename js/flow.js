@@ -9,10 +9,13 @@
 
   // ---------- settings ----------
   const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
-    // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
-    rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
+    // rewards: 'score' = by score (teeMin or more: T-shirt, capMin or more: cap); 'nth' = every Nth round wins whatever the score
+    rewardMode: 'score', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
+  // 27 Nov: the prize rule is BY SCORE from now on. Under 'every Nth round' a low score could win a cap while a high
+  // score won nothing. Kiosks that saved the old rule are moved over once; the dashboard can still change it later.
+  if (!settings.ruleV2) { settings.rewardMode = 'score'; settings.ruleV2 = true; save(LS.settings, settings); }
   LS.stock = 'kk_stock';
   if (!settings.sensV2) { settings.sensitivity = Math.max(settings.sensitivity, 0.6); settings.sensV2 = true; save(LS.settings, settings); } // kiosks set up on the old default
   const DAILY_STOCK = 80;
@@ -77,10 +80,16 @@
       if (available(want) > 0) kind = want; else if (available(other) > 0) kind = other;
       soldOut = !kind; // a winner's turn, but nothing released right now: pacing holds the shelf, or the day's stock is gone
     } else {
-      if (result.score >= settings.teeMin && st.tee > 0) kind = 'tee';
-      else if (result.score >= settings.capMin && st.cap > 0) kind = 'cap';
-      else if (result.score >= settings.teeMin && st.cap > 0) kind = 'cap'; // tees gone, fall back to a cap
-      soldOut = !kind && result.score >= settings.capMin;
+      // By score: teeMin or more earns the T-shirt, capMin or more the cap. Only what is on the shelf right now can be
+      // given (today's stock, released through the day when pacing is on). A T-shirt score with no T-shirt on the shelf
+      // gets a cap; a cap score never gets the T-shirt.
+      const earned = result.score >= settings.teeMin ? 'tee' : result.score >= settings.capMin ? 'cap' : null;
+      if (earned) {
+        if (available(earned) > 0) kind = earned; else if (earned === 'tee' && available('cap') > 0) kind = 'cap';
+        soldOut = !kind;
+        // earned a prize but none can be handed over: held = more are released later today, otherwise today's are finished
+        if (!kind) return { kind: null, soldOut: true, held: st.cap > 0 || (earned === 'tee' && st.tee > 0), earned, turn };
+      }
     }
     if (!kind) return { kind: null, soldOut, turn };
     st[kind] -= 1; const code = prizeCode(kind);
@@ -508,11 +517,11 @@
     $('again').textContent = canRetry ? 'Try Again' : 'Done';
     $('again').dataset.mode = canRetry ? 'retry' : 'done';
     $('tier-cap').textContent = nth ? 'KitKat Cap' : settings.capMin + ' Points'; $('tier-tee').textContent = nth ? `T-shirt · ${settings.teeMin}+ pts` : settings.teeMin + ' Points';
-    $('none-title').textContent = pz.soldOut ? (nth ? 'Next Time!' : 'Prizes Are Gone') : nth ? 'Nice Break!' : 'So Close!';
-    $('none-msg').textContent = pz.soldOut ? (nth ? 'The shelf is being restocked. Thanks for playing today.' : 'Great score. Thanks for playing today.') : canRetry ? (nth ? 'Play again for another chance at a prize.' : 'Play again to unlock a prize.') : 'Thanks for playing. Enjoy your break!';
+    $('none-title').textContent = pz.soldOut ? (nth ? 'Next Time!' : pz.held ? 'Great Score!' : 'Prizes Are Gone') : nth ? 'Nice Break!' : 'So Close!';
+    $('none-msg').textContent = pz.soldOut ? (nth ? 'The shelf is being restocked. Thanks for playing today.' : pz.held ? 'You scored enough for a prize. The next ones are released a little later today: please ask our team.' : 'Great score. Thanks for playing today.') : canRetry ? (nth ? 'Play again for another chance at a prize.' : 'Play again to unlock a prize.') : 'Thanks for playing. Enjoy your break!';
     pEl.classList.toggle('none', !pz.kind); if (pz.kind) $('prize-pic').src = pz.kind === 'tee' ? 'assets/img/game/prize-tee.png' : 'assets/img/game/prize-cap.png';
     if (pz.kind) { $('prize-name').textContent = pz.kind === 'tee' ? 'You won a KitKat T-shirt!' : 'You won a KitKat Cap!'; $('prize-msg').textContent = 'Show this code at the counter to collect your prize.'; $('prize-code').textContent = pz.code; $('prize-code').style.display = ''; }
-    else { $('prize-name').textContent = pz.soldOut ? (nth ? 'Next time!' : "Today's prizes are all gone") : nth ? 'Nice break!' : 'So close!'; $('prize-msg').textContent = pz.soldOut ? 'Thanks for playing. Come back for another break.' : nth ? 'Prizes drop through the day. Keep an eye out!' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
+    else { $('prize-name').textContent = pz.soldOut ? (nth ? 'Next time!' : pz.held ? 'Prize score!' : "Today's prizes are all gone") : nth ? 'Nice break!' : 'So close!'; $('prize-msg').textContent = pz.soldOut ? (pz.held && !nth ? 'The next prizes are released a little later today. Please ask our team.' : 'Thanks for playing. Come back for another break.') : nth ? 'Prizes drop through the day. Keep an eye out!' : `Score ${settings.capMin} for a cap, ${settings.teeMin} for a T-shirt.`; $('prize-code').style.display = 'none'; }
     setTimeout(() => {
       show('end');
       KKAudio.sting(pz.kind ? 'win' : 'lose'); KKAudio.countup(); setTimeout(() => KKAudio.prize(), 1500);

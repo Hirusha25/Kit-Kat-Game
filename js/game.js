@@ -53,12 +53,12 @@
     MUG_MIN_X: 240,         // mug centre range
     MUG_MAX_X: 840,
     MUG_RIM_Y: 1150,        // y of the drink surface / rim centre
-    MUG_HALF_WIDTH: 280,    // half of the 560 px mug sprite
-    CATCH_HALF_FRAC: 0.60,  // catch window = MUG_HALF_WIDTH * this (168 px = the drink surface)
+    MUG_HALF_WIDTH: 240,    // half of the 480 px mug sprite
+    CATCH_HALF_FRAC: 0.55,  // catch window = MUG_HALF_WIDTH * this (132 px = the drink surface, no edge catches)
     CATCH_BAND: 44,         // item centre must be within rim y +/- this
     MUG_BOB_AMP: 4,         // idle bob (px) — cosmetic
-    DRINK_RX: 150,          // drink surface ellipse inside the mug sprite (logical px, centred on the rim anchor)
-    DRINK_RY: 42,
+    DRINK_RX: 128,          // drink surface ellipse inside the mug sprite (logical px, centred on the rim anchor)
+    DRINK_RY: 36,
     DRINK_ROW: 2,           // row height for the liquid displacement (px)
     DRINK_SLOSH_PX: 34,     // max horizontal shear of the surface from a hard move
     DRINK_TILT_PX: 14,      // the liquid level rises on one side and drops on the other by up to this (px at the rim)
@@ -81,9 +81,9 @@
     MUG_WOBBLE_DEG: 9,
     MUG_WOBBLE_HZ: 2.8,
     HIT_SLOSH_KICK: 24,     // drink slosh velocity kick on a hit
-    MUG_SHADOW_DROP: 392,   // px below the rim where the shadow ellipse sits (just under the mug base)
-    MUG_SHADOW_W: 440,      // shadow ellipse size at rest (px)
-    MUG_SHADOW_H: 78,
+    MUG_SHADOW_DROP: 336,   // px below the rim where the shadow ellipse sits (just under the mug base)
+    MUG_SHADOW_W: 378,      // shadow ellipse size at rest (px)
+    MUG_SHADOW_H: 68,
     MUG_SHADOW_ALPHA: 0.9,
     ITEM_SHADOW_DX: 22,     // falling-item drop shadow offset (px, down-left)
     ITEM_SHADOW_DY: 34,
@@ -102,7 +102,7 @@
     KILL_Y: 1540,           // item fully gone (mug bottom; never over the slider)
     LANES: 5,               // spawn lanes across the mug range
     LANE_JITTER: 0.25,      // +/- fraction of lane width
-    SPAWN_PAD: 150,         // widen the spawn range beyond the mug range by this many px per side (lanes 180 px apart)
+    SPAWN_PAD: 115,         // widen the spawn range beyond the mug range by this many px per side
                             // (keep < MUG_HALF_WIDTH*CATCH_HALF_FRAC so edge items stay catchable)
     SPEED_START: 560,       // fall speed ramps linearly over the round
     SPEED_END: 1120,

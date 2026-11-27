@@ -150,7 +150,15 @@
   // ---------- play range and tracking cues ----------
   // Only the middle part of the camera's view is used for control (settings.range, default 70%), so the cup
   // reaches both ends of its track well before the mug reaches the edge of the picture and gets lost.
-  function playX(x) { const r = Math.min(1, Math.max(0.5, +settings.range || 0.7)), m = (1 - r) / 2; return Math.min(1, Math.max(0, ((+x || 0) - m) / r)); }
+  // The range is centred on where the mug was when it locked on (playCenter), not on the middle of the camera
+  // picture: the webcam sits beside the kiosk, so the player's natural position is off-centre in the frame and a
+  // fixed centre left one direction with far less room than the other.
+  let playCenter = 0.5;
+  function playX(x) {
+    const r = Math.min(1, Math.max(0.5, +settings.range || 0.7));
+    const half = Math.max(0.2, Math.min(r / 2, playCenter - 0.04, 0.96 - playCenter)); // same reach both ways, inside the picture
+    return Math.min(1, Math.max(0, ((+x || 0) - (playCenter - half)) / (2 * half)));
+  }
   // Tracking state shown to the player: 'ok' (green), 'weak' (amber: not seen in the last few frames, the
   // game is coasting on the last position) and 'lost' (red). Shown on the camera tile, the cup glow and the knob.
   const cueEls = [$('pip'), $('cup-glow'), $('knob')], edgeEls = { l: $('edge-l'), r: $('edge-r'), t: $('edge-t'), b: $('edge-b') };
@@ -304,19 +312,21 @@
       // Not a real lock (a red-and-white object passed by, or the mug moved away): stay on this screen.
       $('cal-msg').textContent = 'Hold the mug steady, logo facing the camera.'; calStable = 0; calDone = false; return;
     }
+    playCenter = Math.min(0.8, Math.max(0.2, calSpot.x)); // where the player naturally holds the mug = the middle of the track
     KKAudio.detected();
     $('cal-msg').textContent = 'Locked on. Get ready!';
-    setTimeout(howToPlay, 700);
+    setTimeout(startCountdown, 700);   // locked on: straight into 3-2-1 (the instructions came before the camera)
   }
 
   // ---------- how to play: once per player, HOW_SECONDS or a tap ----------
   const HOW_SECONDS = +qs.get('how') || 6;
   let howTimer = 0, howDone = false;
-  function howToPlay() {
-    if (howDone || HOW_SECONDS <= 0) return startCountdown();
+  function howToPlay(next) {
+    next = next || startCountdown;
+    if (howDone || HOW_SECONDS <= 0) return next();
     howDone = true; phase = 'how'; show('how');
     const n = $('how-n'), t0 = performance.now(); let raf = 0;
-    const go = () => { cancelAnimationFrame(raf); clearTimeout(howTimer); ov.how.removeEventListener('pointerdown', go); KKAudio.tap(); startCountdown(); };
+    const go = () => { cancelAnimationFrame(raf); clearTimeout(howTimer); ov.how.removeEventListener('pointerdown', go); KKAudio.tap(); next(); };
     const tick = now => { const k = Math.min(1, (now - t0) / (HOW_SECONDS * 1000)); n.textContent = String(Math.max(1, Math.ceil(HOW_SECONDS - k * HOW_SECONDS))); if (k < 1) raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     howTimer = setTimeout(go, HOW_SECONDS * 1000);
@@ -504,7 +514,15 @@
     }, 900);
     armIdle(true);
   }
-  $('again').addEventListener('click', () => { if ($('again').dataset.mode === 'done') { location.href = 'index.html'; return; } retryUsed = true; hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false; startCountdown(); });
+  $('again').addEventListener('click', () => {
+    if ($('again').dataset.mode === 'done') { location.href = 'index.html'; return; }
+    retryUsed = true; hideAll(); if (endAmbient) { endAmbient.stop(); endAmbient = null; } calDone = false;
+    // a clean 3-2-1 like the first round: the finished round's mug and HUD must not sit behind the countdown
+    if (game) { game.destroy(); game = null; }
+    const gctx = gameCanvas.getContext('2d'); gctx.setTransform(1, 0, 0, 1, 0, 0); gctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+    resetScore(); setText('time', fmtTime(DURATION)); setText('rank', '#1');
+    startCountdown();
+  });
   $('to-home').addEventListener('click', () => { location.href = 'index.html'; });
 
   // ---------- premium confetti: gold and red foil, two bursts from the top corners, 1.6 s ----------
@@ -613,9 +631,13 @@
     applyPipStyle(qs.get('pipstyle') || settings.pipStyle || '');
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race
-    beginCalibration();
-    try { await startTracker(); await fillCameraList($('cam-sel')); }
-    catch (e) {
+    // Order after registration: How To Play -> Show Your Mug (camera lock-on) -> 3-2-1 -> play.
+    // The camera starts while the instructions are up, so the lock-on screen is ready the moment they end.
+    KKAudio.music('attract');
+    let camReady = startTracker().then(() => fillCameraList($('cam-sel'))).catch(e => e);
+    howToPlay(beginCalibration);
+    const camErr = await camReady;
+    if (camErr instanceof Error || (camErr && camErr.code)) { const e = camErr;
       const msg = e && e.code === 'denied' ? 'Camera permission is blocked. Allow the camera in Chrome and reload.' : e && e.code === 'in-use' ? 'The camera is in use by another app.' : 'No camera found. Connect the webcam and reload.';
       $('cam-err').textContent = msg; $('cal-skip').style.display = 'inline-block'; try { await fillCameraList($('cam-sel')); } catch (_) {}
     }

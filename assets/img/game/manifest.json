@@ -3,8 +3,8 @@
   "sprites": {
     "mug": {
       "src": "assets/img/game/mug.png",
-      "w": 560,
-      "h": 548,
+      "w": 480,
+      "h": 470,
       "anchor": {
         "x": 0.536,
         "y": 0.202
@@ -12,8 +12,8 @@
     },
     "mug-splash": {
       "src": "assets/img/game/mug-splash.png",
-      "w": 685,
-      "h": 670,
+      "w": 587,
+      "h": 574,
       "anchor": {
         "x": 0.508,
         "y": 0.383

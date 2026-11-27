@@ -11,6 +11,21 @@
   'use strict';
   var API = 'api/sync/', SENT = 'kk_synced', busy = false;
   function read(k, fallback) { try { return JSON.parse(localStorage.getItem(k) || 'null') || fallback; } catch (e) { return fallback; } }
+  // One-time clean-up, 27 Nov (owner's instruction): everything saved on this kiosk BEFORE the cut-off was test data
+  // (registrations, scores, prize codes) and is removed, once. Anything saved after the cut-off is kept, so a kiosk
+  // that loads this late loses nothing real. Today's prize stock is counted from the prize list, so it refills.
+  var CLEAR_ID = 'clear-20261127', CLEAR_BEFORE = Date.parse('2026-11-27T06:50:00Z');
+  (function () {
+    try {
+      if (localStorage.getItem('kk_clear_id') === CLEAR_ID) return;
+      var old = function (t) { t = typeof t === 'number' ? t : Date.parse(t); return t < CLEAR_BEFORE; };   // unreadable dates are kept
+      var pl = read('kk_players', []); if (Array.isArray(pl)) localStorage.setItem('kk_players', JSON.stringify(pl.filter(function (p) { return !old(p.createdAt); })));
+      var lb = read('kk_leaderboard', {}); if (Array.isArray(lb.rows)) { lb.rows = lb.rows.filter(function (r) { return !old(r.ts); }); localStorage.setItem('kk_leaderboard', JSON.stringify(lb)); }
+      var st = read('kk_stock', {}); if (Array.isArray(st.awarded)) { st.awarded = st.awarded.filter(function (x) { return !old(x.ts); }); localStorage.setItem('kk_stock', JSON.stringify(st)); }
+      var lg = read('kk_prize_log', {}); Object.keys(lg).forEach(function (c) { if (old(lg[c] && lg[c].ts)) delete lg[c]; }); localStorage.setItem('kk_prize_log', JSON.stringify(lg));
+      localStorage.setItem('kk_clear_id', CLEAR_ID);
+    } catch (e) { /* storage not available: nothing to clean */ }
+  })();
   function key() { try { return localStorage.getItem('kk_debug_key') || ''; } catch (e) { return ''; } }
 
   function pending() {

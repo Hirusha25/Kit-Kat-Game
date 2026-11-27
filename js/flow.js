@@ -8,7 +8,7 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, tile: true, range: 0.7, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
     rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
@@ -143,12 +143,48 @@
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
     if (tracker.setAcquire) tracker.setAcquire(phase === 'calibrating');   // show-your-mug screen: opened-up colour masks, see tracker.js acquireParams
   }
+  // ---------- play range and tracking cues ----------
+  // Only the middle part of the camera's view is used for control (settings.range, default 70%), so the cup
+  // reaches both ends of its track well before the mug reaches the edge of the picture and gets lost.
+  function playX(x) { const r = Math.min(1, Math.max(0.5, +settings.range || 0.7)), m = (1 - r) / 2; return Math.min(1, Math.max(0, ((+x || 0) - m) / r)); }
+  // Tracking state shown to the player: 'ok' (green), 'weak' (amber: not seen in the last few frames, the
+  // game is coasting on the last position) and 'lost' (red). Shown on the camera tile, the cup glow and the knob.
+  const cueEls = [$('pip'), $('cup-glow'), $('knob')], edgeEls = { l: $('edge-l'), r: $('edge-r'), t: $('edge-t'), b: $('edge-b') };
+  const EDGE = 0.10;   // closer than this (share of the camera view) to an edge = warn
+  let cueState = '', cueEdges = '', lastRaw = { x: 0.5, y: 0.5 };
+  function trackCue(s) {
+    const weak = s.found && (s.ts - s.lastSeenMs) > 90;
+    const st = !s.found ? 'lost' : weak ? 'weak' : 'ok';
+    if (s.found && !weak) lastRaw = { x: s.rawX, y: s.rawY };   // screen (mirrored) position of the last real sighting
+    if (st !== cueState) {
+      cueState = st;
+      cueEls.forEach(el => { if (el) { el.classList.toggle('weak', st === 'weak'); el.classList.toggle('lost', st === 'lost'); } });
+      $('pip-dot').classList.toggle('on', st === 'ok'); $('pip-txt').textContent = st === 'ok' ? 'Mug Tracked' : st === 'weak' ? 'Hold It Steady' : 'Mug Lost';
+    }
+    // edge arrows during a round: near an edge, and still showing the way back once the mug has gone off that side
+    const on = phase === 'playing';
+    const e = (on && lastRaw.x < EDGE ? 'l' : '') + (on && lastRaw.x > 1 - EDGE ? 'r' : '') + (on && lastRaw.y < EDGE ? 't' : '') + (on && lastRaw.y > 1 - EDGE ? 'b' : '');
+    if (e !== cueEdges) { cueEdges = e; Object.keys(edgeEls).forEach(k => edgeEls[k] && edgeEls[k].classList.toggle('on', e.indexOf(k) >= 0)); }
+  }
+  // Why the mug was lost, from where it was last seen: near an edge = it left the picture on that side;
+  // in the middle = the logo is hidden or turned away (the mug has its logo on one face only).
+  function lostReason() {
+    const M = 0.16, x = lastRaw.x, y = lastRaw.y;
+    if (x < M) return { title: 'Bring It Back', msg: 'The mug went off the side. Move it back this way.', arrow: '»' };
+    if (x > 1 - M) return { title: 'Bring It Back', msg: 'The mug went off the side. Move it back this way.', arrow: '«' };
+    if (y < M) return { title: 'Lower The Mug', msg: 'The mug went above the camera view. Bring it down a little.', arrow: '' };
+    if (y > 1 - M) return { title: 'Raise The Mug', msg: 'The mug dropped below the camera view. Lift it up a little.', arrow: '' };
+    return { title: 'Show The Logo', msg: 'Turn the red KitKat logo to the camera and keep your fingers off it.', arrow: '' };
+  }
+  function showLost() { const r = lostReason(); $('lost-title').textContent = r.title; $('lost-msg').textContent = r.msg; $('lost-arrow').textContent = r.arrow; show('lost'); }
   function onTrack(s) {
     trackState = s;
     if (s.found) lastFoundAt = performance.now();
-    if (game && phase === 'playing') { game.setTargetX(s.x); game.setTracking(s.found); }
+    const gx = playX(s.x);
+    if (game && phase === 'playing') { game.setTargetX(gx); game.setTracking(s.found); }
+    trackCue(s);
     // knob follows the tracker directly so it feels alive even when paused
-    const px = sliderLeft + Math.min(1, Math.max(0, s.x)) * sliderWidth;
+    const px = sliderLeft + gx * sliderWidth;
     knob.style.transform = `translateX(${px - 410}px)`; // knob is centred at 50% of the 820px slider by default
     if (pipOn) drawPip(s);
     if (phase === 'calibrating') calTick(s);
@@ -191,10 +227,27 @@
 
   // ---------- PIP ----------
   let pipOn = false; const pipCv = $('pip-cv'), pipCtx = pipCv.getContext('2d');
-  function setPip(on) { pipOn = on; document.body.classList.toggle('debug', on); }
+  function setPip(on) { pipOn = on; document.body.classList.toggle('tile', on); }
+  // Camera tile: the whole picture is drawn from a 48x27 copy (so people are a soft blur) and dimmed;
+  // only the mug's own area is drawn sharp, with a box in the state colour. About 15 times a second.
+  let tileAt = 0;
   function drawPip(s) {
-    drawPrivacy(pipCtx, pipCv.width, pipCv.height, s);
-    $('pip-dot').classList.toggle('on', s.found); $('pip-txt').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
+    const now = performance.now(); if (now - tileAt < 66 || phase !== 'playing') return; tileAt = now;
+    const c = pipCtx, w = pipCv.width, h = pipCv.height, vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw) { c.fillStyle = '#2a0206'; c.fillRect(0, 0, w, h); return; }
+    tctx.drawImage(video, 0, 0, tiny.width, tiny.height);
+    const seen = s.found && s.w > 0 && cueState !== 'lost';
+    const fx = s.frameX != null ? s.frameX : 0.5, fy = s.frameY != null ? s.frameY : 0.5;
+    const bw = Math.min(1, s.w * 3.4), bh = Math.min(1, s.h * 4), x0 = Math.min(1 - bw, Math.max(0, fx - bw / 2)), y0 = Math.min(1 - bh, Math.max(0, fy - bh * 0.45));
+    c.save(); if (settings.mirror) { c.translate(w, 0); c.scale(-1, 1); }
+    c.imageSmoothingEnabled = true; c.drawImage(tiny, 0, 0, w, h);
+    c.fillStyle = 'rgba(40,0,6,.38)'; c.fillRect(0, 0, w, h);
+    if (seen) c.drawImage(video, x0 * vw, y0 * vh, bw * vw, bh * vh, x0 * w, y0 * h, bw * w, bh * h);
+    c.restore();
+    if (seen) {
+      const bx = (settings.mirror ? 1 - x0 - bw : x0) * w;
+      c.lineWidth = 4; c.strokeStyle = cueState === 'weak' ? '#ffb020' : '#27d35b'; roundRect(c, bx + 2, y0 * h + 2, bw * w - 4, bh * h - 4, 10); c.stroke();
+    }
   }
 
   // ---------- camera picker (lives on the Show Your Mug screen) ----------
@@ -374,6 +427,7 @@
       canvas: gameCanvas, sprites, duration: DURATION, reducedEffects: perf === 'low',
       onTick: st => {
         watchPerf(st);
+        if (st.mugX01 != null) $('cup-glow').style.transform = `translateX(${240 + st.mugX01 * 600}px)`;   // under the cup: MUG_MIN_X..MUG_MAX_X in game.js
         setText('time', fmtTime(st.timeLeft));
         tickScore(st.score);
         setText('rank', '#' + liveRank(st.score));
@@ -381,8 +435,8 @@
       onEvent: onGameEvent,
       onEnd: onGameEnd
     });
-    phase = 'playing';
-    game.setTargetX(trackState.x); game.setTracking(true);
+    phase = 'playing'; document.body.classList.add('playing-view');
+    game.setTargetX(playX(trackState.x)); game.setTracking(true);
     game.start();
     armIdle(false);
   }
@@ -398,12 +452,12 @@
       case 'hit': KKAudio.hit(); break;
       case 'miss': KKAudio.miss(); break;
       case 'final5': hud.el.classList.add('final5'); break;
-      case 'lost': show('lost'); break;
+      case 'lost': showLost(); break;
       case 'regained': hideAll(); break;
     }
   }
   function onGameEnd(result) {
-    phase = 'ended'; endResult = result; KKAudio.end(); KKAudio.stopMusic(500);
+    phase = 'ended'; document.body.classList.remove('playing-view'); endResult = result; KKAudio.end(); KKAudio.stopMusic(500);
     const rank = recordScore(result);
     $('end-name').textContent = firstName ? `${firstName}, what a break!` : 'What a break!';
     setScoreNumber(0);
@@ -466,7 +520,7 @@
     setupOpen = true; su.el.classList.add('show');
     if (game && phase === 'playing') game.pause();
     refreshStock();
-    su.mirror.checked = settings.mirror; su.sens.value = Math.round(settings.sensitivity * 100); su.smooth.value = Math.round(settings.smoothing * 100); su.pip.checked = settings.pip; su.sound.checked = settings.sound;
+    su.mirror.checked = settings.mirror; su.sens.value = Math.round(settings.sensitivity * 100); su.smooth.value = Math.round(settings.smoothing * 100); su.pip.checked = settings.tile !== false; if ($('su-range')) $('su-range').value = Math.round((+settings.range || 0.7) * 100); su.sound.checked = settings.sound;
     try {
       const cams = await MugTracker.listCameras();
       su.cam.innerHTML = cams.map(c => `<option value="${c.deviceId}" ${c.deviceId === settings.deviceId ? 'selected' : ''}>${c.label || 'Camera'}</option>`).join('') || '<option value="">Default camera</option>';
@@ -480,7 +534,8 @@
   su.mirror.addEventListener('change', () => { settings.mirror = su.mirror.checked; tracker && tracker.setOptions({ mirror: settings.mirror }); save(LS.settings, settings); });
   su.sens.addEventListener('input', () => { settings.sensitivity = su.sens.value / 100; tracker && tracker.setOptions({ sensitivity: settings.sensitivity }); save(LS.settings, settings); });
   su.smooth.addEventListener('input', () => { settings.smoothing = su.smooth.value / 100; tracker && tracker.setOptions({ smoothing: settings.smoothing }); save(LS.settings, settings); });
-  su.pip.addEventListener('change', () => { settings.pip = su.pip.checked; setPip(settings.pip); save(LS.settings, settings); });
+  su.pip.addEventListener('change', () => { settings.tile = su.pip.checked; setPip(settings.tile); save(LS.settings, settings); });
+  if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
   su.sound.addEventListener('change', () => { settings.sound = su.sound.checked; KKAudio.setMuted(!settings.sound); save(LS.settings, settings); });
   const vm = $('su-vol-music'), vs = $('su-vol-sfx');
   if (vm && vs) { const v = KKAudio.getVolumes(); vm.value = Math.round(v.music * 100); vs.value = Math.round(v.sfx * 100);
@@ -530,7 +585,7 @@
 
   // ---------- boot ----------
   async function boot() {
-    if (!settings.sound) KKAudio.setMuted(true); setPip(settings.pip || qs.get('debug') === '1');
+    if (!settings.sound) KKAudio.setMuted(true); setPip(settings.tile !== false || qs.get('debug') === '1');
     if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race

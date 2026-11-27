@@ -54,6 +54,16 @@ CREATE TABLE IF NOT EXISTS sync_prizes (
 --                            ADD COLUMN redeemed_at DATETIME NULL, ADD COLUMN redeemed_by VARCHAR(120) NOT NULL DEFAULT '';
 --   ALTER TABLE sync_players ADD COLUMN consent TINYINT NOT NULL DEFAULT 0, ADD COLUMN consent_at DATETIME NULL, ADD COLUMN consent_ver VARCHAR(32) NOT NULL DEFAULT '';
 
+-- Dashboard sign-ins added from the dashboard itself (the first account comes from config/debug.php 'reviewers').
+CREATE TABLE IF NOT EXISTS admin_users (
+  email       VARCHAR(160) NOT NULL PRIMARY KEY,
+  pass_hash   VARCHAR(255) NOT NULL,
+  role        VARCHAR(16)  NOT NULL DEFAULT 'staff',   -- admin | staff (staff: claims and players only)
+  active      TINYINT      NOT NULL DEFAULT 1,
+  created_by  VARCHAR(160) NOT NULL DEFAULT '',
+  created_at  DATETIME     NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Prize rule set by the team on the review page and pulled by each kiosk every minute.
 -- kiosk '*' applies to every kiosk; a row with a kiosk's name overrides it for that kiosk only.
 CREATE TABLE IF NOT EXISTS sync_config (

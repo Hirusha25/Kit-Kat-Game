@@ -61,3 +61,6 @@ return [
   the counter; search by code or phone; CSV.
 - Players: first-party data with the consent flag and wording version; search; CSV.
 - Scores: the day's leaderboard.
+- Performance: funnel (registered → played → won), rounds/registrations/prizes per hour, three days side by side.
+- Team: add staff and admin sign-ins from the dashboard (stored in the database); the config account stays as the master key.
+- Exports: players and consent, every round, prize codes and collection, and winners joined with their registration details.

@@ -160,6 +160,9 @@ if ($a === 'login') {
     if ($method !== 'POST') fail(405, 'bad_request');
     $in = jsonBody(4096); $email = strtolower(trim((string)($in['email'] ?? '')));
     $hash = $cfg['reviewers'][$email] ?? null;
+    if (!$hash && $email !== '') {   // accounts added from the admin dashboard (table admin_users, api/sync/schema.sql)
+        try { $st = db($cfg)->prepare('SELECT pass_hash FROM admin_users WHERE email = ? AND active = 1'); $st->execute([$email]); $hash = $st->fetchColumn() ?: null; } catch (Throwable $e) { $hash = null; }
+    }
     usleep(300000);   // slows guessing
     if (!$hash || !password_verify((string)($in['password'] ?? ''), $hash)) fail(401, 'bad_login');
     session_regenerate_id(true); $_SESSION['reviewer'] = $email;

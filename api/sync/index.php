@@ -162,6 +162,42 @@ if ($a === 'redeem') {
     else $db->prepare("UPDATE sync_prizes SET redeemed_at = NULL, redeemed_by = '' WHERE id = ?")->execute([$id]);
     out(200, ['ok' => true, 'id' => $id, 'redeemed' => !empty($in['on'])]);
 }
+if ($a === 'hourly') {
+    $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['day'] ?? '')) ? $_GET['day'] : gmdate('Y-m-d');
+    $out = ['players' => array_fill(0, 24, 0), 'rounds' => array_fill(0, 24, 0), 'prizes' => array_fill(0, 24, 0)];
+    foreach (['players' => 'sync_players', 'rounds' => 'sync_scores', 'prizes' => 'sync_prizes'] as $k => $t) {
+        $st = $db->prepare("SELECT HOUR(COALESCE(client_time, received_at)) h, COUNT(*) n FROM $t WHERE DATE(COALESCE(client_time, received_at)) = ? GROUP BY h"); $st->execute([$day]);
+        foreach ($st as $r) $out[$k][(int)$r['h']] = (int)$r['n'];
+    }
+    out(200, ['ok' => true, 'day' => $day] + $out);
+}
+if ($a === 'users') {
+    $rows = [];
+    foreach (array_keys((array)($cfg['reviewers'] ?? [])) as $e) $rows[] = ['email' => $e, 'role' => 'admin', 'active' => 1, 'source' => 'config', 'created_at' => ''];
+    try { foreach ($db->query('SELECT email, role, active, created_by, created_at FROM admin_users ORDER BY email') as $r) $rows[] = $r + ['source' => 'dashboard']; } catch (Throwable $e) { /* table not created yet */ }
+    out(200, ['ok' => true, 'rows' => $rows, 'me' => $_SESSION['reviewer'] ?? '']);
+}
+if ($a === 'setuser') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'bad_request');
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    $email = strtolower(trim(s($in['email'] ?? '', 160))); if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail(422, 'bad_email');
+    $pass = (string)($in['password'] ?? ''); $role = in_array($in['role'] ?? '', ['admin', 'staff'], true) ? $in['role'] : 'staff'; $active = isset($in['active']) ? (empty($in['active']) ? 0 : 1) : 1;
+    session_start(); $who = (string)($_SESSION['reviewer'] ?? ''); session_write_close();
+    if ($pass !== '') {
+        if (strlen($pass) < 8) fail(422, 'short_password');
+        $db->prepare('INSERT INTO admin_users (email, pass_hash, role, active, created_by, created_at) VALUES (?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE pass_hash = VALUES(pass_hash), role = VALUES(role), active = VALUES(active)')
+           ->execute([$email, password_hash($pass, PASSWORD_DEFAULT), $role, $active, s($who, 160)]);
+    } else {
+        $db->prepare('UPDATE admin_users SET role = ?, active = ? WHERE email = ?')->execute([$role, $active, $email]);
+    }
+    out(200, ['ok' => true, 'email' => $email]);
+}
+if ($a === 'deluser') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'bad_request');
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    $db->prepare('DELETE FROM admin_users WHERE email = ?')->execute([strtolower(trim(s($in['email'] ?? '', 160)))]);
+    out(200, ['ok' => true]);
+}
 if ($a === 'scores') {
     $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['day'] ?? '')) ? $_GET['day'] : gmdate('Y-m-d');
     $st = $db->prepare('SELECT kiosk, name, play_code, score, caught, streak, client_time FROM sync_scores WHERE DATE(COALESCE(client_time, received_at)) = ? ORDER BY score DESC, id ASC LIMIT 50'); $st->execute([$day]);
@@ -188,6 +224,16 @@ if ($a === 'export') {
     $cols = ['players' => 'kiosk, name, dob, mobile, email, play_code, verified, consent, consent_at, consent_ver, client_time, received_at',
              'scores'  => 'kiosk, name, play_code, score, caught, streak, client_time, received_at',
              'prizes'  => 'kiosk, kind, prize_code, name, mobile, score, turn, mode, redeemed_at, redeemed_by, client_time, received_at'][$what] ?? null;
+    if ($what === 'winners') {   // one line per prize with the player's registration details
+        header('Content-Type: text/csv; charset=utf-8'); header('Content-Disposition: attachment; filename="kitkat-winners-' . gmdate('Ymd-Hi') . '.csv"');
+        $fh = fopen('php://output', 'w'); fwrite($fh, "\xEF\xBB\xBF");
+        fputcsv($fh, ['kiosk', 'prize', 'prize_code', 'round_of_day', 'rule', 'score', 'won_at', 'collected_at', 'collected_by', 'name', 'mobile', 'email', 'dob', 'consent', 'consent_at', 'registered_at']);
+        $sql = 'SELECT z.kiosk, z.kind, z.prize_code, z.turn, z.mode, z.score, z.client_time won_at, z.redeemed_at, z.redeemed_by, z.name, z.mobile,
+                       p.email, p.dob, p.consent, p.consent_at, p.client_time registered_at
+                FROM sync_prizes z LEFT JOIN sync_players p ON p.mobile = z.mobile AND p.id = (SELECT MAX(id) FROM sync_players WHERE mobile = z.mobile) ORDER BY z.id';
+        foreach ($db->query($sql) as $r) fputcsv($fh, array_map(fn($v) => is_string($v) && preg_match('/^[=+\-@]/', $v) ? "'" . $v : $v, array_values($r)));
+        exit;
+    }
     if (!$cols) fail(422, 'bad_request');
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="kitkat-' . $what . '-' . gmdate('Ymd-Hi') . '.csv"');

@@ -4,73 +4,87 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Dunk the Break · Admin</title>
+<title>Dunk the Break · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&display=swap">
 <style>
-  /* Team dashboard: sign-in shared with /debug/ (api/debug), data from api/sync. Dark, compact, works on a phone. */
-  :root { --red: #c8102e; --gold: #e2b14c; --bg: #141015; --card: #1f1a1f; --line: #332a30; --ink: #f5efe6; --dim: #a79b95; --ok: #3ccf74; --warn: #ffb84d; }
+  /* Team dashboard. Light and readable: cream page, white cards, dark text, KitKat red and gold accents.
+     Sign-in is shared with the round review page (api/debug); data comes from api/sync. */
+  :root { --red: #c8102e; --red-dark: #8a0610; --gold: #c9962e; --gold-light: #f3cf7a; --bg: #f7f2ea; --card: #ffffff; --line: #e6dccd; --ink: #2a1a12; --dim: #7a6a60; --ok: #178a4a; --warn: #b86a00; --bad: #b3111f; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 Figtree, system-ui, sans-serif; }
-  header { display: flex; align-items: center; gap: 14px; padding: 14px 20px; background: linear-gradient(90deg, #7a0610, #a90c17 60%, #7a0610); border-bottom: 3px solid var(--gold); position: sticky; top: 0; z-index: 5; }
-  header b { font-size: 20px; letter-spacing: .02em; } header .dim { color: #ffd9a8; }
-  header .sp { flex: 1; } header button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); }
-  main { max-width: 1240px; margin: 0 auto; padding: 18px; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: linear-gradient(90deg, var(--red-dark), var(--red) 55%, var(--red-dark)); color: #fff; border-bottom: 4px solid var(--gold-light); position: sticky; top: 0; z-index: 5; }
+  header b { font-size: 20px; letter-spacing: .02em; } header .sub { color: #ffe0b0; } header .sp { flex: 1; } header .who { color: #ffe9c7; font-size: 14px; }
+  header button { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.6); }
+  main { max-width: 1280px; margin: 0 auto; padding: 18px; }
   nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-  nav button { background: var(--card); color: var(--ink); border: 1px solid var(--line); } nav button.on { background: var(--red); border-color: var(--red); color: #fff; }
+  nav button { background: #fff; color: var(--ink); border: 1px solid var(--line); } nav button.on { background: var(--red); border-color: var(--red); color: #fff; }
   button { font: inherit; font-weight: 700; padding: 9px 16px; border-radius: 10px; border: 0; background: var(--red); color: #fff; cursor: pointer; }
-  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); } button:disabled { opacity: .5; cursor: default; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
-  .card h2 { margin: 0 0 10px; font-size: 17px; color: var(--gold); text-transform: uppercase; letter-spacing: .06em; }
-  .hide { display: none !important; } .dim { color: var(--dim); } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: #ff7b6e; }
+  button.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); } button.ghost:hover { border-color: var(--gold); } button:disabled { opacity: .5; cursor: default; }
+  a.btn { text-decoration: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(80,40,0,.05); }
+  .card h2 { margin: 0 0 10px; font-size: 15px; color: var(--gold); text-transform: uppercase; letter-spacing: .08em; }
+  .hide { display: none !important; } .dim { color: var(--dim); } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .stat { background: #2a2226; border-radius: 12px; padding: 12px 14px; } .stat b { display: block; font-size: 30px; line-height: 1.1; } .stat span { color: var(--dim); font-size: 13px; }
-  label { display: inline-flex; align-items: center; gap: 8px; margin: 4px 14px 4px 0; }
-  input, select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0f0c10; color: var(--ink); }
-  input[type=number] { width: 84px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; } th { color: var(--dim); font-weight: 600; position: sticky; top: 0; background: var(--card); }
-  .scroll { overflow: auto; max-height: 60vh; }
-  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } .pill.cap { background: #4b2a0b; color: #ffd27a; } .pill.tee { background: #0b3a4b; color: #8be0ff; } .pill.yes { background: #0d3b22; color: #7ff0a8; } .pill.no { background: #3a1216; color: #ff9d94; }
+  .stat { background: #fff8ec; border: 1px solid #f1e3c6; border-radius: 12px; padding: 12px 14px; } .stat b { display: block; font-size: 30px; line-height: 1.1; color: var(--red); } .stat span { color: var(--dim); font-size: 13px; }
+  label { display: inline-flex; align-items: center; gap: 8px; margin: 4px 16px 4px 0; }
+  input, select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #cfc2b2; background: #fff; color: var(--ink); } input:focus, select:focus { outline: 2px solid var(--gold-light); }
+  input[type=number] { width: 86px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; } th { color: var(--dim); font-weight: 700; position: sticky; top: 0; background: #fff; } tr:hover td { background: #fffaf1; }
+  .scroll { overflow: auto; max-height: 62vh; border: 1px solid var(--line); border-radius: 10px; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } .pill.cap { background: #fff0cc; color: #8a5a00; } .pill.tee { background: #e3f4ff; color: #0b5c86; } .pill.yes { background: #e2f6e9; color: #0f6a37; } .pill.no { background: #fde3e3; color: #9a1a1a; } .pill.today { background: var(--red); color: #fff; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  #login { max-width: 360px; margin: 10vh auto; } #login input { width: 100%; margin: 6px 0 12px; }
+  .chart { width: 100%; height: 180px; display: block; } .legend { font-size: 13px; color: var(--dim); } .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin: 0 6px 0 12px; vertical-align: -1px; }
+  .funnel { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; } .funnel div { background: #fff8ec; border: 1px solid #f1e3c6; border-radius: 10px; padding: 10px 12px; } .funnel b { font-size: 24px; display: block; color: var(--red); } .funnel small { color: var(--dim); }
+  #login { max-width: 380px; margin: 10vh auto; } #login input { width: 100%; margin: 6px 0 12px; }
   .stockgrid td input { width: 90px; }
+  .note { font-size: 13px; color: var(--dim); margin: 0 0 10px; }
   @media (max-width: 640px) { main { padding: 10px; } .stat b { font-size: 24px; } }
 </style>
 </head>
 <body>
-<header><b>DUNK THE BREAK</b><span class="dim">team dashboard</span><span class="sp"></span><span id="who" class="dim"></span><button id="logout" class="hide">Sign out</button></header>
+<header><b>DUNK THE BREAK</b><span class="sub">team dashboard</span><span class="sp"></span><span id="who" class="who"></span><button id="logout" class="hide">Sign out</button></header>
 <main>
   <div class="card hide" id="login">
     <h2>Sign in</h2>
     <input id="l-email" type="email" placeholder="Email" autocomplete="username">
     <input id="l-pass" type="password" placeholder="Password" autocomplete="current-password">
     <button id="l-go">Sign in</button> <span class="bad" id="l-err"></span>
-    <p class="dim" style="margin:14px 0 0">Same sign-in as the round review page. Accounts are set in the server config.</p>
+    <p class="note" style="margin-top:14px">Accounts are managed under <b>Team</b> once signed in. The first account is set in the server config.</p>
   </div>
 
   <div class="hide" id="app">
-    <nav><button data-tab="overview" class="on">Overview</button><button data-tab="prizes">Prize rule &amp; stock</button><button data-tab="claims">Winners &amp; claims</button><button data-tab="players">Players (1st-party data)</button><button data-tab="scores">Scores</button></nav>
+    <nav>
+      <button data-tab="overview" class="on">Overview</button><button data-tab="perf">Performance</button><button data-tab="prizes">Prize rule &amp; stock</button>
+      <button data-tab="claims">Winners &amp; claims</button><button data-tab="players">Players</button><button data-tab="scores">Scores</button><button data-tab="team">Team</button><button data-tab="export">Exports</button>
+    </nav>
 
     <section id="tab-overview">
-      <div class="card"><h2>Last 3 days</h2><div class="grid" id="ov-cards"></div></div>
-      <div class="card"><h2>By day and kiosk</h2><div class="scroll"><table><thead><tr><th>Day</th><th>Kiosk</th><th>Registrations</th><th>Rounds</th><th>Avg score</th><th>Best</th><th>Caps won</th><th>Tees won</th><th>Collected</th></tr></thead><tbody id="ov-rows"></tbody></table></div></div>
+      <div class="card"><h2>Last 3 days, all kiosks</h2><div class="grid" id="ov-cards"></div></div>
+      <div class="card"><h2>By day and kiosk</h2><div class="scroll"><table><thead><tr><th>Day</th><th>Kiosk</th><th>Registrations</th><th>Rounds</th><th>Avg score</th><th>Best</th><th>Caps won</th><th>T-shirts won</th><th>Collected</th><th>Win rate</th></tr></thead><tbody id="ov-rows"></tbody></table></div></div>
+    </section>
+
+    <section id="tab-perf" class="hide">
+      <div class="card"><div class="row"><h2 style="margin:0;flex:1">Funnel</h2><input id="pf-day" type="date"><button class="ghost" id="pf-show">Show day</button></div><div class="funnel" id="pf-funnel"></div></div>
+      <div class="card"><h2>Through the day</h2><p class="note">Registrations, rounds and prizes per hour on the chosen day. Use it to see the rush hours and whether prizes keep pace.</p><svg class="chart" id="pf-hours" viewBox="0 0 960 180" preserveAspectRatio="none"></svg><div class="legend"><i style="background:#c8102e"></i>rounds<i style="background:#c9962e"></i>registrations<i style="background:#178a4a"></i>prizes</div></div>
+      <div class="card"><h2>Three days side by side</h2><svg class="chart" id="pf-days" viewBox="0 0 960 180" preserveAspectRatio="none"></svg><div class="legend"><i style="background:#c8102e"></i>rounds<i style="background:#c9962e"></i>registrations<i style="background:#178a4a"></i>prizes</div></div>
     </section>
 
     <section id="tab-prizes" class="hide">
       <div class="card">
         <h2>Prize rule</h2>
-        <p class="dim" style="margin:0 0 10px">Every kiosk pulls this within a minute. The rule for <b>all kiosks</b> applies unless a kiosk has its own row.</p>
+        <p class="note">Every kiosk pulls this within a minute. The rule for <b>all kiosks</b> applies unless a kiosk has its own row.</p>
         <label>Kiosk <select id="pr-kiosk"><option value="*">all kiosks</option></select></label>
         <label>Rule <select id="pr-mode"><option value="nth">every Nth round wins</option><option value="score">by score</option></select></label>
-        <label>Every <input id="pr-nth" type="number" min="1" max="50" value="5"> th round</label>
+        <label>Every <input id="pr-nth" type="number" min="1" max="50" value="5"> th round wins</label>
         <label><input id="pr-pacing" type="checkbox" checked> release prizes evenly through the day</label>
-        <label>Hours <input id="pr-open" type="number" min="0" max="23" value="10"> to <input id="pr-close" type="number" min="1" max="24" value="20"></label>
-        <label>T-shirt from score <input id="pr-tee" type="number" min="1" max="200" value="25"></label>
-        <label>Cap from score (by-score rule) <input id="pr-cap" type="number" min="1" max="200" value="12"></label>
+        <label>Activation hours <input id="pr-open" type="number" min="0" max="23" value="10"> to <input id="pr-close" type="number" min="1" max="24" value="20"></label>
+        <label>T-shirt when the winner scored at least <input id="pr-tee" type="number" min="1" max="200" value="25"></label>
+        <label>Cap from score (by-score rule only) <input id="pr-cap" type="number" min="1" max="200" value="12"></label>
       </div>
       <div class="card">
         <h2>Stock per day</h2>
-        <p class="dim" style="margin:0 0 10px">How many of each prize the kiosk may give out on each date. A date without a row uses 80 / 80.</p>
+        <p class="note">How many of each prize may be given out on each date. A date without a row uses 80 / 80. Changing today's numbers takes effect on the kiosk within a minute.</p>
         <table class="stockgrid"><thead><tr><th>Date</th><th>Caps</th><th>T-shirts</th><th></th></tr></thead><tbody id="st-rows"></tbody></table>
         <div class="row" style="margin-top:10px"><input id="st-date" type="date"><button class="ghost" id="st-add">Add a day</button></div>
       </div>
@@ -79,24 +93,47 @@
 
     <section id="tab-claims" class="hide">
       <div class="card">
-        <div class="row"><h2 style="margin:0;flex:1">Winners &amp; claims</h2><input id="cl-day" type="date"><input id="cl-q" placeholder="code, phone or name"><button class="ghost" id="cl-find">Find</button><a class="ghost" id="cl-csv" href="../api/sync/?a=export&what=prizes"><button class="ghost" type="button">CSV</button></a></div>
-        <p class="dim">Tick <b>Collected</b> when the prize is handed over at the counter.</p>
-        <div class="scroll"><table><thead><tr><th>Collected</th><th>Code</th><th>Prize</th><th>Name</th><th>Phone</th><th>Score</th><th>Round</th><th>Kiosk</th><th>When</th></tr></thead><tbody id="cl-rows"></tbody></table></div>
+        <div class="row"><h2 style="margin:0;flex:1">Winners &amp; claims</h2><input id="cl-day" type="date"><input id="cl-q" placeholder="code, phone or name"><button class="ghost" id="cl-find">Find</button><a class="btn" href="../api/sync/?a=export&what=winners"><button class="ghost" type="button">CSV with registration details</button></a></div>
+        <p class="note">Each line is one prize. <b>Winner #</b> is the order of winners that day on that kiosk; <b>Round</b> is the round of the day it fell on. Tick <b>Collected</b> at the counter.</p>
+        <div class="scroll"><table><thead><tr><th>Collected</th><th>Winner #</th><th>Code</th><th>Prize</th><th>Name</th><th>Phone</th><th>Score</th><th>Round</th><th>Rule</th><th>Kiosk</th><th>Date</th><th>Time</th></tr></thead><tbody id="cl-rows"></tbody></table></div>
       </div>
     </section>
 
     <section id="tab-players" class="hide">
       <div class="card">
-        <div class="row"><h2 style="margin:0;flex:1">Players</h2><input id="pl-q" placeholder="name, phone, email or code"><button class="ghost" id="pl-find">Find</button><a id="pl-csv" href="../api/sync/?a=export&what=players"><button class="ghost" type="button">CSV</button></a></div>
-        <p class="dim" id="pl-sum"></p>
-        <div class="scroll"><table><thead><tr><th>When</th><th>Name</th><th>Phone</th><th>Email</th><th>DOB</th><th>Consent</th><th>Verified</th><th>Kiosk</th><th>Code</th></tr></thead><tbody id="pl-rows"></tbody></table></div>
+        <div class="row"><h2 style="margin:0;flex:1">Players, first-party data</h2><input id="pl-q" placeholder="name, phone, email or code"><button class="ghost" id="pl-find">Find</button><a class="btn" href="../api/sync/?a=export&what=players"><button class="ghost" type="button">CSV</button></a></div>
+        <p class="note" id="pl-sum"></p>
+        <div class="scroll"><table><thead><tr><th>Date</th><th>Time</th><th>Name</th><th>Phone</th><th>Email</th><th>Date of birth</th><th>Consent</th><th>Wording</th><th>Verified</th><th>Kiosk</th><th>Code</th></tr></thead><tbody id="pl-rows"></tbody></table></div>
       </div>
     </section>
 
     <section id="tab-scores" class="hide">
       <div class="card">
-        <div class="row"><h2 style="margin:0;flex:1">Top scores</h2><input id="sc-day" type="date"><button class="ghost" id="sc-find">Show</button><a href="../api/sync/?a=export&what=scores"><button class="ghost" type="button">CSV</button></a></div>
-        <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Wafers</th><th>Best streak</th><th>Kiosk</th><th>When</th></tr></thead><tbody id="sc-rows"></tbody></table></div>
+        <div class="row"><h2 style="margin:0;flex:1">Top scores</h2><input id="sc-day" type="date"><button class="ghost" id="sc-find">Show</button><a class="btn" href="../api/sync/?a=export&what=scores"><button class="ghost" type="button">CSV</button></a></div>
+        <div class="scroll"><table><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Wafers</th><th>Best streak</th><th>Kiosk</th><th>Time</th></tr></thead><tbody id="sc-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-team" class="hide">
+      <div class="card">
+        <h2>Team accounts</h2>
+        <p class="note">Who can sign in here and on the round review page. <b>Admin</b> can change the prize rule, stock and accounts; <b>staff</b> is for the counter. Accounts from the server config cannot be changed here.</p>
+        <div class="scroll" style="max-height:40vh"><table><thead><tr><th>Email</th><th>Role</th><th>Active</th><th>Source</th><th>Added</th><th></th></tr></thead><tbody id="tm-rows"></tbody></table></div>
+        <h2 style="margin-top:16px">Add or update an account</h2>
+        <div class="row"><input id="tm-email" type="email" placeholder="email"><input id="tm-pass" type="password" placeholder="password (8+ characters)"><select id="tm-role"><option value="staff">staff</option><option value="admin">admin</option></select><button id="tm-save">Save</button><span id="tm-msg" class="dim"></span></div>
+      </div>
+    </section>
+
+    <section id="tab-export" class="hide">
+      <div class="card">
+        <h2>Exports</h2>
+        <p class="note">CSV files open in Excel and Google Sheets. Times are in UTC; add 5:30 for Sri Lanka.</p>
+        <div class="row">
+          <a class="btn" href="../api/sync/?a=export&what=players"><button class="ghost" type="button">Players and consent</button></a>
+          <a class="btn" href="../api/sync/?a=export&what=scores"><button class="ghost" type="button">Every round and score</button></a>
+          <a class="btn" href="../api/sync/?a=export&what=prizes"><button class="ghost" type="button">Prize codes and collection</button></a>
+          <a class="btn" href="../api/sync/?a=export&what=winners"><button type="button">Winners with registration details</button></a>
+        </div>
       </div>
     </section>
   </div>
@@ -109,39 +146,73 @@
       .then(function (r) { return r.json().then(function (x) { if (!x.ok) { var e = new Error(x.error || ('http ' + r.status)); e.status = r.status; throw e; } return x; }); });
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function when(s) { if (!s) return ''; var d = new Date(s.replace(' ', 'T') + 'Z'); return isNaN(d) ? s : d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function dt(s) { if (!s) return null; var d = new Date(String(s).replace(' ', 'T') + (String(s).endsWith('Z') ? '' : 'Z')); return isNaN(d) ? null : d; }
+  function dateOf(s) { var d = dt(s); return d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : (s || ''); }
+  function timeOf(s) { var d = dt(s); return d ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''; }
   function today(off) { var d = new Date(); d.setDate(d.getDate() + (off || 0)); return d.toISOString().slice(0, 10); }
   function show(signedIn) { $('login').classList.toggle('hide', signedIn); $('app').classList.toggle('hide', !signedIn); $('logout').classList.toggle('hide', !signedIn); }
-  function guard(e) { if (e && e.status === 401) { show(false); return true; } return false; }
+  function guard(e) { if (e && e.status === 401) { show(false); return true; } console.warn(e); return false; }
 
   // ---- sign in (shared with /debug/) ----
   $('l-go').addEventListener('click', function () {
-    j(DEBUG + '?a=login', { email: $('l-email').value, password: $('l-pass').value }).then(function () { $('who').textContent = $('l-email').value; show(true); loadAll(); }, function () { $('l-err').textContent = 'Wrong email or password.'; });
+    j(DEBUG + '?a=login', { email: $('l-email').value, password: $('l-pass').value }).then(function (r) { $('who').textContent = r.email || $('l-email').value; show(true); loadAll(); }, function () { $('l-err').textContent = 'Wrong email or password.'; });
   });
   $('l-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('l-go').click(); });
   $('logout').addEventListener('click', function () { fetch(DEBUG + '?a=logout', { credentials: 'same-origin' }).then(function () { show(false); }); });
 
   // ---- tabs ----
+  var TABS = ['overview', 'perf', 'prizes', 'claims', 'players', 'scores', 'team', 'export'];
   document.querySelectorAll('nav button').forEach(function (b) { b.addEventListener('click', function () {
     document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
-    ['overview', 'prizes', 'claims', 'players', 'scores'].forEach(function (t) { $('tab-' + t).classList.toggle('hide', t !== b.dataset.tab); });
+    TABS.forEach(function (t) { $('tab-' + t).classList.toggle('hide', t !== b.dataset.tab); });
   }); });
 
-  // ---- overview ----
+  // ---- overview + performance (one stats call) ----
+  var stats = null, byDay = {};
   function loadStats() {
     return j(SYNC + '?a=stats&days=3').then(function (s) {
+      stats = s; byDay = {};
       var reg = 0, rounds = 0, caps = 0, tees = 0, red = 0, byKey = {};
       function k(d, kk) { return byKey[d + '|' + kk] || (byKey[d + '|' + kk] = { day: d, kiosk: kk, reg: 0, rounds: 0, avg: null, best: null, cap: 0, tee: 0, red: 0 }); }
-      s.players.forEach(function (r) { reg += +r.n; k(r.day, r.kiosk).reg += +r.n; });
-      s.rounds.forEach(function (r) { rounds += +r.n; var x = k(r.day, r.kiosk); x.rounds += +r.n; x.avg = +r.avg_score; x.best = +r.best; });
-      s.prizes.forEach(function (r) { var x = k(r.day, r.kiosk); if (r.kind === 'tee') { tees += +r.n; x.tee += +r.n; } else { caps += +r.n; x.cap += +r.n; } red += +r.redeemed; x.red += +r.redeemed; });
-      $('ov-cards').innerHTML = [['Registrations', reg], ['Rounds played', rounds], ['Caps won', caps], ['T-shirts won', tees], ['Prizes collected', red], ['Players with consent (all time)', s.consent + ' / ' + s.total_players]]
+      function dd(d) { return byDay[d] || (byDay[d] = { reg: 0, rounds: 0, prizes: 0 }); }
+      s.players.forEach(function (r) { reg += +r.n; k(r.day, r.kiosk).reg += +r.n; dd(r.day).reg += +r.n; });
+      s.rounds.forEach(function (r) { rounds += +r.n; var x = k(r.day, r.kiosk); x.rounds += +r.n; x.avg = +r.avg_score; x.best = +r.best; dd(r.day).rounds += +r.n; });
+      s.prizes.forEach(function (r) { var x = k(r.day, r.kiosk); if (r.kind === 'tee') { tees += +r.n; x.tee += +r.n; } else { caps += +r.n; x.cap += +r.n; } red += +r.redeemed; x.red += +r.redeemed; dd(r.day).prizes += +r.n; });
+      $('ov-cards').innerHTML = [['Registrations', reg], ['Rounds played', rounds], ['Caps won', caps], ['T-shirts won', tees], ['Prizes collected', red], ['Players with consent, all time', s.consent + ' / ' + s.total_players]]
         .map(function (c) { return '<div class="stat"><b>' + c[1] + '</b><span>' + c[0] + '</span></div>'; }).join('');
       var rows = Object.values(byKey).sort(function (a, b) { return a.day < b.day ? 1 : a.day > b.day ? -1 : a.kiosk < b.kiosk ? -1 : 1; });
-      $('ov-rows').innerHTML = rows.map(function (x) { return '<tr><td>' + x.day + '</td><td>' + esc(x.kiosk) + '</td><td>' + x.reg + '</td><td>' + x.rounds + '</td><td>' + (x.avg == null ? '' : x.avg.toFixed(1)) + '</td><td>' + (x.best == null ? '' : x.best) + '</td><td>' + x.cap + '</td><td>' + x.tee + '</td><td>' + x.red + '</td></tr>'; }).join('') || '<tr><td colspan="9" class="dim">Nothing synced yet.</td></tr>';
+      $('ov-rows').innerHTML = rows.map(function (x) { var wr = x.rounds ? Math.round((x.cap + x.tee) / x.rounds * 100) + '%' : ''; return '<tr><td>' + x.day + '</td><td>' + esc(x.kiosk) + '</td><td>' + x.reg + '</td><td>' + x.rounds + '</td><td>' + (x.avg == null ? '' : x.avg.toFixed(1)) + '</td><td>' + (x.best == null ? '' : x.best) + '</td><td>' + x.cap + '</td><td>' + x.tee + '</td><td>' + x.red + '</td><td>' + wr + '</td></tr>'; }).join('') || '<tr><td colspan="10" class="dim">Nothing synced yet.</td></tr>';
       var sel = $('pr-kiosk'); sel.innerHTML = '<option value="*">all kiosks</option>' + (s.kiosks || []).map(function (kk) { return '<option value="' + esc(kk) + '">' + esc(kk) + '</option>'; }).join('');
+      drawDays();
     });
   }
+  function bars(svg, series, labels) {
+    var W = 960, H = 180, n = labels.length, max = 1; series.forEach(function (s) { s.v.forEach(function (v) { if (v > max) max = v; }); });
+    var gw = W / n, bw = Math.max(2, (gw - 8) / series.length), out = '';
+    for (var i = 0; i < n; i++) {
+      series.forEach(function (s, si) { var h = (s.v[i] / max) * 130; out += '<rect x="' + (i * gw + 4 + si * bw) + '" y="' + (150 - h) + '" width="' + (bw - 1) + '" height="' + h + '" fill="' + s.c + '" rx="2"><title>' + labels[i] + ': ' + s.v[i] + ' ' + s.n + '</title></rect>'; });
+      if (n <= 24 && (n <= 8 || i % 2 === 0)) out += '<text x="' + (i * gw + gw / 2) + '" y="170" font-size="12" text-anchor="middle" fill="#7a6a60">' + labels[i] + '</text>';
+    }
+    out += '<line x1="0" y1="150.5" x2="' + W + '" y2="150.5" stroke="#e6dccd"/>';
+    svg.innerHTML = out;
+  }
+  function drawDays() {
+    var days = [today(-2), today(-1), today()];
+    bars($('pf-days'), [{ n: 'rounds', c: '#c8102e', v: days.map(function (d) { return (byDay[d] || {}).rounds || 0; }) }, { n: 'registrations', c: '#c9962e', v: days.map(function (d) { return (byDay[d] || {}).reg || 0; }) }, { n: 'prizes', c: '#178a4a', v: days.map(function (d) { return (byDay[d] || {}).prizes || 0; }) }], days);
+  }
+  function loadPerf() {
+    var day = $('pf-day').value || today();
+    return j(SYNC + '?a=hourly&day=' + day).then(function (h) {
+      var labels = []; for (var i = 0; i < 24; i++) labels.push(i + 'h');
+      bars($('pf-hours'), [{ n: 'rounds', c: '#c8102e', v: h.rounds }, { n: 'registrations', c: '#c9962e', v: h.players }, { n: 'prizes', c: '#178a4a', v: h.prizes }], labels);
+      var reg = h.players.reduce(function (a, b) { return a + b; }, 0), rounds = h.rounds.reduce(function (a, b) { return a + b; }, 0), prizes = h.prizes.reduce(function (a, b) { return a + b; }, 0);
+      var pct = function (a, b) { return b ? Math.round(a / b * 100) + '%' : '–'; };
+      var busiest = h.rounds.indexOf(Math.max.apply(null, h.rounds));
+      $('pf-funnel').innerHTML = [['Registered', reg, ''], ['Played a round', rounds, pct(rounds, reg) + ' of registered, ' + (reg ? (rounds / reg).toFixed(2) : '–') + ' rounds each'], ['Won a prize', prizes, pct(prizes, rounds) + ' of rounds'], ['Busiest hour', rounds ? busiest + ':00' : '–', rounds ? h.rounds[busiest] + ' rounds' : '']]
+        .map(function (f) { return '<div><small>' + f[0] + '</small><b>' + f[1] + '</b><small>' + f[2] + '</small></div>'; }).join('');
+    });
+  }
+  $('pf-show').addEventListener('click', function () { loadPerf().catch(guard); });
 
   // ---- prize rule & stock ----
   var cfgAll = {}, stockDays = {};
@@ -154,14 +225,13 @@
     drawStock();
   }
   function drawStock() {
-    var days = Object.keys(stockDays).sort();
-    $('st-rows').innerHTML = days.map(function (d) { var v = stockDays[d], tag = d === today() ? ' <span class="pill yes">today</span>' : ''; return '<tr data-day="' + d + '"><td>' + d + tag + '</td><td><input type="number" min="0" max="9999" class="st-cap" value="' + v.cap + '"></td><td><input type="number" min="0" max="9999" class="st-tee" value="' + v.tee + '"></td><td><button class="ghost st-del" type="button">remove</button></td></tr>'; }).join('');
+    $('st-rows').innerHTML = Object.keys(stockDays).sort().map(function (d) { var v = stockDays[d], tag = d === today() ? ' <span class="pill today">today</span>' : ''; return '<tr data-day="' + d + '"><td>' + d + tag + '</td><td><input type="number" min="0" max="9999" class="st-cap" value="' + v.cap + '"></td><td><input type="number" min="0" max="9999" class="st-tee" value="' + v.tee + '"></td><td><button class="ghost st-del" type="button">remove</button></td></tr>'; }).join('');
   }
   $('st-rows').addEventListener('click', function (e) { if (e.target.classList.contains('st-del')) { delete stockDays[e.target.closest('tr').dataset.day]; drawStock(); } });
   $('st-rows').addEventListener('input', function (e) { var tr = e.target.closest('tr'); if (!tr) return; var v = stockDays[tr.dataset.day]; v.cap = +tr.querySelector('.st-cap').value || 0; v.tee = +tr.querySelector('.st-tee').value || 0; });
   $('st-add').addEventListener('click', function () { var d = $('st-date').value; if (!d) return; if (!stockDays[d]) stockDays[d] = { cap: 80, tee: 80 }; drawStock(); });
   function loadConfig() {
-    return j(SYNC + '?a=getconfig').then(function (c) { cfgAll = c.config || {}; var row = cfgAll[$('pr-kiosk').value] || cfgAll['*']; fillRule(row && row.settings); $('pr-msg').textContent = row ? 'last saved ' + when(row.updated_at) : 'nothing saved yet: kiosks use their own panel settings'; });
+    return j(SYNC + '?a=getconfig').then(function (c) { cfgAll = c.config || {}; var row = cfgAll[$('pr-kiosk').value] || cfgAll['*']; fillRule(row && row.settings); $('pr-msg').textContent = row ? 'last saved ' + dateOf(row.updated_at) + ' ' + timeOf(row.updated_at) : 'nothing saved yet: kiosks use their own panel settings'; });
   }
   $('pr-kiosk').addEventListener('change', function () { var row = cfgAll[$('pr-kiosk').value] || cfgAll['*']; fillRule(row && row.settings); });
   $('pr-save').addEventListener('click', function () {
@@ -174,7 +244,10 @@
   function loadClaims() {
     var q = '?a=prizes' + ($('cl-day').value ? '&day=' + $('cl-day').value : '') + ($('cl-q').value ? '&q=' + encodeURIComponent($('cl-q').value) : '');
     return j(SYNC + q).then(function (p) {
-      $('cl-rows').innerHTML = p.rows.map(function (r) { return '<tr><td><input type="checkbox" class="cl-red" data-id="' + r.id + '" ' + (r.redeemed_at ? 'checked' : '') + '> <span class="dim">' + (r.redeemed_at ? when(r.redeemed_at) : '') + '</span></td><td><b>' + esc(r.prize_code) + '</b></td><td><span class="pill ' + esc(r.kind) + '">' + (r.kind === 'tee' ? 'T-shirt' : 'Cap') + '</span></td><td>' + esc(r.name) + '</td><td>' + esc(r.mobile) + '</td><td>' + r.score + '</td><td>' + (r.turn || '') + '</td><td>' + esc(r.kiosk) + '</td><td>' + when(r.client_time || r.received_at) + '</td></tr>'; }).join('') || '<tr><td colspan="9" class="dim">No prizes for this filter.</td></tr>';
+      var rows = p.rows.slice().reverse(), counter = {};   // oldest first to number the winners of each kiosk-day
+      rows.forEach(function (r) { var key = r.kiosk + '|' + (dt(r.client_time || r.received_at) || new Date()).toISOString().slice(0, 10); r.winnerNo = counter[key] = (counter[key] || 0) + 1; });
+      rows.reverse();
+      $('cl-rows').innerHTML = rows.map(function (r) { var w = r.client_time || r.received_at; return '<tr><td><input type="checkbox" class="cl-red" data-id="' + r.id + '" ' + (r.redeemed_at ? 'checked' : '') + '> <span class="dim">' + (r.redeemed_at ? timeOf(r.redeemed_at) : '') + '</span></td><td>#' + r.winnerNo + '</td><td><b>' + esc(r.prize_code) + '</b></td><td><span class="pill ' + esc(r.kind) + '">' + (r.kind === 'tee' ? 'T-shirt' : 'Cap') + '</span></td><td>' + esc(r.name) + '</td><td>' + esc(r.mobile) + '</td><td>' + r.score + '</td><td>' + (r.turn || '') + '</td><td>' + (r.mode === 'nth' ? 'every Nth' : r.mode === 'score' ? 'score' : '') + '</td><td>' + esc(r.kiosk) + '</td><td>' + dateOf(w) + '</td><td>' + timeOf(w) + '</td></tr>'; }).join('') || '<tr><td colspan="12" class="dim">No prizes for this filter.</td></tr>';
     });
   }
   $('cl-find').addEventListener('click', function () { loadClaims().catch(guard); });
@@ -184,8 +257,8 @@
   function loadPlayers() {
     return j(SYNC + '?a=players&limit=300' + ($('pl-q').value ? '&q=' + encodeURIComponent($('pl-q').value) : '')).then(function (p) {
       var c = p.rows.filter(function (r) { return +r.consent; }).length;
-      $('pl-sum').textContent = p.rows.length + ' shown · ' + c + ' with consent · DOB and contact details are personal data: export only what the campaign needs.';
-      $('pl-rows').innerHTML = p.rows.map(function (r) { return '<tr><td>' + when(r.client_time || r.received_at) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.mobile) + '</td><td>' + esc(r.email) + '</td><td>' + esc(r.dob) + '</td><td>' + (+r.consent ? '<span class="pill yes">yes</span> <span class="dim">' + esc(r.consent_ver) + '</span>' : '<span class="pill no">no</span>') + '</td><td>' + (+r.verified ? 'yes' : 'no') + '</td><td>' + esc(r.kiosk) + '</td><td>' + esc(r.play_code) + '</td></tr>'; }).join('') || '<tr><td colspan="9" class="dim">No players yet.</td></tr>';
+      $('pl-sum').textContent = p.rows.length + ' shown · ' + c + ' with consent. Contact details and date of birth are personal data: export only what the campaign needs and delete when it ends.';
+      $('pl-rows').innerHTML = p.rows.map(function (r) { var w = r.client_time || r.received_at; return '<tr><td>' + dateOf(w) + '</td><td>' + timeOf(w) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.mobile) + '</td><td>' + esc(r.email) + '</td><td>' + esc(r.dob) + '</td><td>' + (+r.consent ? '<span class="pill yes">yes</span>' : '<span class="pill no">no</span>') + '</td><td class="dim">' + esc(r.consent_ver) + '</td><td>' + (+r.verified ? 'yes' : 'no') + '</td><td>' + esc(r.kiosk) + '</td><td>' + esc(r.play_code) + '</td></tr>'; }).join('') || '<tr><td colspan="11" class="dim">No players yet.</td></tr>';
     });
   }
   $('pl-find').addEventListener('click', function () { loadPlayers().catch(guard); });
@@ -193,13 +266,28 @@
   // ---- scores ----
   function loadScores() {
     return j(SYNC + '?a=scores' + ($('sc-day').value ? '&day=' + $('sc-day').value : '')).then(function (p) {
-      $('sc-rows').innerHTML = p.rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td><b>' + r.score + '</b></td><td>' + r.caught + '</td><td>' + r.streak + '</td><td>' + esc(r.kiosk) + '</td><td>' + when(r.client_time) + '</td></tr>'; }).join('') || '<tr><td colspan="7" class="dim">No rounds on ' + esc(p.day) + '.</td></tr>';
+      $('sc-rows').innerHTML = p.rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name) + '</td><td><b>' + r.score + '</b></td><td>' + r.caught + '</td><td>' + r.streak + '</td><td>' + esc(r.kiosk) + '</td><td>' + timeOf(r.client_time) + '</td></tr>'; }).join('') || '<tr><td colspan="7" class="dim">No rounds on ' + esc(p.day) + '.</td></tr>';
     });
   }
   $('sc-find').addEventListener('click', function () { loadScores().catch(guard); });
 
-  function loadAll() { $('cl-day').value = today(); $('sc-day').value = today(); return loadStats().then(loadConfig).then(loadClaims).then(loadPlayers).then(loadScores).catch(guard); }
-  // already signed in? the stats call tells us
+  // ---- team ----
+  function loadTeam() {
+    return j(SYNC + '?a=users').then(function (u) {
+      $('tm-rows').innerHTML = u.rows.map(function (r) { var cfgRow = r.source === 'config'; return '<tr><td>' + esc(r.email) + (r.email === u.me ? ' <span class="dim">(you)</span>' : '') + '</td><td>' + esc(r.role) + '</td><td>' + (+r.active ? 'yes' : 'no') + '</td><td class="dim">' + esc(r.source) + '</td><td class="dim">' + (r.created_at ? dateOf(r.created_at) : '') + '</td><td>' + (cfgRow ? '' : '<button class="ghost tm-toggle" data-email="' + esc(r.email) + '" data-role="' + esc(r.role) + '" data-active="' + (+r.active ? 0 : 1) + '">' + (+r.active ? 'deactivate' : 'activate') + '</button> <button class="ghost tm-del" data-email="' + esc(r.email) + '">remove</button>') + '</td></tr>'; }).join('');
+    });
+  }
+  $('tm-rows').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.classList.contains('tm-del')) { if (!confirm('Remove ' + b.dataset.email + '?')) return; j(SYNC + '?a=deluser', { email: b.dataset.email }).then(loadTeam, guard); }
+    if (b.classList.contains('tm-toggle')) j(SYNC + '?a=setuser', { email: b.dataset.email, role: b.dataset.role, active: +b.dataset.active }).then(loadTeam, guard);
+  });
+  $('tm-save').addEventListener('click', function () {
+    j(SYNC + '?a=setuser', { email: $('tm-email').value, password: $('tm-pass').value, role: $('tm-role').value, active: 1 })
+      .then(function () { $('tm-msg').textContent = 'Saved.'; $('tm-pass').value = ''; return loadTeam(); }, function (e) { if (!guard(e)) $('tm-msg').textContent = e.message === 'short_password' ? 'Password needs 8 or more characters.' : e.message === 'bad_email' ? 'That is not an email address.' : 'Could not save: ' + e.message; });
+  });
+
+  function loadAll() { $('cl-day').value = today(); $('sc-day').value = today(); $('pf-day').value = today(); return loadStats().then(loadPerf).then(loadConfig).then(loadClaims).then(loadPlayers).then(loadScores).then(loadTeam).catch(guard); }
   j(SYNC + '?a=stats&days=1').then(function () { show(true); loadAll(); }, function () { show(false); });
 })();
 </script>

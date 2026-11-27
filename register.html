@@ -102,6 +102,8 @@
   /* OTP verification */
   .v-sub { position: absolute; left: 80px; right: 80px; top: 610px; margin: 0; text-align: center; font: 600 36px/1.35 var(--font-body); color: #fff; }
   .v-sub b { font-weight: 800; white-space: nowrap; }
+  /* WhatsApp wording names the sender and the game, so it is a little smaller to stay clear of the code boxes */
+  .v-sub.wa { top: 600px; font-size: 32px; line-height: 1.32; }
   .otp { position: absolute; left: 50%; top: 740px; transform: translateX(-50%); display: flex; gap: 18px; }
   .otp span { width: 132px; height: 160px; border-radius: 24px; display: grid; place-items: center; font: 800 84px/1 var(--font-display); color: var(--kk-red); border: 6px solid transparent;
     background: linear-gradient(180deg, #fffaf0 0%, #fdf1d8 40%, #f8e4bd 100%) padding-box, var(--gold-line) border-box; box-shadow: 0 0 22px rgba(255,210,120,.35), inset 0 2px 0 #fff, 0 6px 0 rgba(120,30,20,.28), 0 14px 26px rgba(60,0,0,.3); }
@@ -288,7 +290,8 @@
 
   function showVerify() {
     form.style.display = 'none'; vPane.style.display = 'block';
-    $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = (auth || otpApi) ? 'none' : 'block'; $('v-via').textContent = otpApi ? 'on WhatsApp ' : '';
+    if (otpApi) { const sub = document.querySelector('#verify .v-sub'); sub.classList.add('wa'); sub.innerHTML = 'Check WhatsApp. <b>Nestlé Professional</b> sent your 6-digit code for <b>Dunk the Break</b> by KitKat® to <b id="v-phone"></b>'; }
+    $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = (auth || otpApi) ? 'none' : 'block';
     otpIn.value = ''; paint(); vErr.textContent = '';
     setTimeout(() => KioskKeyboard.show(otpIn), 300);
     armResend();

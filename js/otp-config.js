@@ -5,4 +5,4 @@ window.KK_OTP_API = 'api/';
 
 // TESTING ONLY: true skips the verification step completely, so anyone can register with any number
 // and no code is sent. Set back to false before the kiosk goes in front of the public.
-window.KK_OTP_SKIP = true;
+window.KK_OTP_SKIP = false;

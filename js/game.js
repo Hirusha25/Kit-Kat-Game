@@ -805,9 +805,11 @@
       }
       var cls = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
       var bonusOk = bonusSpawned < T.BONUS_MAX_PER_ROUND && simTime >= T.BONUS_AFTER_SECONDS && duration - simTime > T.BONUS_LAST_SECONDS && sprites && sprites[KIND.BONUS_TIME] && sprites[KIND.BONUS_TIME].fromImage;
-      if (bonusOk && (rng() < T.BONUS_SHARE || (bonusSpawned === 0 && simTime >= T.BONUS_FORCE_AT))) cls = CLS.BONUS;
+      var forcedBonus = bonusOk && bonusSpawned === 0 && simTime >= T.BONUS_FORCE_AT;
+      if (bonusOk && (rng() < T.BONUS_SHARE || forcedBonus)) cls = CLS.BONUS;
       // Make the player move: most hazards drop into the mug's own lane, most wafers land a lane or two away.
       var mugLane = clamp(Math.floor((mug.x - spawnMinX) / laneW), 0, T.LANES - 1);
+      if (forcedBonus) { spawnItem(cls, mugLane, null, speed); return 0; } // the guaranteed stopwatch comes to the player
       if (cls === CLS.HAZARD && rng() < T.HAZARD_AT_MUG && simTime - lanes[mugLane].lastBadAt >= T.BAD_LANE_COOLDOWN) lane = mugLane;
       else if (cls !== CLS.HAZARD && rng() < T.WAFER_AWAY && T.LANES > 1) { var off = rng.int(T.LANES - 1) + 1; lane = (mugLane + off) % T.LANES; }
       spawnItem(cls, lane, null, speed);

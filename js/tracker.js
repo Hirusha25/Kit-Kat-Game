@@ -370,6 +370,54 @@
     a.refAreaFrac = 0;
     return a;
   }
+  // ---------------------------------------------------------------------------------------------
+  // Background red suppression. A kiosk round recorded at the venue showed the detector locking onto
+  // red-and-white posters behind the player, and calibrating on one. A mug in a hand keeps moving, if
+  // only by a tremble; a poster does not. So for every pixel the time since it last changed from one
+  // frame to the next is kept, and red with (almost) nothing recently changed around it has its
+  // redness removed before detection (it keeps its brightness).
+  //   - "changed" = differs from the previous frame by more than MOVE (sum over R, G, B);
+  //   - "recently" = within limitMs;
+  //   - "around it" = at least 1 pixel in 8 within about 3% of the frame width. Not "any pixel": on the
+  //     venue recording camera noise flips a pixel or two around a poster in most frames. And not the
+  //     red pixel alone: a logo in front of a red backdrop may not change, but the mug around it does.
+  // Nothing is hidden for the first limitMs after the camera starts or the picture re-exposes as a whole
+  // (everything has just "changed"), so it fails towards the old behaviour. st = newStaticState(pixels).
+  // ---------------------------------------------------------------------------------------------
+  function newStaticState(n) { return { prev: new Uint8Array(n * 3), still: new Uint16Array(n), fg: null, last: -1, n: n, hidden: 0, changed: 0 }; }
+  function suppressStatic(img, st, ts, limitMs) {
+    var data = img.data, W = img.width, H = img.height, n = W * H, prev = st.prev, still = st.still;
+    if (st.n !== n || limitMs <= 0) return 0;
+    var i, d, j, r, g, bl, mx, df, x, y, c, q;
+    var first = st.last < 0, dt = first ? 0 : ts - st.last; st.last = ts; if (dt < 1) dt = 1; else if (dt > 1000) dt = 1000;
+    var MOVE = 45, IW = W + 1, du = Math.round(dt / 16) || 1, limit = Math.round(limitMs / 16);
+    if (!st.fg || st.fg.length !== IW * (H + 1)) st.fg = new Int32Array(IW * (H + 1));   // integral image of "recently changed"
+    var fg = st.fg, changed = 0;
+    for (y = 0, i = 0, d = 0, j = 0; y < H; y++) {
+      for (x = 0; x < W; x++, i++, d += 4, j += 3) {
+        r = data[d] - prev[j]; g = data[d + 1] - prev[j + 1]; bl = data[d + 2] - prev[j + 2];
+        df = (r < 0 ? -r : r) + (g < 0 ? -g : g) + (bl < 0 ? -bl : bl);
+        prev[j] = data[d]; prev[j + 1] = data[d + 1]; prev[j + 2] = data[d + 2];
+        if (first || df > MOVE) q = 0; else { q = still[i] + du; if (q > 60000) q = 60000; }
+        still[i] = q; c = q < limit ? 1 : 0; changed += c;
+        fg[(y + 1) * IW + x + 1] = c + fg[y * IW + x + 1] + fg[(y + 1) * IW + x] - fg[y * IW + x];
+      }
+    }
+    st.changed = changed;
+    var rad = Math.max(3, Math.round(W * 0.03)), hidden = 0, x0, x1, y0, y1;
+    for (y = 0, i = 0, d = 0; y < H; y++) {
+      y0 = y - rad; if (y0 < 0) y0 = 0; y1 = y + rad; if (y1 >= H) y1 = H - 1;
+      for (x = 0; x < W; x++, i++, d += 4) {
+        r = data[d]; g = data[d + 1]; bl = data[d + 2]; mx = g > bl ? g : bl;
+        if (!(r > 70 && (r - mx) > 30 && r > 1.8 * mx)) continue;      // the widest red the detector ever accepts
+        x0 = x - rad; if (x0 < 0) x0 = 0; x1 = x + rad; if (x1 >= W) x1 = W - 1;
+        if ((fg[(y1 + 1) * IW + x1 + 1] - fg[y0 * IW + x1 + 1] - fg[(y1 + 1) * IW + x0] + fg[y0 * IW + x0]) * 8 < (x1 - x0 + 1) * (y1 - y0 + 1)) { data[d] = mx; hidden++; }
+      }
+    }
+    st.hidden = hidden;
+    return hidden;
+  }
+
   function loadParams() {
     try {
       var raw = root.localStorage && root.localStorage.getItem(STORAGE_KEY);
@@ -425,6 +473,8 @@
       smoothing: clamp01(numberOr(opts.smoothing, 0.35)),
       lostAfterMs: numberOr(opts.lostAfterMs, 600),
       sensitivity: clamp01(numberOr(opts.sensitivity, 0.5)),
+      rotate: opts.rotate === undefined ? 0 : opts.rotate,          // degrees clockwise (0/90/180/270) or 'auto': 90 when the camera delivers a portrait picture
+      staticMs: numberOr(opts.staticMs, 0),                         // > 0: ignore red in parts of the picture where nothing changes (see suppressStatic)
       workerUrl: opts.workerUrl || defaultWorkerUrl
     };
     var params = loadParams();
@@ -448,6 +498,31 @@
       return { v: prev + a * (x - prev), d: d };
     }
     var calib = null;  // active calibration session
+    var stat = null;
+    // Camera picture, upright. The venue kiosk delivers a portrait picture turned on its side; it used to be
+    // squashed into the wide detector frame as it was. rotation() is the clockwise turn that makes it upright,
+    // and drawUpright() draws the upright picture, cropped (never squashed) to the detector's shape, into any
+    // 2D context. crop = {x, y, w, h} (0..1 of that upright picture) draws only a part of it.
+    function rotation() { if (o.rotate === 'auto') return video.videoHeight > video.videoWidth ? 90 : 0; return ((Math.round(numberOr(+o.rotate, 0) / 90) % 4) + 4) % 4 * 90; }
+    function geometry() { return o.width + 'x' + o.height + 'r' + rotation(); }
+    function drawUpright(c, dx, dy, dw, dh, crop) {
+      var vw = video.videoWidth, vh = video.videoHeight;
+      if (video.readyState < 2 || !vw) return false;
+      var rot = rotation(), swap = rot % 180 !== 0, sw = swap ? vh : vw, sh = swap ? vw : vh, A = o.width / o.height;
+      if (!rot && !crop && Math.abs(sw / sh - A) < 0.01) { c.drawImage(video, dx, dy, dw, dh); return true; }
+      var cw = sw, ch = sh; if (sw / sh > A) cw = sh * A; else ch = sw / A;                 // the part that is shown
+      var cx = crop ? crop.x : 0, cy = crop ? crop.y : 0, kx = dw / (cw * (crop ? crop.w : 1)), ky = dh / (ch * (crop ? crop.h : 1));
+      var ox = dx - ((sw - cw) / 2 + cx * cw) * kx, oy = dy - ((sh - ch) / 2 + cy * ch) * ky;  // where the whole upright picture starts
+      c.save(); c.beginPath(); c.rect(dx, dy, dw, dh); c.clip();
+      c.translate(ox + sw * kx / 2, oy + sh * ky / 2); c.rotate(rot * Math.PI / 180);
+      if (swap) c.drawImage(video, -vw * ky / 2, -vh * kx / 2, vw * ky, vh * kx); else c.drawImage(video, -vw * kx / 2, -vh * ky / 2, vw * kx, vh * ky);
+      c.restore(); return true;
+    }
+    function staticReady() {
+      var n = o.width * o.height;
+      if (stat && stat.n === n && stat.geom === geometry()) return;
+      stat = newStaticState(n); stat.geom = geometry();
+    }
     var acquiring = false, acq = null;  // lock-on mode: detect with acquireParams(params) instead of params
 
     function makeCanvas() {
@@ -495,10 +570,12 @@
       if (busy) { skipped++; return; }
       var W = o.width, H = o.height;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-      ctx.drawImage(video, 0, 0, W, H);
+      drawUpright(ctx, 0, 0, W, H);
       var img = ctx.getImageData(0, 0, W, H);
-      if (calib) calibSample(img);
+      // the debug recorder gets the frame as the camera gave it, before the background is taken out
       if (typeof tracker.onFrame === 'function') { try { tracker.onFrame(img, ts); } catch (e) { /* debug hook must never break tracking */ } }
+      if (o.staticMs > 0) { staticReady(); suppressStatic(img, stat, ts, o.staticMs); }
+      if (calib) calibSample(img);
       var use = params;
       if (acquiring && acq) { acq.threshold = params.threshold; acq.prevX = params.prevX; acq.prevY = params.prevY; use = acq; }
       if (usingWorker && worker) {
@@ -605,7 +682,7 @@
       np.threshold = thresholdFor(o.sensitivity);
       np.prevX = params.prevX; np.prevY = params.prevY;
       params = np;
-      saveParams(params);
+      saveParams(params); try { root.localStorage.setItem(STORAGE_KEY + '_geom', geometry()); } catch (e) { /* ignore */ }
       c.resolve({ ok: true, samples: c.samples, params: mergeParams(defaultParams, params) });
     }
 
@@ -657,6 +734,9 @@
           if (!canvas) makeCanvas();
           usingWorker = startWorker();
           running = true; busy = false; haveSmoothed = false; lastFrameMs = 0; fpsEma = 0;
+          // A calibration belongs to one picture geometry: drop one saved for another size or rotation
+          // (kiosks hold values learned on the squashed, sideways picture).
+          try { if (root.localStorage.getItem(STORAGE_KEY + '_geom') !== geometry()) { root.localStorage.removeItem(STORAGE_KEY); var th = params.threshold; params = mergeParams(defaultParams, null); params.threshold = th; } } catch (e) { /* ignore */ }
           state.found = false; state.lastSeenMs = -Infinity; params.prevX = -1; params.prevY = -1;
           var track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
           var st = track && track.getSettings ? track.getSettings() : {};
@@ -686,11 +766,13 @@
       if (n.lostAfterMs !== undefined) o.lostAfterMs = numberOr(n.lostAfterMs, o.lostAfterMs);
       if (n.width !== undefined) o.width = Math.max(32, Math.min(320, numberOr(n.width, o.width) | 0));
       if (n.height !== undefined) o.height = Math.max(18, Math.min(180, numberOr(n.height, o.height) | 0));
+      if (n.rotate !== undefined) o.rotate = n.rotate;
+      if (n.staticMs !== undefined) { o.staticMs = Math.max(0, numberOr(n.staticMs, o.staticMs)); stat = null; }
       return tracker.getOptions();
     };
     tracker.getOptions = function () {
       return { width: o.width, height: o.height, mirror: o.mirror, useWorker: o.useWorker, usingWorker: usingWorker,
-               smoothing: o.smoothing, lostAfterMs: o.lostAfterMs, sensitivity: o.sensitivity, running: running, acquiring: acquiring,
+               smoothing: o.smoothing, lostAfterMs: o.lostAfterMs, sensitivity: o.sensitivity, running: running, acquiring: acquiring, rotate: rotation(), rotateSetting: o.rotate, staticMs: o.staticMs, staticHidden: stat ? stat.hidden : 0,
                frames: frames, skipped: skipped };
     };
     tracker.getParams = function () { return mergeParams(defaultParams, params); };
@@ -700,6 +782,8 @@
     tracker.setAcquire = function (on) { acquiring = !!on; acq = acquiring ? acquireParams(params) : null; return acquiring; };
     tracker.getState = function () { return state; };
     tracker.getStream = function () { return stream; };
+    tracker.drawUpright = drawUpright;
+    tracker.forgetStatic = function () { stat = null; };
 
     /** Draws the (mirrored) camera frame, the detection box and the score into a 2D context. */
     tracker.debugDraw = function (c2d, w, h) {
@@ -707,7 +791,7 @@
       c2d.fillStyle = '#000'; c2d.fillRect(0, 0, w, h);
       if (video.readyState >= 2 && video.videoWidth) {
         if (o.mirror) { c2d.translate(w, 0); c2d.scale(-1, 1); }
-        c2d.drawImage(video, 0, 0, w, h);
+        drawUpright(c2d, 0, 0, w, h);
       }
       c2d.restore();
       var alive = state.lastSeenMs > -Infinity && (state.ts - state.lastSeenMs) <= o.lostAfterMs;
@@ -732,7 +816,7 @@
     return tracker;
   }
 
-  var MugTracker = { detect: detect, acquireParams: acquireParams, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
+  var MugTracker = { detect: detect, acquireParams: acquireParams, newStaticState: newStaticState, suppressStatic: suppressStatic, create: create, listCameras: listCameras, defaultParams: defaultParams, STORAGE_KEY: STORAGE_KEY };
   root.MugTracker = MugTracker;
   if (typeof module !== 'undefined' && module.exports) module.exports = MugTracker;
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this));

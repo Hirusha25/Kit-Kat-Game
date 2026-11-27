@@ -63,6 +63,7 @@
       <div>
         <div class="card">
           <div class="wrap" id="vwrap"><video id="vid" controls playsinline muted></video><canvas class="over" id="over"></canvas></div>
+          <div style="margin-top:8px"><button class="ghost" id="playpause">Play / pause</button> <span class="dim" id="rot-note"></span></div>
           <div class="dim hide" id="novid">No video for this round (recorded without video). Use the exact frames on the right.</div>
           <canvas id="timeline" height="44"></canvas>
           <div class="legend dim" style="margin-top:6px"><span><i class="sw" style="background:#2ecc71"></i>tracked</span><span><i class="sw" style="background:#f1c40f"></i>coasting</span><span><i class="sw" style="background:#e74c3c"></i>lost</span><span><i class="sw" style="background:#555"></i>before / after the round</span><span>white marks = exact frames, blue line = now</span><span>The box on the video can trail a fast mug by about 0.1 s; the exact frames on the right are exact.</span></div>
@@ -187,11 +188,18 @@
     var hasVid = +row.has_video === 1;
     $('vwrap').classList.toggle('hide', !hasVid); $('novid').classList.toggle('hide', hasVid);
     if (hasVid) $('vid').src = API + '?a=file&id=' + id + '&name=camera.webm';
+    // The video is stored as the camera gave it. When the game turned the picture to make it upright, the
+    // player here is turned the same way, so the detector's boxes line up with it.
+    var rot = +((meta.trackerEnd || meta.tracker || {}).rotate || 0), vid = $('vid'), wrap = $('vwrap');
+    V.rot = rot; wrap.style.aspectRatio = rot ? (V.fw + ' / ' + V.fh) : ''; vid.controls = !rot;
+    vid.style.cssText = rot ? 'position:absolute;left:50%;top:50%;width:' + (rot % 180 ? (100 * V.fh / V.fw) + '%' : '100%') + ';transform:translate(-50%,-50%) rotate(' + rot + 'deg)' : '';
+    $('rot-note').textContent = rot ? 'Camera picture turned ' + rot + '° clockwise, as in the game.' : '';
     var cam = (meta.camera || {}), st = cam.settings || {}, caps = cam.capabilities || {};
     var facts = [['Round', id], ['Recorded', row.created_at + ' (server time), kiosk ' + row.kiosk], ['Ended', row.ended_reason + (meta.flags && meta.flags.length ? ' · flags: ' + meta.flags.join(', ') : '')],
       ['Mug tracked', pct(row.found_share) + ' of play frames · ' + (row.lost_events || 0) + ' lost event(s) · longest ' + ((row.longest_lost_ms || 0) / 1000).toFixed(1) + ' s'],
       ['Frame rate', (row.avg_fps || '–') + ' fps average during play'], ['Score', row.score == null ? '–' : row.score],
       ['Camera', (cam.label || '?') + ' · stream ' + (st.width || '?') + 'x' + (st.height || '?') + ' @' + (st.frameRate ? Math.round(st.frameRate) : '?') + ' · detector ' + V.fw + 'x' + V.fh],
+      ['Picture turned', (((meta.trackerEnd || {}).rotate || 0) ? ((meta.trackerEnd || {}).rotate + '° clockwise to make it upright') : 'no') + ' · static red ignored after ' + ((((meta.trackerEnd || {}).staticMs || 0) / 1000) || 'never') + ' s'],
       ['Camera shape', st.width && st.height ? (Math.abs(st.width / st.height - V.fw / V.fh) > 0.05 ? 'MISMATCH: camera is ' + (st.width / st.height).toFixed(2) + ':1 but the detector frame is ' + (V.fw / V.fh).toFixed(2) + ':1, so the picture is squashed' : 'matches the detector frame') : 'unknown'],
       ['Exposure / white balance', 'exposure ' + (st.exposureMode || 'n/a') + (caps.exposureMode ? ' (can: ' + caps.exposureMode.join(', ') + ')' : ' (no control offered)') + ' · white balance ' + (st.whiteBalanceMode || 'n/a') + (caps.whiteBalanceMode ? ' (can: ' + caps.whiteBalanceMode.join(', ') + ')' : ' (no control offered)')],
       ['Game settings', JSON.stringify(meta.settings || {})], ['Calibration', V.events.filter(function (e) { return e.type === 'calibrate'; }).map(function (e) { return (e.data.ok ? 'ok' : 'failed: ' + e.data.reason) + ' at ' + (e.t / 1000).toFixed(1) + ' s'; }).join('; ') || 'none in this recording'],
@@ -214,8 +222,8 @@
   }
   function seek(t) { V.t = t; var vid = $('vid'); if (+V.row.has_video && V.vstart != null) vid.currentTime = Math.max(0, (t - V.vstart) / 1000); paintTimeline(); nearestFrame(t); }
   function paintOverlay() {
-    var cv = $('over'), vid = $('vid'); if (!+V.row.has_video || !vid.videoWidth) return;
-    if (cv.width !== vid.clientWidth || cv.height !== vid.clientHeight) { cv.width = vid.clientWidth; cv.height = vid.clientHeight; }
+    var cv = $('over'), vid = $('vid'), wr = $('vwrap'); if (!+V.row.has_video || !vid.videoWidth) return;
+    if (cv.width !== wr.clientWidth || cv.height !== wr.clientHeight) { cv.width = wr.clientWidth; cv.height = wr.clientHeight; }
     var x = cv.getContext('2d'), c = V.c, r = rowAtTime(V.t); x.clearRect(0, 0, cv.width, cv.height); if (!r) return;
     if (r[c.found]) { x.lineWidth = 3; x.strokeStyle = '#2ecc71'; x.strokeRect((r[c.x] - r[c.w] / 2) * cv.width, (r[c.y] - r[c.h] / 2) * cv.height, r[c.w] * cv.width, r[c.h] * cv.height); }
     x.font = 'bold 14px sans-serif'; x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, 0, 330, 24);
@@ -246,6 +254,7 @@
   ['timeline', 'scores'].forEach(function (id) { $(id).addEventListener('click', function (e) { var r = e.target.getBoundingClientRect(); seek(V.t0 + (e.clientX - r.left) / r.width * (V.t1 - V.t0)); }); });
   $('vid').addEventListener('seeked', function () { if (V && V.vstart != null) { V.t = V.vstart + $('vid').currentTime * 1000; paintTimeline(); nearestFrame(V.t); } });
   $('vid').addEventListener('pause', function () { if (V) nearestFrame(V.t); });
+  $('playpause').addEventListener('click', function () { var v = $('vid'); v.paused ? v.play() : v.pause(); });
   // Browser-recorded WebM has no length in its header, so seeking fails until the player has scanned to the end once.
   $('vid').addEventListener('loadedmetadata', function () { var v = $('vid'); if (v.duration === Infinity) { var back = function () { if (v.duration !== Infinity) { v.removeEventListener('durationchange', back); v.currentTime = 0; } }; v.addEventListener('durationchange', back); v.currentTime = 1e7; } });
 
@@ -253,6 +262,13 @@
   function frameImage(i) { var n = V.fw * V.fh, src = V.frames.subarray(i * n * 3, (i + 1) * n * 3), img = new ImageData(V.fw, V.fh), d = img.data; for (var p = 0, q = 0; p < n; p++, q += 4) { d[q] = src[p * 3]; d[q + 1] = src[p * 3 + 1]; d[q + 2] = src[p * 3 + 2]; d[q + 3] = 255; } return img; }
   function nearestFrame(t) { if (!V.frames || !V.ft.length) return; var best = 0; V.ft.forEach(function (ft, i) { if (Math.abs(ft - t) < Math.abs(V.ft[best] - t)) best = i; }); setFrame(best, true); }
   var tmp = document.createElement('canvas');
+  // The frames are stored as the camera gave them. The game takes long-standing red (posters) out before it
+  // detects, so a re-run does the same, frame after frame in order. The kiosk may already have known the
+  // background when the round began, so the first seconds of a re-run can differ from what the kiosk decided.
+  function detImage(i) {
+    if (!V.det) { V.det = []; var ms = +((V.meta.trackerEnd || {}).staticMs || 0), st = MugTracker.newStaticState(V.fw * V.fh); for (var k = 0; k < V.ft.length; k++) { var im = frameImage(k); if (ms > 0) MugTracker.suppressStatic(im, st, 100000 + V.ft[k], ms); V.det.push(im); } }
+    return V.det[i];
+  }
   function currentParams() { var p = Object.assign({}, MugTracker.defaultParams, V.meta.paramsEnd || V.meta.paramsStart || {}); document.querySelectorAll('#params input').forEach(function (i) { if (i.value !== '') p[i.dataset.k] = +i.value; }); p.prevX = -1; p.prevY = -1; return p; }
   function setFrame(i, quiet) {
     var cv = $('exact'), x = cv.getContext('2d');
@@ -262,7 +278,7 @@
     x.imageSmoothingEnabled = false; x.drawImage(tmp, 0, 0, cv.width, cv.height);
     var c = V.c, r = V.rows[V.rowAt[t]] || rowAtTime(t), W = cv.width, H = cv.height;
     if (r && r[c.found]) { x.lineWidth = 2; x.strokeStyle = '#2ecc71'; x.strokeRect((r[c.x] - r[c.w] / 2) * W, (r[c.y] - r[c.h] / 2) * H, r[c.w] * W, r[c.h] * H); }
-    var rr = MugTracker.detect(img, currentParams());
+    var rr = MugTracker.detect(detImage(V.fi), currentParams());
     if (rr.found) { x.lineWidth = 2; x.strokeStyle = '#4aa3ff'; x.setLineDash([6, 4]); x.strokeRect((rr.x - rr.w / 2) * W - 3, (rr.y - rr.h / 2) * H - 3, rr.w * W + 6, rr.h * H + 6); x.setLineDash([]); }
     var lab = V.labels[t]; if (lab) { x.strokeStyle = '#ff4dd2'; x.lineWidth = 2; if (lab.none) { x.strokeRect(4, 4, W - 8, H - 8); } else { x.beginPath(); x.arc(lab.x * W, lab.y * H, 9, 0, 6.3); x.moveTo(lab.x * W - 14, lab.y * H); x.lineTo(lab.x * W + 14, lab.y * H); x.moveTo(lab.x * W, lab.y * H - 14); x.lineTo(lab.x * W, lab.y * H + 14); x.stroke(); } }
     $('exact-info').textContent = 'frame ' + (V.fi + 1) + ' of ' + V.ft.length + ' at ' + (t / 1000).toFixed(2) + ' s · kiosk: ' + (r && r[c.found] ? 'found, score ' + r[c.score].toFixed(2) : 'not found, best ' + (r ? r[c.score].toFixed(2) : '?')) + ' · re-run: ' + (rr.found ? 'found, score ' + rr.score.toFixed(2) : 'not found, best ' + rr.score.toFixed(2));
@@ -285,7 +301,7 @@
     if (!V.frames || !V.ft.length) { $('rerun-out').textContent = 'No exact frames stored for this round.'; return; }
     var p = currentParams(), c = V.c, n = V.ft.length, kiosk = 0, mine = 0, agree = 0, lab = 0, kOk = 0, mOk = 0, kErr = 0, mErr = 0;
     for (var i = 0; i < n; i++) {
-      var t = V.ft[i], r = V.rows[V.rowAt[t]] || rowAtTime(t), rr = MugTracker.detect(frameImage(i), p), kf = !!(r && r[c.found]);
+      var t = V.ft[i], r = V.rows[V.rowAt[t]] || rowAtTime(t), rr = MugTracker.detect(detImage(i), p), kf = !!(r && r[c.found]);
       // like the kiosk, each frame is judged with the previous frame's position as the hint
       p.prevX = rr.found ? rr.x : -1; p.prevY = rr.found ? rr.y : -1;
       kiosk += kf ? 1 : 0; mine += rr.found ? 1 : 0; agree += kf === rr.found ? 1 : 0;

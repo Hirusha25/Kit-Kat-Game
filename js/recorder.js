@@ -21,7 +21,7 @@
   'use strict';
   var API = 'api/debug/';
   var COLS = ['t', 'found', 'x', 'y', 'w', 'h', 'score', 'sWhite', 'sAspect', 'sArea', 'sFill', 'sInner', 'sTemp', 'cand', 'redArea', 'whiteRatio', 'tracking', 'sx', 'fps'];
-  var CAL_TIMEOUT_MS = 90000, MAX_SESSION_MS = 300000, MAX_FRAMES = 300, RING = 30, QUEUE_CAP = 300 * 1048576, CHUNK = 512 * 1024;   // small pieces: a slow venue link finishes each one quickly and an interrupted upload resumes where it stopped
+  var CAL_TIMEOUT_MS = 90000, MAX_SESSION_MS = 300000, FRAME_BUDGET = 18 * 1048576, RING_MS = 1000, QUEUE_CAP = 300 * 1048576, CHUNK = 512 * 1024;   // small pieces: a slow venue link finishes each one quickly and an interrupted upload resumes where it stopped
   var qs = new URLSearchParams(location.search);
   var LS = root.localStorage;
   var K = { key: 'kk_debug_key', mode: 'kk_debug_mode', local: 'kk_debug_local' };
@@ -149,7 +149,8 @@
   }
   function start(mode, phase) {
     var o = tracker.getOptions();
-    S = { id: uuid(), mode: mode, t0: performance.now(), rows: [], events: [], ring: [], kept: [], keptTs: {}, lastKeep: 0, calKept: 0, burst: 0, lowFps: 0, wasTracking: false,
+    var fb = o.width * o.height * 3, big = fb > 100000;   // the exact frames are kept within FRAME_BUDGET bytes per round
+    S = { maxFrames: Math.min(300, Math.floor(FRAME_BUDGET / fb)), every: big ? 1000 : 500, calEvery: big ? 400 : 200, calMax: big ? 25 : 80, ring: [], ringN: big ? 8 : 30, id: uuid(), mode: mode, t0: performance.now(), rows: [], events: [], kept: [], keptTs: {}, lastKeep: 0, calKept: 0, burst: 0, bursts: 0, lowFps: 0, wasTracking: false,
           rec: null, chunks: [], videoStart: null, flags: [], w: o.width, h: o.height,
           meta: { id: null, v: 1, mode: mode, startedAt: new Date().toISOString(), page: location.pathname, ua: navigator.userAgent,
                   screen: { w: screen.width, h: screen.height, dpr: root.devicePixelRatio || 1 }, stage: root.KKStage ? { scale: root.KKStage.scale, mode: root.KKStage.mode } : null,
@@ -182,15 +183,15 @@
   }
   function event(type, data) { if (S) S.events.push({ t: Math.round(performance.now() - S.t0), type: type, data: data || null }); }
 
-  function keep(f) { if (S.kept.length < MAX_FRAMES && !S.keptTs[f.t]) { S.keptTs[f.t] = 1; S.kept.push(f); } }
+  function keep(f) { if (S.kept.length < S.maxFrames && !S.keptTs[f.t]) { S.keptTs[f.t] = 1; S.kept.push(f); } }
   function onFrame(img, ts) {
     if (!S || img.width !== S.w || img.height !== S.h) return;
     var d = img.data, n = S.w * S.h, rgb = new Uint8Array(n * 3), i, j;
     for (i = 0, j = 0; i < n; i++, j += 4) { rgb[i * 3] = d[j]; rgb[i * 3 + 1] = d[j + 1]; rgb[i * 3 + 2] = d[j + 2]; }
     var f = { t: Math.round(ts - S.t0), rgb: rgb };
-    S.ring.push(f); if (S.ring.length > RING) S.ring.shift();
+    S.ring.push(f); if (S.ring.length > S.ringN) S.ring.shift();
     // calibration is sampled faster, but capped so a long wait cannot use up the round's frame budget
-    var cal = lastPhase === 'calibrating' && S.calKept < 80, every = cal ? 200 : 500;
+    var cal = lastPhase === 'calibrating' && S.calKept < S.calMax, every = cal ? S.calEvery : S.every;
     if (S.burst > 0) { S.burst--; keep(f); }
     else if (f.t - S.lastKeep >= every && (cal || lastPhase !== 'calibrating' || f.t - S.lastKeep >= 2000)) { S.lastKeep = f.t; if (lastPhase === 'calibrating') S.calKept++; keep(f); }
   }
@@ -201,7 +202,7 @@
       r4(sub[0]), r4(sub[1]), r4(sub[2]), r4(sub[3]), r4(sub[4]), r4(sub[5]), res.candidates | 0, res.redArea | 0, r4(res.whiteRatio),
       state.found ? 1 : 0, r4(state.x), Math.round(state.fps * 10) / 10]);
     // the mug was being tracked and is now lost: keep the second before and the second after, frame by frame
-    if (S.wasTracking && !state.found) { S.ring.forEach(keep); S.burst = RING; event('track-lost'); }
+    if (S.wasTracking && !state.found) { if (S.bursts < 4) { S.bursts++; S.ring.forEach(keep); S.burst = S.ringN; } event('track-lost'); }
     S.wasTracking = state.found;
     // recording must never cost the game its frame rate
     if (S.rec && S.rec.state === 'recording') {

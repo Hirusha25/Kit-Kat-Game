@@ -135,7 +135,7 @@
   @keyframes edgeNudge { 0%, 100% { transform: translate(0, 0) rotate(var(--rot, 0deg)); opacity: .95; } 50% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0deg)); opacity: .55; } }
   body.pre .edge, body.pre .cup-glow { display: none !important; }
   #ov-lost .lost-arrow { font: 900 170px/1 var(--font-button); color: #ffd978; text-shadow: 0 0 26px rgba(255,150,40,.95); margin-top: 18px; animation: cuePulse .7s ease-in-out infinite; }
-  #ov-lost { justify-content: flex-start; padding-top: 560px; }   /* keeps the message clear of the camera tile at the bottom */
+  #ov-lost { justify-content: flex-start; padding-top: 560px; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(40,0,4,.8); }   /* no blur: the recorded kiosk round fell to 3 frames a second under it */   /* keeps the message clear of the camera tile at the bottom */
 
   /* overlays */
   .ov { position: absolute; inset: 0; z-index: 5; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: #fff; }
@@ -426,6 +426,8 @@
       <label>Mirror <input type="checkbox" id="su-mirror" checked></label>
       <label>Sensitivity <input type="range" id="su-sens" min="0" max="100" value="50"></label>
       <label>Smoothing <input type="range" id="su-smooth" min="0" max="90" value="35"></label>
+      <label>Camera rotation <select id="su-rotate"><option value="auto">Auto (turn a sideways picture upright)</option><option value="0">None</option><option value="90">90° clockwise</option><option value="180">180°</option><option value="270">90° anticlockwise</option></select></label>
+      <label>Ignore red where nothing moves (trial, off by default) <input type="checkbox" id="su-static"></label>
       <label>Show camera during play <input type="checkbox" id="su-pip" checked></label>
       <label>Play range (share of the camera view the mug has to cross) <input type="range" id="su-range" min="50" max="100" value="70"></label>
       <label>Sound <input type="checkbox" id="su-sound" checked></label>
@@ -433,7 +435,7 @@
       <label>Effects volume <input type="range" id="su-vol-sfx" min="0" max="100" value="90"></label>
       <canvas id="su-cv" width="640" height="320"></canvas>
       <div class="stat" id="su-stat">–</div>
-      <div class="row"><button id="su-cal">Calibrate on mug</button><button class="ghost" id="su-reset">Reset calibration</button><button class="ghost" id="su-capture">Capture mug samples</button></div>
+      <div class="row"><button id="su-cal">Calibrate on mug</button><button class="ghost" id="su-reset">Reset calibration</button><button class="ghost" id="su-forget">Forget background</button><button class="ghost" id="su-capture">Capture mug samples</button></div>
       <h2 style="margin-top:10px">Rewards today</h2>
       <div class="stat" id="su-stock" style="white-space:pre-line">–</div>
       <label>Prize rule <select id="su-mode" style="max-width:420px"><option value="nth">Every Nth round wins</option><option value="score">By score</option></select></label>
@@ -453,11 +455,11 @@
 <script src="js/ambient.js?v=20261126e"></script>
 <script src="js/audio.js?v=20261127f" data-preload="manual"></script>
 <script src="js/mute.js?v=20261127a"></script>
-<script src="js/tracker.js?v=20261127f"></script>
+<script src="js/tracker.js?v=20261127i"></script>
 <script src="js/sprites.js?v=20261126e"></script>
 <script src="js/game.js?v=20261126e"></script>
-<script src="js/recorder.js?v=20261127h"></script>
-<script src="js/flow.js?v=20261127g"></script>
+<script src="js/recorder.js?v=20261127i"></script>
+<script src="js/flow.js?v=20261127i"></script>
 <script src="js/data-sync.js?v=20261127a"></script>
 <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}); }); }</script>
 </body>

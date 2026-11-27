@@ -8,7 +8,7 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, tile: true, range: 0.7, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
     rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
@@ -137,7 +137,10 @@
   let tracker = null, trackState = { found: false, x: 0.5 };
   let lastFoundAt = 0;
   async function startTracker() {
-    tracker = MugTracker.create({ video, width: 160, height: 90, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127f' });
+    // Detector frame: 320x180 ('high', the mug is only a few pixels at 160x90 from where players stand) or 160x90.
+    // rotate 'auto' turns a portrait camera picture upright on the kiosk (never on a phone, which holds its camera upright).
+    const hi = settings.detail !== 'normal', phone = document.documentElement.classList.contains('is-phone');
+    tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127i' });
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
@@ -195,7 +198,7 @@
   function drawPrivacy(ctx, w, h, s) {
     // Clear, mirrored camera feed with a spotlight on the mug once it is found.
     if (!video.videoWidth) { ctx.fillStyle = '#2a0206'; ctx.fillRect(0, 0, w, h); return; }
-    ctx.save(); if (settings.mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); } ctx.drawImage(video, 0, 0, w, h); ctx.restore();
+    ctx.save(); if (settings.mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); } (tracker && tracker.drawUpright ? tracker.drawUpright(ctx, 0, 0, w, h) : ctx.drawImage(video, 0, 0, w, h)); ctx.restore();
     const found = s && s.found && s.w > 0;
     if (!found) {
       // soft hint: dashed mug outline in the centre
@@ -235,14 +238,16 @@
     const now = performance.now(); if (now - tileAt < 66 || phase !== 'playing') return; tileAt = now;
     const c = pipCtx, w = pipCv.width, h = pipCv.height, vw = video.videoWidth, vh = video.videoHeight;
     if (!vw) { c.fillStyle = '#2a0206'; c.fillRect(0, 0, w, h); return; }
-    tctx.drawImage(video, 0, 0, tiny.width, tiny.height);
+    // (an older tracker.js without drawUpright can be served from the offline cache on a slow link: fall back to the raw picture)
+    const up = !!tracker.drawUpright;
+    if (up) tracker.drawUpright(tctx, 0, 0, tiny.width, tiny.height); else tctx.drawImage(video, 0, 0, tiny.width, tiny.height);
     const seen = s.found && s.w > 0 && cueState !== 'lost';
     const fx = s.frameX != null ? s.frameX : 0.5, fy = s.frameY != null ? s.frameY : 0.5;
     const bw = Math.min(1, s.w * 3.4), bh = Math.min(1, s.h * 4), x0 = Math.min(1 - bw, Math.max(0, fx - bw / 2)), y0 = Math.min(1 - bh, Math.max(0, fy - bh * 0.45));
     c.save(); if (settings.mirror) { c.translate(w, 0); c.scale(-1, 1); }
     c.imageSmoothingEnabled = true; c.drawImage(tiny, 0, 0, w, h);
     c.fillStyle = 'rgba(40,0,6,.38)'; c.fillRect(0, 0, w, h);
-    if (seen) c.drawImage(video, x0 * vw, y0 * vh, bw * vw, bh * vh, x0 * w, y0 * h, bw * w, bh * h);
+    if (seen) { if (up) tracker.drawUpright(c, x0 * w, y0 * h, bw * w, bh * h, { x: x0, y: y0, w: bw, h: bh }); else c.drawImage(video, x0 * vw, y0 * vh, bw * vw, bh * vh, x0 * w, y0 * h, bw * w, bh * h); }
     c.restore();
     if (seen) {
       const bx = (settings.mirror ? 1 - x0 - bw : x0) * w;
@@ -264,15 +269,27 @@
 
   // ---------- calibration ----------
   const calCv = $('cal-cv'), calCtx = calCv.getContext('2d');
-  let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 };
+  let calStable = 0, calDone = false, calibrated = false, calTimer = null, calSpot = { x: 0.5, y: 0.5 }, calPath = [], calLast = null;
   function calTick(s) {
     if (phase !== 'calibrating') return;
     drawPrivacy(calCtx, calCv.width, calCv.height, s);
     $('cal-dot').classList.toggle('on', s.found); $('cal-st').textContent = s.found ? 'Mug Detected' : 'Looking For Mug';
     $('cal-guide').classList.toggle('on', s.found);
     $('cal-pos').style.transform = `translateX(${(Math.min(1, Math.max(0, s.x)) - 0.5) * 300}px)`;
+    // Only something that has MOVED can be the mug. On the venue recording the game locked onto a red-and-white
+    // poster behind the player, 1.4 s after the camera started and before anyone was in view. A poster's position
+    // flickers by a pixel at most; a mug being lifted into view travels. Jumps from one object to another
+    // (more than 20 px in one frame) do not count as travel.
+    const nowMs = performance.now(), opt = tracker && tracker.getOptions ? tracker.getOptions() : { width: 160, height: 90 };
+    if (s.found) {
+      if (calLast) { const dpx = Math.hypot((s.rawX - calLast.x) * opt.width, (s.rawY - calLast.y) * opt.height); if (dpx > 1.6 && dpx < 20) calPath.push({ t: nowMs, d: dpx }); }
+      calLast = { x: s.rawX, y: s.rawY };
+    } else calLast = null;
+    while (calPath.length && nowMs - calPath[0].t > 4000) calPath.shift();
+    const moved = calPath.reduce((sum, p) => sum + p.d, 0) >= 10;
+    if (s.found && !moved && !calDone) $('cal-msg').textContent = 'Move the mug a little so the camera can pick it up.';
     // inside the centre box, steadily, for 1.5 s -> calibrate once, then go
-    calStable = s.found && (s.confidence || 1) >= 0.5 ? Math.min(1, calStable + 1 / 60) : Math.max(0, calStable - 1 / 20); // ~2 s of steady detection
+    calStable = s.found && moved && (s.confidence || 1) >= 0.5 ? Math.min(1, calStable + 1 / 60) : Math.max(0, calStable - 1 / 20); // ~2 s of steady detection
     if (s.found) calSpot = { x: s.x, y: s.y };
     $('cal-ring').style.setProperty('--p', Math.round(calStable * 100) + '%');
     if (calStable >= 1 && !calDone) { calDone = true; finishCalibration(); }
@@ -536,6 +553,9 @@
   su.smooth.addEventListener('input', () => { settings.smoothing = su.smooth.value / 100; tracker && tracker.setOptions({ smoothing: settings.smoothing }); save(LS.settings, settings); });
   su.pip.addEventListener('change', () => { settings.tile = su.pip.checked; setPip(settings.tile); save(LS.settings, settings); });
   if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
+  if ($('su-rotate')) { $('su-rotate').value = String(settings.rotate == null ? 'auto' : settings.rotate); $('su-rotate').addEventListener('change', () => { const v = $('su-rotate').value; settings.rotate = v === 'auto' ? 'auto' : +v; save(LS.settings, settings); if (tracker) { tracker.setOptions({ rotate: settings.rotate }); tracker.forgetStatic && tracker.forgetStatic(); } toast('Camera rotation set. Calibrate on the mug again.'); }); }
+  if ($('su-static')) { $('su-static').checked = settings.staticRed === true; $('su-static').addEventListener('change', () => { settings.staticRed = $('su-static').checked; save(LS.settings, settings); tracker && tracker.setOptions({ staticMs: settings.staticRed ? 2500 : 0 }); }); }
+  if ($('su-forget')) $('su-forget').addEventListener('click', () => { tracker && tracker.forgetStatic && tracker.forgetStatic(); toast('Background forgotten. It is learned again from the next camera picture.'); });
   su.sound.addEventListener('change', () => { settings.sound = su.sound.checked; KKAudio.setMuted(!settings.sound); save(LS.settings, settings); });
   const vm = $('su-vol-music'), vs = $('su-vol-sfx');
   if (vm && vs) { const v = KKAudio.getVolumes(); vm.value = Math.round(v.music * 100); vs.value = Math.round(v.sfx * 100);
@@ -575,7 +595,7 @@
   $('su-capture').addEventListener('click', async () => {
     if (!tracker) return; toast('Capturing 12 frames, keep moving the mug…', 24000);
     const sheet = document.createElement('canvas'); sheet.width = 4 * 640; sheet.height = 3 * 360; const sc = sheet.getContext('2d');
-    for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 2000)); sc.drawImage(video, (i % 4) * 640, Math.floor(i / 4) * 360, 640, 360); }
+    for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 2000)); (tracker.drawUpright ? tracker.drawUpright(sc, (i % 4) * 640, Math.floor(i / 4) * 360, 640, 360) : sc.drawImage(video, (i % 4) * 640, Math.floor(i / 4) * 360, 640, 360)); }
     const a = document.createElement('a'); a.href = sheet.toDataURL('image/png'); a.download = `mug-samples-${Date.now()}.png`; a.click(); toast('Saved mug-samples PNG to Downloads. Send it over for tuning.', 5000);
   });
   // open: key "c", or 5 taps on the logo within 3 s

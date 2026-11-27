@@ -53,9 +53,12 @@ dirs.forEach(function (dir) {
   var p = Object.assign({}, MugTracker.defaultParams, s.meta.paramsEnd || s.meta.paramsStart || {}, overrides); p.prevX = -1; p.prevY = -1;
   var rgba = new Uint8ClampedArray(W * H * 4), img = { data: rgba, width: W, height: H };
   var r = { n: n, kiosk: 0, now: 0, lab: 0, kRight: 0, nRight: 0 };
+  // the game takes long-standing red (posters) out of each frame before detecting; do the same, in order
+  var staticMs = +((s.meta.trackerEnd || {}).staticMs || 0), stat = MugTracker.newStaticState(W * H);
   for (var k = 0; k < n; k++) {
     var src = s.frames.subarray(k * W * H * 3, (k + 1) * W * H * 3);
     for (var a = 0, b = 0; a < W * H; a++, b += 4) { rgba[b] = src[a * 3]; rgba[b + 1] = src[a * 3 + 1]; rgba[b + 2] = src[a * 3 + 2]; rgba[b + 3] = 255; }
+    if (staticMs > 0) MugTracker.suppressStatic(img, stat, 100000 + f.t[k], staticMs);
     var res = MugTracker.detect(img, p), t = f.t[k], row = rowAt[t], kf = !!(row && row[c.found]);
     p.prevX = res.found ? res.x : -1; p.prevY = res.found ? res.y : -1;   // like the kiosk: last position is the hint
     r.kiosk += kf ? 1 : 0; r.now += res.found ? 1 : 0;

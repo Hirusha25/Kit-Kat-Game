@@ -8,7 +8,7 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, control: 'hand', range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, hand: true, control: 'hand', gameSpeed: 1.1, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'score' = by score (teeMin or more: T-shirt, capMin or more: cap); 'nth' = every Nth round wins whatever the score
     rewardMode: 'score', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
@@ -286,14 +286,40 @@
     trackState = s;
     if (s.found) lastFoundAt = performance.now();
     const gx = playX(s.x);
-    if (game && phase === 'playing') { game.setTargetX(gx); game.setTracking(s.found); }
+    if (game && phase === 'playing') {
+      if (touchHolds()) game.setTracking(true);                               // a finger is steering: see touch control
+      else if (s.found) { game.setTargetX(gx); game.setTracking(true); }
+      else { if (!touchRound) game.setTargetX(gx); game.setTracking(touchRound); }
+    }
     trackCue(s);
     // knob follows the tracker directly so it feels alive even when paused
-    const px = sliderLeft + gx * sliderWidth;
+    const px = sliderLeft + (phase === 'playing' && (touchHolds() || (touchRound && !s.found)) ? touchX : gx) * sliderWidth;
     knob.style.transform = `translateX(${px - 410}px)`; // knob is centred at 50% of the 820px slider by default
     if (pipOn) drawPip(s);
     if (phase === 'calibrating') calTick(s);
   }
+
+  // ---------- touch control ----------
+  // 27 Nov, owner's request: the kiosk is a touch screen, so the cup can also be moved with a finger. During a
+  // round the cup goes under the finger. A touch takes over from the camera at once; the camera gets control back
+  // 1.5 s after the last touch, and only if it can see the hand. Once a round has been touched, a missing hand no
+  // longer pauses it ("Show Your Hand"), so a player can finish the whole round by touch.
+  let touchAt = -1e9, touchRound = false, touchStart = false, touchX = 0.5;
+  const touchHolds = () => performance.now() - touchAt < 1500;
+  function touchMove(e) {
+    if (phase !== 'playing' || !game || setupOpen) return;
+    if (e.target && e.target.closest && e.target.closest('button, select, input, a, #setup, #logo')) return;
+    const r = gameCanvas.getBoundingClientRect(); if (!r.width) return;
+    const sx = (e.clientX - r.left) / r.width * 1080;                       // stage px
+    touchX = Math.min(1, Math.max(0, (sx - 240) / 600));                    // MUG_MIN_X..MUG_MAX_X in game.js
+    if (!touchRound) { touchRound = true; try { window.KKRecorder && KKRecorder.event && KKRecorder.event('touch', { x: +touchX.toFixed(3) }); } catch (_) {} }
+    touchAt = performance.now();
+    game.setTargetX(touchX); game.setTracking(true);
+    knob.style.transform = `translateX(${sliderLeft + touchX * sliderWidth - 410}px)`;
+  }
+  document.addEventListener('pointerdown', touchMove);
+  document.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && !e.buttons) return; touchMove(e); });
+  document.addEventListener('touchmove', e => { if (phase === 'playing' && !setupOpen) e.preventDefault(); }, { passive: false });   // no page scroll while steering
 
   // ---------- privacy camera view: blurred silhouette + sharp mug crop only ----------
   const tiny = document.createElement('canvas'); tiny.width = 48; tiny.height = 27; const tctx = tiny.getContext('2d');
@@ -440,6 +466,8 @@
     clearTimeout(calTimer); $('cal-skip').style.display = 'none'; $('cal-msg').textContent = CAL_MSG();
   }
   $('cal-skip').addEventListener('click', () => { calDone = true; startCountdown(); }); // only shown when the camera itself failed
+  // play by touch: no hand needed, straight to 3-2-1 (the first touch in the round takes the cup)
+  if ($('cal-touch')) $('cal-touch').addEventListener('click', () => { if (calDone) return; calDone = true; touchStart = true; KKAudio.tap(); startCountdown(); });
 
   // ---------- countdown ----------
   async function startCountdown() {
@@ -550,8 +578,9 @@
     KKAudio.music('play');
     if (game) { game.destroy(); game = null; }
     hud.el.classList.remove('final5'); resetScore();
+    touchRound = touchStart; touchStart = false; touchAt = -1e9; touchX = 0.5;
     game = DunkGame.create({
-      canvas: gameCanvas, sprites, duration: DURATION, reducedEffects: perf === 'low',
+      canvas: gameCanvas, sprites, duration: DURATION, speed: Math.min(1.5, Math.max(0.7, +settings.gameSpeed || 1)), reducedEffects: perf === 'low',
       onTick: st => {
         watchPerf(st);
         if (st.mugX01 != null) $('cup-glow').style.transform = `translateX(${240 + st.mugX01 * 600}px)`;   // under the cup: MUG_MIN_X..MUG_MAX_X in game.js
@@ -672,6 +701,7 @@
   su.pip.addEventListener('change', () => { settings.tile = su.pip.checked; setPip(settings.tile); save(LS.settings, settings); });
   if ($('su-range')) $('su-range').addEventListener('input', () => { settings.range = $('su-range').value / 100; save(LS.settings, settings); });
   if ($('su-rotate')) { $('su-rotate').value = String(settings.rotate == null ? 'auto' : settings.rotate); $('su-rotate').addEventListener('change', () => { const v = $('su-rotate').value; settings.rotate = v === 'auto' ? 'auto' : +v; save(LS.settings, settings); if (tracker) { tracker.setOptions({ rotate: settings.rotate }); tracker.forgetStatic && tracker.forgetStatic(); } toast('Camera rotation set. Calibrate on the mug again.'); }); }
+  if ($('su-speed')) { $('su-speed').value = Math.round((+settings.gameSpeed || 1) * 100); $('su-speed').addEventListener('change', () => { settings.gameSpeed = $('su-speed').value / 100; save(LS.settings, settings); toast('Game speed ' + $('su-speed').value + '%. Applies from the next round.'); }); }
   if ($('su-control')) { $('su-control').value = settings.control === 'mug' ? 'mug' : 'hand'; $('su-control').addEventListener('change', () => { settings.control = $('su-control').value; save(LS.settings, settings); if (settings.control === 'hand') { settings.hand = true; if ($('su-hand')) $('su-hand').checked = true; startHand(); } handRef = null; handOff = { x: 0, y: 0, n: 0 }; applyWording(); toast(settings.control === 'hand' ? 'Players now use their hand, no mug.' : 'Players now use the mug (hand as backup).'); }); }
   if ($('su-hand')) { $('su-hand').checked = settings.hand !== false; $('su-hand').addEventListener('change', () => { settings.hand = $('su-hand').checked; save(LS.settings, settings); if (settings.hand) startHand(); else stopHand(); }); }
   if ($('su-static')) { $('su-static').checked = settings.staticRed === true; $('su-static').addEventListener('change', () => { settings.staticRed = $('su-static').checked; save(LS.settings, settings); tracker && tracker.setOptions({ staticMs: settings.staticRed ? 2500 : 0 }); }); }

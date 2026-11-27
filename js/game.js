@@ -559,6 +559,9 @@
     var sprites = opts.sprites || null;
     var duration = opts.duration > 0 ? +opts.duration : 40;
     var diff = T.DIFFICULTY[opts.difficulty] || T.DIFFICULTY.normal;
+    // opts.speed: overall pace on top of the difficulty (1 = as tuned). Items fall that much faster and come that
+    // much closer together, so the round keeps its shape. flow.js passes the staff setting (default 1.1).
+    if (opts.speed > 0 && opts.speed !== 1) diff = { speed: diff.speed * opts.speed, spawn: diff.spawn / opts.speed, bad: diff.bad, crossfire: diff.crossfire };
     var reduced = !!opts.reducedEffects;
     var onTick = typeof opts.onTick === 'function' ? opts.onTick : null;
     var onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : null;

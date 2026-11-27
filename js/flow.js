@@ -337,7 +337,21 @@
   let game = null, sprites = null, phase = 'boot', endResult = null, endAmbient = null;
   // Render scale: 1x for the 1080x1920 design, up to 2x on the 4K kiosk (2160x3840) so sprites stay crisp.
   let pixelScale = (window.KKStage && window.KKStage.pixelScale) || 1;
+  // The 4K kiosk's TV chip cannot fill a 2160x3840 canvas at 60 fps; 1.5x is sharp enough. If a round still
+  // runs slow (frame time over 22 ms for a while), the next round drops to 1x with reduced effects, and the
+  // choice is remembered on the kiosk (kk_perf). ?px= overrides for testing.
+  let perf = null; try { perf = localStorage.getItem('kk_perf'); } catch (_) {}
+  if (pixelScale > 1.5) pixelScale = 1.5;
+  if (perf === 'low') pixelScale = Math.min(pixelScale, 1);
   if (qs.get('px')) pixelScale = Math.min(2, Math.max(0.5, parseFloat(qs.get('px')) || 1));
+  let frameEma = 0, slowSince = 0;
+  function watchPerf(st) {
+    const ms = st.stats && st.stats.frameMs; if (!ms) return;
+    frameEma = frameEma ? frameEma + 0.05 * (ms - frameEma) : ms;
+    const now = performance.now();
+    if (frameEma > 22) { if (!slowSince) slowSince = now; else if (now - slowSince > 3000 && perf !== 'low') { perf = 'low'; try { localStorage.setItem('kk_perf', 'low'); } catch (_) {} } }
+    else slowSince = 0;
+  }
   const gameCanvas = $('game');
   gameCanvas.width = Math.round(1080 * pixelScale); gameCanvas.height = Math.round(1920 * pixelScale);
   // Artwork loads from page open, in parallel with the camera check. The round never starts on the drawn
@@ -357,8 +371,9 @@
     if (game) { game.destroy(); game = null; }
     hud.el.classList.remove('final5'); resetScore();
     game = DunkGame.create({
-      canvas: gameCanvas, sprites, duration: DURATION,
+      canvas: gameCanvas, sprites, duration: DURATION, reducedEffects: perf === 'low',
       onTick: st => {
+        watchPerf(st);
         setText('time', fmtTime(st.timeLeft));
         tickScore(st.score);
         setText('rank', '#' + liveRank(st.score));

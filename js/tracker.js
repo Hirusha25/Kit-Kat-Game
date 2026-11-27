@@ -436,6 +436,17 @@
     var state = { found: false, x: 0.5, y: 0.5, rawX: 0.5, rawY: 0.5, frameX: 0.5, frameY: 0.5, w: 0, h: 0,
                   confidence: 0, fps: 0, lastSeenMs: -Infinity, ts: 0, redArea: 0, whiteRatio: 0 };
     var haveSmoothed = false, lastFrameMs = 0, fpsEma = 0, frames = 0, skipped = 0;
+    // One Euro filter: little lag when the mug moves fast, steady when it is still. The "smoothing" option
+    // (0..1) sets the cutoff at rest; speed opens it up. Velocity is kept so a short detection dropout coasts
+    // along the last motion instead of freezing the mug mid-move.
+    var fx1 = null, fy1 = null, dx1 = 0, dy1 = 0, lastTs = 0, velX = 0, velY = 0;
+    function euroAlpha(cutoff, dt) { var tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); }
+    function euro(prev, x, dPrev, dt, minCutoff, beta) {
+      if (prev === null) return { v: x, d: 0 };
+      var dRaw = (x - prev) / dt, ad = euroAlpha(1.0, dt), d = dPrev + ad * (dRaw - dPrev);
+      var a = euroAlpha(minCutoff + beta * Math.abs(d), dt);
+      return { v: prev + a * (x - prev), d: d };
+    }
     var calib = null;  // active calibration session
     var acquiring = false, acq = null;  // lock-on mode: detect with acquireParams(params) instead of params
 
@@ -508,16 +519,26 @@
         var fx = res.x, fy = res.y;
         var mxv = o.mirror ? 1 - fx : fx;
         state.frameX = fx; state.frameY = fy; state.rawX = mxv; state.rawY = fy;
-        if (!haveSmoothed) { state.x = mxv; state.y = fy; haveSmoothed = true; }
-        else { var alpha = 1 - o.smoothing; state.x += alpha * (mxv - state.x); state.y += alpha * (fy - state.y); }
+        var dt = lastTs ? Math.min(0.2, Math.max(0.004, (ts - lastTs) / 1000)) : 1 / 30; lastTs = ts;
+        if (!haveSmoothed) { state.x = mxv; state.y = fy; fx1 = mxv; fy1 = fy; dx1 = dy1 = 0; haveSmoothed = true; }
+        else {
+          var minCut = 0.6 + (1 - o.smoothing) * 3.4, beta = 0.08;   // smoothing 0.35 -> 2.8 Hz at rest
+          var ex = euro(fx1, mxv, dx1, dt, minCut, beta), ey = euro(fy1, fy, dy1, dt, minCut, beta);
+          fx1 = ex.v; dx1 = ex.d; fy1 = ey.v; dy1 = ey.d; velX = ex.d; velY = ey.d;
+          state.x = fx1; state.y = fy1;
+        }
         state.w = res.w; state.h = res.h; state.found = true;
         state.confidence = clamp01(res.score); state.lastSeenMs = ts;
         state.redArea = res.redArea; state.whiteRatio = res.whiteRatio;
         params.prevX = fx; params.prevY = fy;
       } else if (ts - state.lastSeenMs > o.lostAfterMs) {
-        state.found = false; state.confidence = 0; params.prevX = -1; params.prevY = -1;
+        state.found = false; state.confidence = 0; params.prevX = -1; params.prevY = -1; velX = velY = 0;
       } else {
-        state.confidence = clamp01(res.score);   // coasting on the last position
+        // coasting: carry the last motion for a moment (decaying), so a missed frame or two never stalls the mug
+        var cdt = lastTs ? Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)) : 0; lastTs = ts;
+        velX *= 0.8; velY *= 0.8;
+        if (haveSmoothed) { state.x = clamp01(state.x + velX * cdt); state.y = clamp01(state.y + velY * cdt); fx1 = state.x; fy1 = state.y; }
+        state.confidence = clamp01(res.score);
       }
       state.fps = fpsEma; state.ts = ts;
       if (typeof tracker.onDetect === 'function') { try { tracker.onDetect(res, ts, state); } catch (e) { /* debug hook must never break tracking */ } }

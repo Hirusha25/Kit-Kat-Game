@@ -255,7 +255,7 @@ test('gold: about 6 % of spawns after 10 s (12-seed aggregate), hazards rotate t
   }
   const share = gold / n;
   console.log(`       gold share after ${T.GOLD_AFTER_SECONDS} s: ${(share * 100).toFixed(1)} % of ${n} spawns; hazards seen: ${Object.keys(seen).join(', ')}`);
-  assert.ok(share > T.GOLD_SHARE - 0.025 && share < T.GOLD_SHARE + 0.03, 'gold share ' + share.toFixed(3));
+  assert.ok(share > 0.04 && share < 0.09, 'gold share ' + share.toFixed(3)); // GOLD_SHARE is per regular spawn; patterns and the bonus dilute it to about 6 % of all spawns
   for (const h of T.HAZARDS) assert.ok(seen[h], 'hazard never spawned: ' + h);
 });
 

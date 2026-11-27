@@ -93,7 +93,7 @@
     SPLASH_SQUASH: 0.06,    // 1.0 -> 1.06 -> 1.0 width squash at the start of the splash
 
     // --- Mug follow spring (critically damped). Higher = snappier.
-    SPRING_OMEGA: 22,       // rad/s; settles ~95% in ~0.2 s
+    SPRING_OMEGA: 30,       // rad/s; settles ~95% in ~0.15 s (snappier follow of the tracker)
     SPRING_SNAP_IDLE: true, // before start() the mug snaps to the tracker
 
     // --- Spawning
@@ -120,7 +120,8 @@
     BONUS_TIME_SECONDS: 5,
     BONUS_AFTER_SECONDS: 8, // first one no earlier than this ...
     BONUS_LAST_SECONDS: 8,  // ... and none inside the final N seconds
-    BONUS_SHARE: 0.035,     // per regular spawn
+    BONUS_SHARE: 0.06,      // per regular spawn
+    BONUS_FORCE_AT: 14,     // if none has appeared by now, the next regular spawn is the stopwatch (every round sees one)
     BONUS_MAX_PER_ROUND: 2,
     FRAME_FLIP_HZ: 2.6,     // two-frame icons ("<kind>-on" sprite present) cross-fade at this rate
     BONUS_FLIP_HZ: 1.4,
@@ -745,7 +746,7 @@
       it.active = true; it.kind = kind; it.cls = cls; it.bad = bad; it.gold = cls === CLS.GOLD; it.bonus = cls === CLS.BONUS; it.state = 'fall'; it.lane = lane; it.pattern = pattern;
       it.baseX = spawnMinX + laneW * (lane + 0.5) + rng.range(-1, 1) * laneW * T.LANE_JITTER;
       it.swayAmp = rng.pick(T.SWAY_AMP); it.swayW = rng.pick(T.SWAY_HZ) * TWO_PI; it.swayPh = rng() * TWO_PI;
-      if (bad || cls === CLS.BONUS) { it.rotBase = rng.pick(T.ROT_BASE) * (bad ? 1 : 0.4) * (rng() < 0.5 ? -1 : 1); it.rotAmp = rng.pick(T.ROT_AMP); it.rotW = rng.pick(T.ROT_HZ) * TWO_PI; }
+      if (bad || cls === CLS.BONUS) { it.rotBase = 0; it.rotAmp = 0; it.rotW = 0; } // icons fall upright, exactly as drawn
       else { it.rotBase = rng.range(-T.WAFER_ROT_BASE, T.WAFER_ROT_BASE); it.rotAmp = rng.pick(T.WAFER_ROT_AMP); it.rotW = rng.pick(T.WAFER_ROT_HZ) * TWO_PI; } // swings, broken end down
       it.rotPh = rng() * TWO_PI;
       it.vy = speed; it.t = 0; it.ft = 0; it.trailT = 0; it.alpha = 1; it.size = 1; it.resolved = false;
@@ -803,7 +804,8 @@
         return T.DOUBLE_GAP;
       }
       var cls = pickKind(rng, simTime, simTime, lane, lanes, consecutiveBads, T, diff);
-      if (cls !== CLS.HAZARD && bonusSpawned < T.BONUS_MAX_PER_ROUND && simTime >= T.BONUS_AFTER_SECONDS && duration - simTime > T.BONUS_LAST_SECONDS && sprites && sprites[KIND.BONUS_TIME] && sprites[KIND.BONUS_TIME].fromImage && rng() < T.BONUS_SHARE) cls = CLS.BONUS;
+      var bonusOk = bonusSpawned < T.BONUS_MAX_PER_ROUND && simTime >= T.BONUS_AFTER_SECONDS && duration - simTime > T.BONUS_LAST_SECONDS && sprites && sprites[KIND.BONUS_TIME] && sprites[KIND.BONUS_TIME].fromImage;
+      if (bonusOk && (rng() < T.BONUS_SHARE || (bonusSpawned === 0 && simTime >= T.BONUS_FORCE_AT))) cls = CLS.BONUS;
       // Make the player move: most hazards drop into the mug's own lane, most wafers land a lane or two away.
       var mugLane = clamp(Math.floor((mug.x - spawnMinX) / laneW), 0, T.LANES - 1);
       if (cls === CLS.HAZARD && rng() < T.HAZARD_AT_MUG && simTime - lanes[mugLane].lastBadAt >= T.BAD_LANE_COOLDOWN) lane = mugLane;
@@ -983,7 +985,7 @@
           it.x = it.baseX + Math.sin(it.swayPh + it.t * it.swayW) * it.swayAmp;
           it.rot = it.rotBase + Math.sin(it.rotPh + it.t * it.rotW) * it.rotAmp;
           if (!it.bad && !it.bonus) { var ak = clamp((it.y - (T.MUG_RIM_Y - T.WAFER_ALIGN_PX)) / T.WAFER_ALIGN_PX, 0, 1); ak = ak * ak * (3 - 2 * ak); it.rot *= 1 - T.WAFER_ALIGN * ak; }
-          if (it.gold && ctx && !reduced) { it.trailT -= dt; if (it.trailT <= 0) { it.trailT = T.GOLD_TRAIL_EVERY; trailSparkle(it); } }
+          if ((it.gold || it.bonus) && ctx && !reduced) { it.trailT -= dt; if (it.trailT <= 0) { it.trailT = T.GOLD_TRAIL_EVERY * (it.bonus ? 0.7 : 1); trailSparkle(it); } }
           if (!it.resolved) {
             if (catchTest(it.x, it.y, mug.x, T)) {
               if (it.bad) { if (!(T.STUN_INVULNERABLE && stunT > 0)) resolveHit(it); }
@@ -1197,6 +1199,13 @@
         ctx.beginPath(); ctx.arc(x, y, rr, 0, TWO_PI); ctx.stroke();
         ctx.setLineDash([]); ctx.lineWidth = 2; ctx.globalAlpha *= 0.6; ctx.beginPath(); ctx.arc(x, y, rr * 1.18, 0, TWO_PI); ctx.stroke();
         ctx.restore(); drawCalls += 2;
+      }
+      // bonus: breathing golden halo and a slow spin of light behind it
+      if (it.bonus && falling && itemGlow && it.alpha > 0.05) {
+        var bk = 0.5 + 0.5 * Math.sin(clock * 2.2 * TWO_PI + it.swayPh);
+        blit(itemGlow.gold, x, y, (0.45 + 0.45 * bk) * it.alpha, 1.1 + 0.25 * bk);
+        ctx.save(); ctx.globalAlpha = (0.35 + 0.45 * bk) * it.alpha; ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,225,150,1)'; ctx.lineWidth = 4; ctx.setLineDash([26, 16]); ctx.lineDashOffset = clock * 70;
+        ctx.beginPath(); ctx.arc(x, y, (sp.w > sp.h ? sp.w : sp.h) * 0.6 * it.size, 0, TWO_PI); ctx.stroke(); ctx.restore(); drawCalls += 2;
       }
       // continuous rotation (the cached 15-degree variants stepped visibly on a slow tumble)
       var v = sp.rotated(0);

@@ -9,6 +9,13 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   verified_at   DATETIME     NULL,
   ip            VARCHAR(45)  NOT NULL DEFAULT '',
   wa_message_id VARCHAR(128) NULL,
+  wa_status     VARCHAR(16)  NULL,            -- accepted, sent, delivered, read, failed (from Meta's receipts)
+  wa_error      INT          NULL,            -- Meta's error code when failed
+  code_enc      VARCHAR(96)  NULL,            -- encrypted copy of the code, kept only so the SAME code can go by SMS; cleared on verify
+  sms_state     VARCHAR(12)  NULL,            -- NULL (not needed), sending, sent, failed
+  sms_at        DATETIME     NULL,
+  sms_reply     VARCHAR(255) NULL,            -- what text.lk answered
   KEY idx_mobile_created (mobile, created_at),
+  KEY idx_wa_message (wa_message_id),
   KEY idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

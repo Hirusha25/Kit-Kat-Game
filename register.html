@@ -194,7 +194,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/firebase-config.js?v=20261126f"></script>
-<script src="js/otp-config.js?v=20261127c"></script>
+<script src="js/otp-config.js?v=20261127d"></script>
 <script src="js/stage.js?v=20261126e"></script>
 <script src="js/audio.js?v=20261127f"></script>
 <script src="js/mute.js?v=20261127a"></script>
@@ -288,9 +288,31 @@
   const e164 = m => '+94' + m.replace(/\D/g, '').slice(-9);
   const pretty = m => { const d = m.replace(/\D/g, '').slice(-9); return '0' + d.slice(0, 2) + ' ' + d.slice(2, 5) + ' ' + d.slice(5); };
 
+  // The code goes by WhatsApp first; the server sends the same code by SMS when WhatsApp fails or is slow.
+  // The page asks how it went every few seconds and changes the wording when the SMS has gone out.
+  let otpChannel = 'whatsapp', deliveryTimer = null;
+  function setChannel(ch) {
+    otpChannel = ch === 'sms' ? 'sms' : 'whatsapp';
+    const sub = document.querySelector('#verify .v-sub'); sub.classList.add('wa');
+    sub.innerHTML = otpChannel === 'sms'
+      ? 'Check your text messages. We sent your 6-digit code for <b>Dunk the Break</b> by KitKat® by SMS to <b id="v-phone"></b>'
+      : 'Check WhatsApp. <b>Nestlé Professional</b> sent your 6-digit code for <b>Dunk the Break</b> by KitKat® to <b id="v-phone"></b>';
+    if (pending) $('v-phone').textContent = pretty(pending.mobile);
+  }
+  function watchDelivery() {
+    clearInterval(deliveryTimer); const started = Date.now();
+    deliveryTimer = setInterval(async () => {
+      if (Date.now() - started > 90000 || vPane.style.display !== 'block' || !pending) { clearInterval(deliveryTimer); return; }
+      try {
+        const j = await otpCall('status', { mobile: e164(pending.mobile) });
+        if (j.channel !== otpChannel) setChannel(j.channel);
+        if (j.channel === 'sms' || j.wa === 'delivered' || j.wa === 'read') clearInterval(deliveryTimer);
+      } catch (e) { if (e.code !== 'api/network') { clearInterval(deliveryTimer); if (e.code === 'api/send_failed') vErr.textContent = otpError(e); } }
+    }, 2500);
+  }
   function showVerify() {
     form.style.display = 'none'; vPane.style.display = 'block';
-    if (otpApi) { const sub = document.querySelector('#verify .v-sub'); sub.classList.add('wa'); sub.innerHTML = 'Check WhatsApp. <b>Nestlé Professional</b> sent your 6-digit code for <b>Dunk the Break</b> by KitKat® to <b id="v-phone"></b>'; }
+    if (otpApi) setChannel(otpChannel);
     $('v-phone').textContent = pretty(pending.mobile); $('v-test').style.display = (auth || otpApi) ? 'none' : 'block';
     otpIn.value = ''; paint(); vErr.textContent = '';
     setTimeout(() => KioskKeyboard.show(otpIn), 300);
@@ -315,9 +337,10 @@
     if (otpApi) {
       const onVerify = vPane.style.display === 'block'; // resend from the code screen reports its error there
       try {
-        await otpCall('send', { mobile: e164(pending.mobile) });
+        const sent = await otpCall('send', { mobile: e164(pending.mobile) }); otpChannel = sent.channel === 'sms' ? 'sms' : 'whatsapp';
         confirmation = { confirm: async c => { const j = await otpCall('verify', { mobile: e164(pending.mobile), code: c }); return { user: { uid: 'wa-' + j.id } }; } };
-        if (onVerify) armResend(); else showVerify();
+        if (onVerify) { setChannel(otpChannel); armResend(); } else showVerify();
+        if (otpChannel !== 'sms') watchDelivery();
       } catch (e) { console.warn(e); (onVerify ? vErr : err).textContent = otpError(e); }
       sending = false; return;
     }
@@ -333,7 +356,7 @@
   }
   function otpError(e) {
     const c = (e && e.code) || '';
-    if (c === 'api/invalid') return 'That code is not right. Check WhatsApp and try again.';
+    if (c === 'api/invalid') return otpChannel === 'sms' ? 'That code is not right. Check the text message and try again.' : 'That code is not right. Check WhatsApp and try again.';
     if (c === 'api/expired') return 'That code has expired. Tap Resend code.';
     if (c === 'api/too_many') return 'Too many wrong codes. Tap Resend code for a new one.';
     if (c === 'api/rate') return 'Please wait a moment before asking for another code.';

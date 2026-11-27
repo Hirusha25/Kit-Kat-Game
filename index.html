@@ -91,10 +91,18 @@
   (function () {
     const v = document.getElementById('bg-video'), still = document.getElementById('scene-still'), wave = document.getElementById('wave-still');
     if (!v) return;
-    // 4K kiosk (2160 px wide panel) gets the 2160x3840 file; everything else the 1080p pair
-    const hi = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 2000 && !/iPhone|iPad|Android.*Mobile/.test(navigator.userAgent);
-    if (hi) { v.src = 'assets/video/cover-bg-loop-4k.mp4'; }
-    else { const w = document.createElement('source'); w.src = 'assets/video/cover-bg-loop.webm'; w.type = 'video/webm'; const m = document.createElement('source'); m.src = 'assets/video/cover-bg-loop.mp4'; m.type = 'video/mp4'; v.appendChild(w); v.appendChild(m); v.load(); }
+    // The clip is 720p at source. On the 4K kiosk an upscale of it looks soft next to the 2250x4000 artwork,
+    // so big screens get the sharp still with only the steam animated (drawn live, crisp at any size).
+    // Phones and laptops keep the 1080p clip. ?cover=still / ?cover=video forces either for testing.
+    const q = new URLSearchParams(location.search).get('cover');
+    const big = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 2000 && !/iPhone|iPad|Android.*Mobile/.test(navigator.userAgent);
+    const stillOnly = q === 'still' || (q !== 'video' && big);
+    if (stillOnly) {
+      v.remove();
+      KKAmbient.create({ stage: document.getElementById('amb-back'), steam: { x: 648, y: 985, w: 170, count: 16 } });   // steam rising from the drink
+      return;
+    }
+    { const w = document.createElement('source'); w.src = 'assets/video/cover-bg-loop.webm'; w.type = 'video/webm'; const m = document.createElement('source'); m.src = 'assets/video/cover-bg-loop.mp4'; m.type = 'video/mp4'; v.appendChild(w); v.appendChild(m); v.load(); }
     let shown = false;
     const show = () => { if (shown) return; shown = true; v.classList.add('on'); still.classList.add('off'); wave.classList.add('on'); };
     v.addEventListener('timeupdate', () => { if (v.currentTime > 0.15) show(); });

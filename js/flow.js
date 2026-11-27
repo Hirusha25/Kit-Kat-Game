@@ -607,6 +607,7 @@
   async function boot() {
     if (!settings.sound) KKAudio.setMuted(true); setPip(settings.tile !== false || qs.get('debug') === '1');
     if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
+    { const ps = qs.get('pipstyle') || settings.pipStyle || ''; if (/^[abcd]$/.test(ps)) document.body.classList.add('pip-' + ps); }
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race
     beginCalibration();

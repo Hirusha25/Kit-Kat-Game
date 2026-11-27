@@ -17,7 +17,7 @@
     var sent = read(SENT, {}), out = { players: [], scores: [], prizes: [] };
     read('kk_players', []).forEach(function (p) {
       var id = 'p-' + (p.code || '') + '-' + (p.createdAt || '');
-      if (!sent[id]) out.players.push({ id: id, name: p.name, dob: p.dob, mobile: p.mobile, email: p.email, code: p.code, verified: !!p.verified, uid: p.uid, createdAt: p.createdAt });
+      if (!sent[id]) out.players.push({ id: id, name: p.name, dob: p.dob, mobile: p.mobile, email: p.email, code: p.code, verified: !!p.verified, uid: p.uid, createdAt: p.createdAt, consent: !!p.consent, consentAt: p.consentAt || null, consentVersion: p.consentVersion || '' });
     });
     (read('kk_leaderboard', {}).rows || []).forEach(function (r) {
       var id = 's-' + r.ts + '-' + (r.code || '');

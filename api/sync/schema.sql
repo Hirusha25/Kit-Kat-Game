@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS sync_players (
   play_code   VARCHAR(16)  NOT NULL DEFAULT '',
   verified    TINYINT      NOT NULL DEFAULT 0,
   uid         VARCHAR(60)  NOT NULL DEFAULT '',
+  consent     TINYINT      NOT NULL DEFAULT 0,   -- ticked the Nestlé consent box (required to register)
+  consent_at  DATETIME     NULL,
+  consent_ver VARCHAR(32)  NOT NULL DEFAULT '',  -- which wording they agreed to
   client_time DATETIME     NULL,            -- kiosk clock, UTC
   received_at DATETIME     NOT NULL,
   UNIQUE KEY uq_item (kiosk, client_id), KEY idx_mobile (mobile)
@@ -40,11 +43,16 @@ CREATE TABLE IF NOT EXISTS sync_prizes (
   score       INT          NOT NULL DEFAULT 0,
   turn        INT          NOT NULL DEFAULT 0,    -- round number of the day on that kiosk (every Nth wins)
   mode        VARCHAR(8)   NOT NULL DEFAULT '',   -- nth | score: the rule in force when it was awarded
+  redeemed_at DATETIME     NULL,                  -- set from the admin dashboard when the prize is handed over
+  redeemed_by VARCHAR(120) NOT NULL DEFAULT '',
   client_time DATETIME     NULL,
   received_at DATETIME     NOT NULL,
   UNIQUE KEY uq_item (kiosk, client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- Existing databases: ALTER TABLE sync_prizes ADD COLUMN turn INT NOT NULL DEFAULT 0, ADD COLUMN mode VARCHAR(8) NOT NULL DEFAULT '';
+-- Existing databases:
+--   ALTER TABLE sync_prizes  ADD COLUMN turn INT NOT NULL DEFAULT 0, ADD COLUMN mode VARCHAR(8) NOT NULL DEFAULT '',
+--                            ADD COLUMN redeemed_at DATETIME NULL, ADD COLUMN redeemed_by VARCHAR(120) NOT NULL DEFAULT '';
+--   ALTER TABLE sync_players ADD COLUMN consent TINYINT NOT NULL DEFAULT 0, ADD COLUMN consent_at DATETIME NULL, ADD COLUMN consent_ver VARCHAR(32) NOT NULL DEFAULT '';
 
 -- Prize rule set by the team on the review page and pulled by each kiosk every minute.
 -- kiosk '*' applies to every kiosk; a row with a kiosk's name overrides it for that kiosk only.

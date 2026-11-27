@@ -47,12 +47,13 @@ if ($a === 'push') {
     $saved = ['players' => [], 'scores' => [], 'prizes' => []];
     $ts = fn($v): ?string => is_numeric($v) ? gmdate('Y-m-d H:i:s', (int)((float)$v / 1000)) : (strtotime((string)$v) ? gmdate('Y-m-d H:i:s', strtotime((string)$v)) : null);
 
-    $q = $db->prepare('INSERT IGNORE INTO sync_players (kiosk, client_id, name, dob, mobile, email, play_code, verified, uid, client_time, received_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
+    $q = $db->prepare('INSERT IGNORE INTO sync_players (kiosk, client_id, name, dob, mobile, email, play_code, verified, uid, consent, consent_at, consent_ver, client_time, received_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
     foreach (array_slice((array)($in['players'] ?? []), 0, 300) as $p) {
         $id = s($p['id'] ?? '', 80); if ($id === '') continue;
         $q->execute([$kiosk, $id, s($p['name'] ?? '', 120), s($p['dob'] ?? '', 12), s($p['mobile'] ?? '', 20), s($p['email'] ?? '', 160),
-                     s($p['code'] ?? '', 16), empty($p['verified']) ? 0 : 1, s($p['uid'] ?? '', 60), $ts($p['createdAt'] ?? null)]);
+                     s($p['code'] ?? '', 16), empty($p['verified']) ? 0 : 1, s($p['uid'] ?? '', 60),
+                     empty($p['consent']) ? 0 : 1, $ts($p['consentAt'] ?? null), s($p['consentVersion'] ?? '', 32), $ts($p['createdAt'] ?? null)]);
         $saved['players'][] = $id;
     }
     $q = $db->prepare('INSERT IGNORE INTO sync_scores (kiosk, client_id, name, play_code, score, caught, streak, client_time, received_at)
@@ -78,6 +79,16 @@ if ($a === 'push') {
 $ALLOWED = ['rewardMode' => 'str', 'everyNth' => 'int', 'pacing' => 'bool', 'openHour' => 'int', 'closeHour' => 'int', 'capMin' => 'int', 'teeMin' => 'int'];
 function cleanSettings(array $in, array $allowed): array {
     $o = [];
+    // stock per day: {"YYYY-MM-DD": {"cap": n, "tee": n}} for the activation days
+    if (isset($in['stockDays']) && is_array($in['stockDays'])) {
+        $sd = [];
+        foreach ($in['stockDays'] as $day => $v) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$day) || !is_array($v)) continue;
+            $sd[(string)$day] = ['cap' => max(0, min(9999, (int)($v['cap'] ?? 0))), 'tee' => max(0, min(9999, (int)($v['tee'] ?? 0)))];
+            if (count($sd) >= 31) break;
+        }
+        $o['stockDays'] = $sd;
+    }
     foreach ($allowed as $k => $t) {
         if (!array_key_exists($k, $in)) continue;
         $v = $in[$k];
@@ -113,6 +124,49 @@ if ($a === 'getconfig') {
     foreach ($db->query('SELECT kiosk, settings, updated_at FROM sync_config ORDER BY kiosk') as $r) $rows[$r['kiosk']] = ['settings' => json_decode((string)$r['settings'], true), 'updated_at' => $r['updated_at']];
     out(200, ['ok' => true, 'config' => $rows, 'kiosks' => array_keys((array)($cfg['kiosk_keys'] ?? []))]);
 }
+// ---- admin dashboard (admin/index.html) ----
+if ($a === 'stats') {
+    $days = max(1, min(14, (int)($_GET['days'] ?? 3)));
+    $from = gmdate('Y-m-d', time() - ($days - 1) * 86400);
+    $rows = ['players' => [], 'rounds' => [], 'prizes' => [], 'consent' => 0, 'kiosks' => []];
+    foreach ($db->query("SELECT kiosk, DATE(COALESCE(client_time, received_at)) day, COUNT(*) n, SUM(consent) c FROM sync_players WHERE COALESCE(client_time, received_at) >= '$from' GROUP BY kiosk, day") as $r) $rows['players'][] = $r;
+    foreach ($db->query("SELECT kiosk, DATE(COALESCE(client_time, received_at)) day, COUNT(*) n, AVG(score) avg_score, MAX(score) best FROM sync_scores WHERE COALESCE(client_time, received_at) >= '$from' GROUP BY kiosk, day") as $r) $rows['rounds'][] = $r;
+    foreach ($db->query("SELECT kiosk, DATE(COALESCE(client_time, received_at)) day, kind, COUNT(*) n, SUM(redeemed_at IS NOT NULL) redeemed FROM sync_prizes WHERE COALESCE(client_time, received_at) >= '$from' GROUP BY kiosk, day, kind") as $r) $rows['prizes'][] = $r;
+    $rows['consent'] = (int)$db->query('SELECT COALESCE(SUM(consent),0) FROM sync_players')->fetchColumn();
+    $rows['total_players'] = (int)$db->query('SELECT COUNT(*) FROM sync_players')->fetchColumn();
+    $rows['kiosks'] = array_keys((array)($cfg['kiosk_keys'] ?? []));
+    out(200, ['ok' => true, 'from' => $from, 'days' => $days] + $rows);
+}
+if ($a === 'players') {
+    $q = s($_GET['q'] ?? '', 80); $lim = max(1, min(500, (int)($_GET['limit'] ?? 200)));
+    $sql = 'SELECT id, kiosk, name, dob, mobile, email, play_code, verified, consent, consent_at, consent_ver, client_time, received_at FROM sync_players';
+    $args = [];
+    if ($q !== '') { $sql .= ' WHERE name LIKE ? OR mobile LIKE ? OR email LIKE ? OR play_code LIKE ?'; $args = array_fill(0, 4, '%' . $q . '%'); }
+    $st = $db->prepare($sql . " ORDER BY id DESC LIMIT $lim"); $st->execute($args);
+    out(200, ['ok' => true, 'rows' => $st->fetchAll()]);
+}
+if ($a === 'prizes') {
+    $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['day'] ?? '')) ? $_GET['day'] : null; $q = s($_GET['q'] ?? '', 40);
+    $sql = 'SELECT id, kiosk, kind, prize_code, name, mobile, score, turn, mode, redeemed_at, redeemed_by, client_time, received_at FROM sync_prizes WHERE 1=1'; $args = [];
+    if ($day) { $sql .= ' AND DATE(COALESCE(client_time, received_at)) = ?'; $args[] = $day; }
+    if ($q !== '') { $sql .= ' AND (prize_code LIKE ? OR mobile LIKE ? OR name LIKE ?)'; array_push($args, '%' . $q . '%', '%' . $q . '%', '%' . $q . '%'); }
+    $st = $db->prepare($sql . ' ORDER BY id DESC LIMIT 500'); $st->execute($args);
+    out(200, ['ok' => true, 'rows' => $st->fetchAll()]);
+}
+if ($a === 'redeem') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'bad_request');
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    $id = (int)($in['id'] ?? 0); if ($id <= 0) fail(422, 'bad_request');
+    session_start(); $who = (string)($_SESSION['reviewer'] ?? ''); session_write_close();
+    if (!empty($in['on'])) $db->prepare('UPDATE sync_prizes SET redeemed_at = NOW(), redeemed_by = ? WHERE id = ?')->execute([s($who, 120), $id]);
+    else $db->prepare("UPDATE sync_prizes SET redeemed_at = NULL, redeemed_by = '' WHERE id = ?")->execute([$id]);
+    out(200, ['ok' => true, 'id' => $id, 'redeemed' => !empty($in['on'])]);
+}
+if ($a === 'scores') {
+    $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['day'] ?? '')) ? $_GET['day'] : gmdate('Y-m-d');
+    $st = $db->prepare('SELECT kiosk, name, play_code, score, caught, streak, client_time FROM sync_scores WHERE DATE(COALESCE(client_time, received_at)) = ? ORDER BY score DESC, id ASC LIMIT 50'); $st->execute([$day]);
+    out(200, ['ok' => true, 'day' => $day, 'rows' => $st->fetchAll()]);
+}
 if ($a === 'setconfig') {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'bad_request');
     $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
@@ -131,9 +185,9 @@ if ($a === 'summary') {
 }
 if ($a === 'export') {
     $what = $_GET['what'] ?? '';
-    $cols = ['players' => 'kiosk, name, dob, mobile, email, play_code, verified, uid, client_time, received_at',
+    $cols = ['players' => 'kiosk, name, dob, mobile, email, play_code, verified, consent, consent_at, consent_ver, client_time, received_at',
              'scores'  => 'kiosk, name, play_code, score, caught, streak, client_time, received_at',
-             'prizes'  => 'kiosk, kind, prize_code, name, mobile, score, turn, mode, client_time, received_at'][$what] ?? null;
+             'prizes'  => 'kiosk, kind, prize_code, name, mobile, score, turn, mode, redeemed_at, redeemed_by, client_time, received_at'][$what] ?? null;
     if (!$cols) fail(422, 'bad_request');
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="kitkat-' . $what . '-' . gmdate('Ymd-Hi') . '.csv"');

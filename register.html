@@ -262,7 +262,8 @@
       if (rec && rec.day === today && (rec.won || rec.plays >= 2)) { mobile.classList.add('invalid'); err.textContent = rec.won ? 'This number has already won a prize today.' : 'This number has already played today.'; return; }
     } catch (_) {}
 
-    pending = { name: n, dob: dob.value.replace(/ /g, ''), mobile: m, email: em, code: makeCode(), createdAt: new Date().toISOString() };
+    pending = { name: n, dob: dob.value.replace(/ /g, ''), mobile: m, email: em, code: makeCode(), createdAt: new Date().toISOString(),
+      consent: true, consentAt: new Date().toISOString(), consentVersion: 'nestle-lk-2026-11' }; // the box is required: a registration is a consent
     startOtp();
   });
 

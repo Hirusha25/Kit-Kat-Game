@@ -10,7 +10,8 @@
   // ---------- settings ----------
   const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
-    rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20 }, load(LS.settings));
+    rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
+    stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
   LS.stock = 'kk_stock';
   const DAILY_STOCK = 80;
   function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null') || {}; } catch (_) { return {}; } }
@@ -38,7 +39,16 @@
   let retryUsed = false;
 
   // ---------- rewards: cap and T-shirt, 80 each per day ----------
-  function stock() { const st = load(LS.stock); if (st.day !== todayKey()) return { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }; return st; }
+  // Today's quota per prize, as set on the dashboard for this date (falls back to DAILY_STOCK). What is left is
+  // derived from the awarded list, so a quota changed during the day takes effect at once.
+  function quota(kind) { const d = settings.stockDays && settings.stockDays[todayKey()]; const v = d && d[kind]; return typeof v === 'number' && v >= 0 ? v : DAILY_STOCK; }
+  function stock() {
+    const st = load(LS.stock); const rec = st.day === todayKey() ? st : { day: todayKey(), awarded: [] };
+    rec.awarded = rec.awarded || [];
+    rec.cap = Math.max(0, quota('cap') - rec.awarded.filter(a => a.kind === 'cap').length);
+    rec.tee = Math.max(0, quota('tee') - rec.awarded.filter(a => a.kind === 'tee').length);
+    return rec;
+  }
   // Rounds played today (one per finished round, retries included). Every Nth round is a winner.
   LS.turns = 'kk_turns';
   function turns() { const t = load(LS.turns); return t.day === todayKey() ? t : { day: todayKey(), n: 0 }; }
@@ -47,13 +57,14 @@
   // shelf by lunch and a quiet morning's share carries forward within the day. released(kind) = how many
   // of today's stock may have been given out by now; what is not yet released is held back.
   function released(kind) {
-    if (!settings.pacing) return DAILY_STOCK;
+    const total = quota(kind);
+    if (!settings.pacing) return total;
     const now = new Date(), h = now.getHours() + now.getMinutes() / 60;
     const span = Math.max(1, settings.closeHour - settings.openHour);
     const frac = Math.min(1, Math.max(0.06, (h - settings.openHour) / span)); // a few are available before opening and for testing
-    return Math.min(DAILY_STOCK, Math.ceil(DAILY_STOCK * frac));
+    return Math.min(total, Math.ceil(total * frac));
   }
-  function available(kind) { const st = stock(); return Math.max(0, Math.min(st[kind], released(kind) - (DAILY_STOCK - st[kind]))); }
+  function available(kind) { const st = stock(); return Math.max(0, Math.min(st[kind], released(kind) - (quota(kind) - st[kind]))); }
   function prizeCode(kind) { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const r = new Uint32Array(4); crypto.getRandomValues(r); return (kind === 'tee' ? 'TEE-' : 'CAP-') + Array.from(r, n => a[n % a.length]).join(''); }
   function awardPrize(result) {
     const st = stock(); let kind = null, soldOut = false, turn = nextTurn();
@@ -240,7 +251,7 @@
     setTimeout(() => ov.how.addEventListener('pointerdown', go, { once: true }), 400);
   }
   // Prize rule pushed from the server (review page): merge into the live settings when the sync script sees a change.
-  const REMOTE_KEYS = ['rewardMode', 'everyNth', 'pacing', 'openHour', 'closeHour', 'capMin', 'teeMin'];
+  const REMOTE_KEYS = ['rewardMode', 'everyNth', 'pacing', 'openHour', 'closeHour', 'capMin', 'teeMin', 'stockDays'];
   window.addEventListener('kk:remote-settings', e => { const r = e.detail || {}; REMOTE_KEYS.forEach(k => { if (k in r) settings[k] = r[k]; }); save(LS.settings, settings); if (setupOpen) refreshStock(); });
   function beginCalibration() {
     KKAudio.music('attract'); // same track as the cover and register pages, continued from where it was
@@ -466,7 +477,7 @@
   function refreshStock() {
     const st = stock(), t = turns(), N = Math.max(1, settings.everyNth | 0), nth = settings.rewardMode === 'nth';
     const nextIn = N - (t.n % N);
-    $('su-stock').textContent = `Caps left: ${st.cap} / ${DAILY_STOCK}    T-shirts left: ${st.tee} / ${DAILY_STOCK}    awarded today: ${st.awarded.length}` +
+    $('su-stock').textContent = `Caps left: ${st.cap} / ${quota('cap')}    T-shirts left: ${st.tee} / ${quota('tee')}    awarded today: ${st.awarded.length}` +
       `\nRounds today: ${t.n}` + (nth ? `    next winning round: #${t.n + nextIn} (in ${nextIn})` : '') +
       (settings.pacing ? `    released so far: caps ${available('cap')}, T-shirts ${available('tee')}` : '');
     $('su-cap-min').value = settings.capMin; $('su-tee-min').value = settings.teeMin;
@@ -481,7 +492,7 @@
   $('su-open').addEventListener('change', () => { settings.openHour = Math.min(23, Math.max(0, +$('su-open').value || 0)); save(LS.settings, settings); refreshStock(); });
   $('su-close').addEventListener('change', () => { settings.closeHour = Math.min(24, Math.max(1, +$('su-close').value || 24)); save(LS.settings, settings); refreshStock(); });
   $('su-turns-reset').addEventListener('click', () => { save(LS.turns, { day: todayKey(), n: 0 }); refreshStock(); toast('Round counter reset'); });
-  $('su-stock-reset').addEventListener('click', () => { save(LS.stock, { day: todayKey(), cap: DAILY_STOCK, tee: DAILY_STOCK, awarded: [] }); refreshStock(); toast('Stock reset'); });
+  $('su-stock-reset').addEventListener('click', () => { save(LS.stock, { day: todayKey(), awarded: [] }); refreshStock(); toast('Stock reset'); });
   $('su-export').addEventListener('click', () => {
     const st = stock(); const rows = board();
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';

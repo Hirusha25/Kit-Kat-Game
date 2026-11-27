@@ -279,6 +279,10 @@
   .res .res-prize .t span { display: block; margin-top: 20px; font: 600 31px/1.25 var(--font-body); color: #3a1a06; max-width: 440px; }
   .res .res-prize .t code { display: inline-flex; align-items: center; justify-content: center; margin-top: 22px; min-width: 404px; height: 84px; box-sizing: border-box; padding: 0 40px 3px; border-radius: 999px; background: linear-gradient(180deg, #a90c17 0%, #8a0610 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 6px 14px rgba(60,0,0,.35); color: #fef9e2; font: 900 44px/1 var(--font-display); letter-spacing: .06em; }
   .res .res-prize .pic { flex: 0 0 auto; width: 400px; max-height: 372px; object-fit: contain; margin-right: 0; filter: drop-shadow(0 22px 26px rgba(90,20,0,.35)) drop-shadow(0 4px 6px rgba(90,20,0,.25)); }
+  /* the prize title is always two lines; the longer T-shirt line gets a smaller size and a slightly smaller picture so it never wraps */
+  .res .res-prize .t b { white-space: nowrap; }
+  .res .res-prize.tee .t b { font-size: 50px; }
+  .res .res-prize.tee .pic { width: 360px; }
   .res .res-prize .none-wrap { display: none; }
   .res .res-prize.none .pic, .res .res-prize.none .t { display: none; }
   .res .res-prize.none { height: 500px; padding: 26px 40px; flex-direction: column; justify-content: flex-start; }
@@ -481,7 +485,7 @@
 <script src="js/sprites.js?v=20261126e"></script>
 <script src="js/game.js?v=20261127s"></script>
 <script src="js/recorder.js?v=20261127k"></script>
-<script src="js/flow.js?v=20261127t"></script>
+<script src="js/flow.js?v=20261127u"></script>
 <script src="js/data-sync.js?v=20261127a"></script>
 <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}); }); }</script>
 </body>

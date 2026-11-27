@@ -45,6 +45,12 @@
 <body>
 <header><b>DUNK THE BREAK</b><span class="sub">team dashboard</span><span class="sp"></span><span id="who" class="who"></span><button id="logout" class="hide">Sign out</button></header>
 <main>
+  <div class="card hide" id="nohost">
+    <h2>Backend not connected on this address</h2>
+    <p>This page is being served by GitHub Pages, which only hosts files. The dashboard needs the PHP and database part of the project (the <code>api/</code> folder), so sign-in cannot work here yet.</p>
+    <p>To switch it on: host the repository on a PHP server with MySQL, run the two schema files, add the two config files, and point <b>break.martech.live</b> at that server. The steps are in <code>reference/HOSTING.md</code> in the repository. The game itself is unaffected and keeps running.</p>
+    <p class="dim" id="nohost-why"></p>
+  </div>
   <div class="card hide" id="login">
     <h2>Sign in</h2>
     <input id="l-email" type="email" placeholder="Email" autocomplete="username">
@@ -150,12 +156,25 @@
   function dateOf(s) { var d = dt(s); return d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : (s || ''); }
   function timeOf(s) { var d = dt(s); return d ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''; }
   function today(off) { var d = new Date(); d.setDate(d.getDate() + (off || 0)); return d.toISOString().slice(0, 10); }
-  function show(signedIn) { $('login').classList.toggle('hide', signedIn); $('app').classList.toggle('hide', !signedIn); $('logout').classList.toggle('hide', !signedIn); }
+  function show(signedIn) { $('nohost').classList.add('hide'); $('login').classList.toggle('hide', signedIn); $('app').classList.toggle('hide', !signedIn); $('logout').classList.toggle('hide', !signedIn); }
+  function noHost(why) { $('nohost').classList.remove('hide'); $('login').classList.add('hide'); $('app').classList.add('hide'); $('nohost-why').textContent = why || ''; }
+  // Is the API there at all? GitHub Pages answers with an HTML 404; a PHP host answers JSON (even 'not_configured').
+  function probe() {
+    return fetch(SYNC + '?a=stats&days=1', { credentials: 'same-origin' }).then(function (r) {
+      var ct = r.headers.get('content-type') || '';
+      if (r.status === 404 || ct.indexOf('json') < 0) throw Object.assign(new Error('no_api'), { nohost: true, why: 'The address answered with ' + r.status + ' and no JSON, so there is no API behind it.' });
+      return r.json().then(function (x) { if (x && x.error === 'not_configured') throw Object.assign(new Error('not_configured'), { nohost: true, why: 'The API is there but its config file or database is missing on the server (error: not_configured).' }); return { signedIn: !!(x && x.ok), status: r.status }; });
+    });
+  }
   function guard(e) { if (e && e.status === 401) { show(false); return true; } console.warn(e); return false; }
 
   // ---- sign in (shared with /debug/) ----
   $('l-go').addEventListener('click', function () {
-    j(DEBUG + '?a=login', { email: $('l-email').value, password: $('l-pass').value }).then(function (r) { $('who').textContent = r.email || $('l-email').value; show(true); loadAll(); }, function () { $('l-err').textContent = 'Wrong email or password.'; });
+    j(DEBUG + '?a=login', { email: $('l-email').value, password: $('l-pass').value }).then(function (r) { $('who').textContent = r.email || $('l-email').value; show(true); loadAll(); }, function (e) {
+      if (e && e.status === 401) $('l-err').textContent = 'Wrong email or password.';
+      else if (e && e.status === 503) $('l-err').textContent = 'The server is there but not configured yet (database or config file missing).';
+      else $('l-err').textContent = 'Could not reach the sign-in API (' + (e && e.status ? 'HTTP ' + e.status : 'no response') + '). Is the backend hosted on this address?';
+    });
   });
   $('l-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('l-go').click(); });
   $('logout').addEventListener('click', function () { fetch(DEBUG + '?a=logout', { credentials: 'same-origin' }).then(function () { show(false); }); });
@@ -288,7 +307,7 @@
   });
 
   function loadAll() { $('cl-day').value = today(); $('sc-day').value = today(); $('pf-day').value = today(); return loadStats().then(loadPerf).then(loadConfig).then(loadClaims).then(loadPlayers).then(loadScores).then(loadTeam).catch(guard); }
-  j(SYNC + '?a=stats&days=1').then(function () { show(true); loadAll(); }, function () { show(false); });
+  probe().then(function (r) { if (r.signedIn) { show(true); loadAll(); } else show(false); }, function (e) { if (e && e.nohost) noHost(e.why); else show(false); });
 })();
 </script>
 </body>

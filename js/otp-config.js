@@ -6,6 +6,6 @@ window.KK_OTP_API = 'api/';
 // THE OTP SWITCH. This one line turns code verification on or off for every kiosk:
 //   true  = no code: registration goes straight to the game (anyone can register with any number)
 //   false = a code is sent and must be entered
-// ON again since 27 Nov (testing finished): the code goes by WhatsApp first and by SMS when WhatsApp does not deliver.
-// To switch it off for a test set true, then bump the ?v= on this file in register.html so kiosks pick it up at once.
-window.KK_OTP_SKIP = false;
+// OFF since 27 Nov by the client's decision: no code is needed to register. The WhatsApp + SMS code service is still
+// in place on the server; to bring it back set false, then bump the ?v= on this file in register.html.
+window.KK_OTP_SKIP = true;

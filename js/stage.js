@@ -43,6 +43,15 @@
     html.classList.toggle('is-kiosk', !phone && height * dpr >= 1900);
     html.style.setProperty('--stage-scale', s);
     window.KKStage = { scale: s, mode: phone ? 'scroll' : 'fit', dpr, refit: fit, pixelScale: Math.min(2, Math.max(1, Math.round(s * dpr * 2) / 2)) };
+    // ?diag=1: a readout of what this device really renders at, for checking a kiosk from a photo
+    if (/[?&]diag=1/.test(location.search)) (document.readyState === 'complete' ? (fn => fn()) : (fn => window.addEventListener('load', fn, { once: true })))(() => {
+      let d = document.getElementById('kk-diag');
+      if (!d) { d = document.createElement('pre'); d.id = 'kk-diag'; d.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99999;margin:0;padding:10px 14px;background:rgba(0,0,0,.78);color:#fff;font:600 15px/1.45 monospace;border-radius:10px;white-space:pre-wrap;max-width:92vw;pointer-events:none'; document.body.appendChild(d); }
+      const phys = `${Math.round(window.innerWidth * dpr)} x ${Math.round(window.innerHeight * dpr)}`;
+      d.textContent = [`screen ${screen.width} x ${screen.height} css px, devicePixelRatio ${dpr}`, `window ${window.innerWidth} x ${window.innerHeight} css px  ->  ${phys} real pixels`,
+        `stage scale ${s.toFixed(3)}, mode ${phone ? 'scroll' : 'fit'}, game canvas ${Math.min(2, Math.max(1, Math.round(s * dpr * 2) / 2))}x`, `cover ${window.KKCover || '-'}`, `${navigator.userAgent}`].join('\n');
+      d.textContent += '\n' + (window.innerWidth * dpr >= 2000 ? 'This browser is drawing at 4K.' : 'This browser is drawing at about 1080p: the panel upscales it, so nothing on the page can be sharper than that. Fix is in the TV/Chrome display settings, not in the page.');
+    });
     window.dispatchEvent(new CustomEvent('kk:stage', { detail: window.KKStage }));
   }
   window.addEventListener('resize', fit, { passive: true });

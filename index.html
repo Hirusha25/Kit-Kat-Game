@@ -77,7 +77,7 @@
   </main>
 </div>
 
-<script src="js/stage.js?v=20261126e"></script>
+<script src="js/stage.js?v=20261127a"></script>
 <script src="js/audio.js?v=20261127f"></script>
 <script src="js/mute.js?v=20261127a"></script>
 <script src="js/ambient.js?v=20261126e"></script>
@@ -94,9 +94,11 @@
     // The clip is 720p at source. On the 4K kiosk an upscale of it looks soft next to the 2250x4000 artwork,
     // so big screens get the sharp still with only the steam animated (drawn live, crisp at any size).
     // Phones and laptops keep the 1080p clip. ?cover=still / ?cover=video forces either for testing.
-    const q = new URLSearchParams(location.search).get('cover');
+    let q = new URLSearchParams(location.search).get('cover');
+    try { if (q === 'still' || q === 'video') localStorage.setItem('kk_cover', q); else if (q === 'auto') localStorage.removeItem('kk_cover'); else q = localStorage.getItem('kk_cover'); } catch (_) {}
     const big = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) >= 2000 && !/iPhone|iPad|Android.*Mobile/.test(navigator.userAgent);
     const stillOnly = q === 'still' || (q !== 'video' && big);
+    window.KKCover = stillOnly ? 'still' : 'video';
     if (stillOnly) {
       v.remove();
       KKAmbient.create({ stage: document.getElementById('amb-back'), steam: { x: 648, y: 985, w: 170, count: 16 } });   // steam rising from the drink

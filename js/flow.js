@@ -11,6 +11,7 @@
   const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
     rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
+    pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
   LS.stock = 'kk_stock';
   const DAILY_STOCK = 80;
@@ -231,6 +232,7 @@
   // ---------- PIP ----------
   let pipOn = false; const pipCv = $('pip-cv'), pipCtx = pipCv.getContext('2d');
   function setPip(on) { pipOn = on; document.body.classList.toggle('tile', on); }
+  function applyPipStyle(ps) { ['a', 'b', 'c', 'd'].forEach(k => document.body.classList.remove('pip-' + k)); if (/^[abcd]$/.test(ps)) document.body.classList.add('pip-' + ps); }
   // Camera tile: the whole picture is drawn from a 48x27 copy (so people are a soft blur) and dimmed;
   // only the mug's own area is drawn sharp, with a box in the state colour. About 15 times a second.
   let tileAt = 0;
@@ -571,11 +573,12 @@
       `\nRounds today: ${t.n}` + (nth ? `    next winning round: #${t.n + nextIn} (in ${nextIn})` : '') +
       (settings.pacing ? `    released so far: caps ${available('cap')}, T-shirts ${available('tee')}` : '');
     $('su-cap-min').value = settings.capMin; $('su-tee-min').value = settings.teeMin;
-    $('su-mode').value = settings.rewardMode; $('su-nth').value = N; $('su-pacing').checked = !!settings.pacing; $('su-open').value = settings.openHour; $('su-close').value = settings.closeHour;
+    $('su-pipstyle').value = settings.pipStyle || ''; $('su-mode').value = settings.rewardMode; $('su-nth').value = N; $('su-pacing').checked = !!settings.pacing; $('su-open').value = settings.openHour; $('su-close').value = settings.closeHour;
     document.body.classList.toggle('reward-score', !nth);
   }
   $('su-cap-min').addEventListener('change', () => { settings.capMin = Math.max(1, +$('su-cap-min').value || 12); save(LS.settings, settings); });
   $('su-tee-min').addEventListener('change', () => { settings.teeMin = Math.max(1, +$('su-tee-min').value || 25); save(LS.settings, settings); });
+  $('su-pipstyle').addEventListener('change', () => { settings.pipStyle = $('su-pipstyle').value; save(LS.settings, settings); applyPipStyle(settings.pipStyle); });
   $('su-mode').addEventListener('change', () => { settings.rewardMode = $('su-mode').value === 'score' ? 'score' : 'nth'; save(LS.settings, settings); refreshStock(); });
   $('su-nth').addEventListener('change', () => { settings.everyNth = Math.min(50, Math.max(1, +$('su-nth').value || 5)); save(LS.settings, settings); refreshStock(); });
   $('su-pacing').addEventListener('change', () => { settings.pacing = $('su-pacing').checked; save(LS.settings, settings); refreshStock(); });
@@ -607,7 +610,7 @@
   async function boot() {
     if (!settings.sound) KKAudio.setMuted(true); setPip(settings.tile !== false || qs.get('debug') === '1');
     if (/^[bcd]$/.test(qs.get('bg') || '')) document.body.classList.add('bg-' + qs.get('bg'));
-    { const ps = qs.get('pipstyle') || settings.pipStyle || ''; if (/^[abcd]$/.test(ps)) document.body.classList.add('pip-' + ps); }
+    applyPipStyle(qs.get('pipstyle') || settings.pipStyle || '');
     document.addEventListener('visibilitychange', () => { if (!game) return; document.hidden ? game.pause() : (phase === 'playing' && game.resume()); });
     loadSprites().then(() => KKAudio.preload()); // artwork first, then the 8 MB of audio, so sprites never lose the bandwidth race
     beginCalibration();

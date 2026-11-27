@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Connect kiosk · KitKat</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center;
+         background: #3a0609; color: #fff; font: 28px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  a { color: #f6d58a; }
+</style>
+</head>
+<body>
+<!-- Connects this kiosk to the server: stores the kiosk key that the debug recorder (js/recorder.js) and the
+     data sync (js/data-sync.js) send with their uploads. Opened by the kiosk app on its first start, or by
+     staff through the short connect link. It deliberately loads nothing else: no camera, no game. -->
+<div id="msg">Connecting…</div>
+<script>
+(function () {
+  var key = new URLSearchParams(location.search).get('debugkey') || '', msg = document.getElementById('msg'), ok = false;
+  if (/^[0-9a-f]{20,64}$/.test(key)) { try { localStorage.setItem('kk_debug_key', key); ok = localStorage.getItem('kk_debug_key') === key; } catch (e) { ok = false; } }
+  msg.innerHTML = ok ? 'This kiosk is connected to the server.<br><a href="index.html">Open the game</a>' : 'Could not connect this kiosk. The link is not valid.';
+  document.title = ok ? 'Connected' : 'Not connected';
+})();
+</script>
+</body>
+</html>

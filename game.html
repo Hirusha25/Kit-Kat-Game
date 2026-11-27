@@ -106,7 +106,7 @@
   .caption { position: absolute; left: 50%; top: 1648px; margin: 0; transform: translateX(-50%); width: max-content; text-align: center; font: italic 800 33px/1.2 var(--font-button); letter-spacing: .2px; color: #fff; text-shadow: 0 0 26px rgba(255,150,70,.95), 0 0 10px rgba(255,130,50,.8), 0 0 3px rgba(255,200,120,.9), 0 2px 3px rgba(110,0,0,.4); z-index: 2; pointer-events: none; white-space: nowrap; }
 
   /* Tracking view during play: a small mirrored camera tile under the slider, next to the cup, so the player
-     can see at a glance whether the mug is being followed. Everything but the mug is blurred and dimmed.
+     can see at a glance whether the mug is being followed. The picture is shown as the camera sees it.
      Border colour = state: green tracked, amber weak, red lost. */
   .pip { position: absolute; left: 50%; top: 1662px; width: 412px; height: 232px; margin-left: -206px; z-index: 6; border-radius: 18px; overflow: hidden; border: 5px solid #27d35b; box-shadow: 0 0 22px rgba(39,211,91,.55), 0 10px 24px rgba(0,0,0,.45); background: #2a0206; display: none; transition: border-color .15s, box-shadow .15s; }
   .pip.weak { border-color: #ffb020; box-shadow: 0 0 22px rgba(255,176,32,.6), 0 10px 24px rgba(0,0,0,.45); }
@@ -475,7 +475,7 @@
 <script src="js/sprites.js?v=20261126e"></script>
 <script src="js/game.js?v=20261126e"></script>
 <script src="js/recorder.js?v=20261127k"></script>
-<script src="js/flow.js?v=20261127n"></script>
+<script src="js/flow.js?v=20261127pip"></script>
 <script src="js/data-sync.js?v=20261127a"></script>
 <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}); }); }</script>
 </body>

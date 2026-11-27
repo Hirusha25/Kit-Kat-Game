@@ -256,8 +256,8 @@
   let pipOn = false; const pipCv = $('pip-cv'), pipCtx = pipCv.getContext('2d');
   function setPip(on) { pipOn = on; document.body.classList.toggle('tile', on); }
   function applyPipStyle(ps) { ['a', 'b', 'c', 'd'].forEach(k => document.body.classList.remove('pip-' + k)); if (/^[abcd]$/.test(ps)) document.body.classList.add('pip-' + ps); }
-  // Camera tile: the whole picture is drawn from a 48x27 copy (so people are a soft blur) and dimmed;
-  // only the mug's own area is drawn sharp, with a box in the state colour. About 15 times a second.
+  // Camera tile: the camera picture as it is (no blur, no dimming: removed at the owner's request), with a
+  // box in the state colour around the mug. About 15 times a second.
   let tileAt = 0;
   function drawPip(s) {
     const now = performance.now(); if (now - tileAt < 66 || phase !== 'playing') return; tileAt = now;
@@ -265,14 +265,12 @@
     if (!vw) { c.fillStyle = '#2a0206'; c.fillRect(0, 0, w, h); return; }
     // (an older tracker.js without drawUpright can be served from the offline cache on a slow link: fall back to the raw picture)
     const up = !!tracker.drawUpright;
-    if (up) tracker.drawUpright(tctx, 0, 0, tiny.width, tiny.height); else tctx.drawImage(video, 0, 0, tiny.width, tiny.height);
     const seen = s.found && s.w > 0 && cueState !== 'lost';
     const fx = s.frameX != null ? s.frameX : 0.5, fy = s.frameY != null ? s.frameY : 0.5;
     const bw = Math.min(1, s.w * 3.4), bh = Math.min(1, s.h * 4), x0 = Math.min(1 - bw, Math.max(0, fx - bw / 2)), y0 = Math.min(1 - bh, Math.max(0, fy - bh * 0.45));
     c.save(); if (settings.mirror) { c.translate(w, 0); c.scale(-1, 1); }
-    c.imageSmoothingEnabled = true; c.drawImage(tiny, 0, 0, w, h);
-    c.fillStyle = 'rgba(40,0,6,.38)'; c.fillRect(0, 0, w, h);
-    if (seen) { if (up) tracker.drawUpright(c, x0 * w, y0 * h, bw * w, bh * h, { x: x0, y: y0, w: bw, h: bh }); else c.drawImage(video, x0 * vw, y0 * vh, bw * vw, bh * vh, x0 * w, y0 * h, bw * w, bh * h); }
+    c.imageSmoothingEnabled = true;
+    if (up) tracker.drawUpright(c, 0, 0, w, h); else c.drawImage(video, 0, 0, vw, vh, 0, 0, w, h);
     c.restore();
     if (seen) {
       const bx = (settings.mirror ? 1 - x0 - bw : x0) * w;

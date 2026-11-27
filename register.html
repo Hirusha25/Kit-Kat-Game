@@ -59,6 +59,8 @@
   .field .icon svg { width: 100%; height: 100%; fill: none; stroke: #6e3f1a; stroke-width: 2.4; stroke-linecap: round; }
 
   .f-name { top: 600px; } .f-dob { top: 774px; } .f-mobile { top: 948px; } .f-email { top: 1176px; }
+  /* OTP off: the code hint under the phone field is hidden, so the email field moves up to keep the fields evenly spaced */
+  html.no-otp .f-email { top: 1122px; } html.no-otp .consent { top: 1300px; }
   .field .hint { display: flex; align-items: center; gap: 10px; margin: 10px 0 0 6px; font: 600 24px/1.2 var(--font-body); color: #ffe9a8; }
   .field .hint svg { width: 24px; height: 24px; stroke: #ffe9a8; fill: none; stroke-width: 2; flex: 0 0 auto; }
 
@@ -195,7 +197,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/firebase-config.js?v=20261126f"></script>
 <script src="js/otp-config.js?v=20261127w"></script>
-<script>if (window.KK_OTP_SKIP) { var oh = document.getElementById('otp-hint'); if (oh) oh.style.display = 'none'; var ml = document.getElementById('mobile-label'); if (ml) ml.textContent = 'Mobile Number'; }  // no code is sent: do not promise one, and the number need not be on WhatsApp</script>
+<script>if (window.KK_OTP_SKIP) { document.documentElement.classList.add('no-otp'); var oh = document.getElementById('otp-hint'); if (oh) oh.style.display = 'none'; var ml = document.getElementById('mobile-label'); if (ml) ml.textContent = 'Mobile Number'; }  // no code is sent: do not promise one, and the number need not be on WhatsApp</script>
 <script src="js/stage.js?v=20261127a"></script>
 <script src="js/audio.js?v=20261127f"></script>
 <script src="js/mute.js?v=20261127a"></script>

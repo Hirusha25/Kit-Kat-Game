@@ -172,7 +172,7 @@
     FINAL_FX_SECONDS: 10,     // 'final10' event; speed lines + stronger rays from here
 
     // --- Tracking
-    LOST_GRACE: 2.0,        // s without the mug before auto-pause
+    LOST_GRACE: 3.0,        // s without the mug before auto-pause
     REGAIN_DELAY: 0.5,      // s after regain before play resumes
 
     // --- Pools

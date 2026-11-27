@@ -20,6 +20,7 @@ self.onmessage = function (ev) {
     if (!view || view.width !== m.width || view.height !== m.height) view = { data: data, width: m.width, height: m.height };
     else view.data = data;
     var r = detect(view, m.params || MugTracker.defaultParams);
+    if (!r.found && m.fallback) { var r2 = detect(view, m.fallback); if (r2.found) r = r2; }
     self.postMessage({
       type: 'result', ts: m.ts, width: m.width, height: m.height, buffer: m.buffer,
       result: { found: r.found, x: r.x, y: r.y, w: r.w, h: r.h, score: r.score, redArea: r.redArea, whiteRatio: r.whiteRatio, candidates: r.candidates, sub: r.sub }

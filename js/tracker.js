@@ -471,7 +471,7 @@
       mirror: opts.mirror !== false,
       useWorker: opts.useWorker !== false,
       smoothing: clamp01(numberOr(opts.smoothing, 0.35)),
-      lostAfterMs: numberOr(opts.lostAfterMs, 600),
+      lostAfterMs: numberOr(opts.lostAfterMs, 1000),
       sensitivity: clamp01(numberOr(opts.sensitivity, 0.5)),
       rotate: opts.rotate === undefined ? 0 : opts.rotate,          // degrees clockwise (0/90/180/270) or 'auto': 90 when the camera delivers a portrait picture
       staticMs: numberOr(opts.staticMs, 0),                         // > 0: ignore red in parts of the picture where nothing changes (see suppressStatic)
@@ -576,13 +576,20 @@
       if (typeof tracker.onFrame === 'function') { try { tracker.onFrame(img, ts); } catch (e) { /* debug hook must never break tracking */ } }
       if (o.staticMs > 0) { staticReady(); suppressStatic(img, stat, ts, o.staticMs); }
       if (calib) calibSample(img);
-      var use = params;
+      var use = params, fb = null;
       if (acquiring && acq) { acq.threshold = params.threshold; acq.prevX = params.prevX; acq.prevY = params.prevY; use = acq; }
+      else {
+        // Second chance: when the calibrated (narrow) colour masks miss a frame, the same frame is tried again
+        // with the opened-up lock-on masks before the mug counts as lost. Costs a second pass only on misses.
+        fb = acquireParams(params); fb.threshold = params.threshold; fb.prevX = params.prevX; fb.prevY = params.prevY;
+      }
       if (usingWorker && worker) {
         busy = true;
-        worker.postMessage({ type: 'detect', buffer: img.data.buffer, width: W, height: H, params: use, ts: ts }, [img.data.buffer]);
+        worker.postMessage({ type: 'detect', buffer: img.data.buffer, width: W, height: H, params: use, fallback: fb, ts: ts }, [img.data.buffer]);
       } else {
-        applyResult(detect(img, use), ts);
+        var r1 = detect(img, use);
+        if (!r1.found && fb) { var r2 = detect(img, fb); if (r2.found) r1 = r2; }
+        applyResult(r1, ts);
       }
     }
 

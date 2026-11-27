@@ -8,12 +8,13 @@
   const LS = { settings: 'kk_settings', board: 'kk_leaderboard', players: 'kk_players' };
 
   // ---------- settings ----------
-  const settings = Object.assign({ mirror: true, sensitivity: 0.42, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
+  const settings = Object.assign({ mirror: true, sensitivity: 0.6, smoothing: 0.35, pip: false, tile: true, range: 0.7, rotate: 'auto', staticRed: false, detail: 'high', sound: true, deviceId: '', capMin: 12, teeMin: 25, cameraConfirmed: false,
     // rewards: 'nth' = every Nth round wins (cap, or the T-shirt when the score reaches teeMin); 'score' = by score thresholds
     rewardMode: 'nth', everyNth: 5, pacing: true, openHour: 10, closeHour: 20,
     pipStyle: 'c', // in-game camera preview: a|b|c|d top placements, '' = bottom-middle box
     stockDays: {} }, load(LS.settings)); // stockDays: {"YYYY-MM-DD": {cap, tee}} from the dashboard; a day without an entry uses DAILY_STOCK
   LS.stock = 'kk_stock';
+  if (!settings.sensV2) { settings.sensitivity = Math.max(settings.sensitivity, 0.6); settings.sensV2 = true; save(LS.settings, settings); } // kiosks set up on the old default
   const DAILY_STOCK = 80;
   function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null') || {}; } catch (_) { return {}; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
@@ -141,7 +142,7 @@
     // Detector frame: 320x180 ('high', the mug is only a few pixels at 160x90 from where players stand) or 160x90.
     // rotate 'auto' turns a portrait camera picture upright on the kiosk (never on a phone, which holds its camera upright).
     const hi = settings.detail !== 'normal', phone = document.documentElement.classList.contains('is-phone');
-    tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127i' });
+    tracker = MugTracker.create({ video, width: hi ? 320 : 160, height: hi ? 180 : 90, rotate: settings.rotate === 'auto' || settings.rotate == null ? (phone ? 0 : 'auto') : +settings.rotate, staticMs: settings.staticRed === true ? 2500 : 0, mirror: settings.mirror, smoothing: settings.smoothing, useWorker: true, workerUrl: 'js/tracker-worker.js?v=20261127j' });
     tracker.setOptions({ sensitivity: settings.sensitivity });
     tracker.onUpdate = onTrack;
     await tracker.start({ deviceId: settings.deviceId || undefined, facingMode: 'user' });
